@@ -1,21 +1,17 @@
 // Orders → View on Map dialog.
 // -----------------------------------------------------------------
-// Renders an embedded Leaflet + OpenStreetMap view of the customer
-// locations for a set of selected orders. Replaces the previous
-// "open Google Maps in a new tab" flow with an in-app modal so the
-// distributor stays inside the seller portal while planning their
-// delivery route.
+// Renders an embedded Leaflet + OpenStreetMap view of retailer
+// delivery locations for a set of selected orders.
 //
-// • Tiles come from OpenStreetMap — no API key, no quotas.
-// • react-leaflet-cluster groups nearby pins into a single round
-//   badge with the child count, matching the design reference.
-// • Markers are styled as blue/orange rounded teardrops via
-//   L.divIcon so we don't ship the raster sprite that ships with
-//   the default Leaflet bundle.
-// • The header summarises the selected set: order count, distinct
-//   location count, total value, and an Online/Offline legend that
-//   matches the per-marker colouring.
-import { useMemo } from "react";
+// • Each distinct location gets one pin. Orders sharing the same
+//   coordinates are grouped and listed together in the popup.
+// • Clicking a pin opens a popup: retailer name, order ID, invoice
+//   amount, and a "Copy Location" button that writes the Google Maps
+//   URL to the clipboard (BR-7, BR-9).
+// • Only one popup is visible at a time (Leaflet default, BR-10).
+// • Header counts all selected orders but only pinned locations
+//   (BR-4, BR-12).
+import { useMemo, useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -28,14 +24,58 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
-import { MapPin, ShoppingBag, X, IndianRupee } from "lucide-react";
+import { MapPin, ShoppingBag, X, IndianRupee, Copy, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 import type { Order } from "../lib/orders-data";
 
-// Custom marker shape — blue/orange rounded teardrop with a small
-// white center dot. Inline HTML keeps us off the default Leaflet
-// raster sprite (which 404s under most bundlers without extra wiring).
-function buildOrderIcon(connectivity: "Online" | "Offline" | undefined): L.DivIcon {
-  const color = connectivity === "Offline" ? "#f97316" : "#2563eb"; // orange-500 / blue-600
+// ─── Types ────────────────────────────────────────────────────────
+
+type LocationGroup = {
+  key: string;
+  lat: number;
+  lng: number;
+  orders: Order[];
+  connectivity: "Online" | "Offline" | undefined;
+};
+
+// ─── Helpers ──────────────────────────────────────────────────────
+
+function groupByLocation(orders: Order[]): LocationGroup[] {
+  const map = new Map<string, LocationGroup>();
+  for (const o of orders) {
+    if (typeof o.buyerLat !== "number" || typeof o.buyerLng !== "number") continue;
+    const key = `${o.buyerLat.toFixed(3)},${o.buyerLng.toFixed(3)}`;
+    if (!map.has(key)) {
+      map.set(key, {
+        key,
+        lat: o.buyerLat,
+        lng: o.buyerLng,
+        orders: [],
+        connectivity: o.connectivity,
+      });
+    }
+    map.get(key)!.orders.push(o);
+  }
+  return Array.from(map.values());
+}
+
+function copyGoogleMapsUrl(lat: number, lng: number) {
+  const url = `https://www.google.com/maps?q=${lat},${lng}`;
+  navigator.clipboard.writeText(url).then(
+    () => toast.success("Link copied", { duration: 2000 }),
+    () =>
+      toast.error("Unable to copy link. Please copy it manually.", {
+        duration: 3000,
+      }),
+  );
+}
+
+// ─── Marker icons ─────────────────────────────────────────────────
+
+function buildOrderIcon(
+  connectivity: "Online" | "Offline" | undefined,
+): L.DivIcon {
+  const color = connectivity === "Offline" ? "#f97316" : "#2563eb";
   return L.divIcon({
     className: "qwipo-order-marker",
     html: `
@@ -62,14 +102,8 @@ function buildOrderIcon(connectivity: "Online" | "Offline" | undefined): L.DivIc
   });
 }
 
-// Cluster icon factory — same rounded-teardrop shape with the child
-// count rendered in white. Receives a cluster object from
-// react-leaflet-cluster (typed loosely because the library doesn't
-// ship a tight type for the callback parameter).
 const buildClusterIcon = (cluster: { getChildCount: () => number }) => {
   const count = cluster.getChildCount();
-  // Slightly bigger for clusters of 5+, gives more visual weight to
-  // the heavier locations on the map.
   const size = count >= 5 ? 40 : 34;
   return L.divIcon({
     className: "qwipo-cluster-marker",
@@ -99,14 +133,12 @@ const buildClusterIcon = (cluster: { getChildCount: () => number }) => {
 
 const HYDERABAD_CENTER: [number, number] = [17.385, 78.486];
 
+// ─── Component ────────────────────────────────────────────────────
+
 export interface OrdersMapDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** The orders the seller selected from the list (any subset). */
   orders: Order[];
-  /** Short context label rendered under the title — typically the
-   *  tab the seller is operating from ("Ready for Planning",
-   *  "Confirmed Deliveries", etc.). */
   contextLabel: string;
 }
 
@@ -116,43 +148,30 @@ export function OrdersMapDialog({
   orders,
   contextLabel,
 }: OrdersMapDialogProps) {
-  // Keep only orders we can actually pin on the map.
-  const mappable = useMemo(
-    () =>
-      orders.filter(
-        (o) =>
-          typeof o.buyerLat === "number" &&
-          typeof o.buyerLng === "number",
-      ),
+  const [tileError, setTileError] = useState(false);
+
+  // Reset tile error state whenever the dialog reopens (EDGE-6).
+  useEffect(() => {
+    if (open) setTileError(false);
+  }, [open]);
+
+  const locationGroups = useMemo(() => groupByLocation(orders), [orders]);
+
+  // Header totals — order count includes all selected orders even if
+  // some have no location (BR-12). Total value covers all selected.
+  const totalValue = useMemo(
+    () => orders.reduce((s, o) => s + (o.orderValue || 0), 0),
     [orders],
   );
 
-  // Distinct lat/lng pairs (rounded to 3 dp ≈ 110 m) — same notion
-  // the screenshot uses ("10 locations" for 27 orders).
-  const locationCount = useMemo(() => {
-    const set = new Set<string>();
-    for (const o of mappable) {
-      set.add(`${o.buyerLat!.toFixed(3)},${o.buyerLng!.toFixed(3)}`);
-    }
-    return set.size;
-  }, [mappable]);
-
-  const totalValue = useMemo(
-    () => mappable.reduce((s, o) => s + (o.orderValue || 0), 0),
-    [mappable],
-  );
-
-  // Centre the map on the centroid of the pinned orders so the
-  // initial view always frames the data. Fall back to Hyderabad
-  // when nothing is pinnable.
   const center = useMemo<[number, number]>(() => {
-    if (mappable.length === 0) return HYDERABAD_CENTER;
+    if (locationGroups.length === 0) return HYDERABAD_CENTER;
     const lat =
-      mappable.reduce((s, o) => s + (o.buyerLat ?? 0), 0) / mappable.length;
+      locationGroups.reduce((s, g) => s + g.lat, 0) / locationGroups.length;
     const lng =
-      mappable.reduce((s, o) => s + (o.buyerLng ?? 0), 0) / mappable.length;
+      locationGroups.reduce((s, g) => s + g.lng, 0) / locationGroups.length;
     return [lat, lng];
-  }, [mappable]);
+  }, [locationGroups]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -160,8 +179,7 @@ export function OrdersMapDialog({
         showCloseButton={false}
         className="!max-w-[min(1200px,calc(100vw-2rem))] p-0 overflow-hidden h-[80vh] flex flex-col gap-0"
       >
-        {/* Header — title + context on the left, legend / counts /
-            close on the right. Matches the reference screenshot. */}
+        {/* ── Header ─────────────────────────────────────────────── */}
         <div className="flex items-center justify-between gap-4 px-4 py-3 bg-white border-b border-gray-200 flex-shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <div className="bg-blue-600 p-2 rounded-lg flex-shrink-0">
@@ -176,16 +194,23 @@ export function OrdersMapDialog({
               </DialogDescription>
             </div>
           </div>
+
           <div className="flex items-center gap-5 text-sm flex-shrink-0">
             <div className="inline-flex items-center gap-1.5 text-gray-700">
               <ShoppingBag className="h-4 w-4 text-blue-600" />
-              <span className="font-semibold tabular-nums">{mappable.length}</span>
-              <span className="text-gray-500">orders</span>
+              <span className="font-semibold tabular-nums">{orders.length}</span>
+              <span className="text-gray-500">
+                {orders.length === 1 ? "order" : "orders"}
+              </span>
             </div>
             <div className="inline-flex items-center gap-1.5 text-gray-700">
               <MapPin className="h-4 w-4 text-blue-600" />
-              <span className="font-semibold tabular-nums">{locationCount}</span>
-              <span className="text-gray-500">locations</span>
+              <span className="font-semibold tabular-nums">
+                {locationGroups.length}
+              </span>
+              <span className="text-gray-500">
+                {locationGroups.length === 1 ? "location" : "locations"}
+              </span>
             </div>
             <div className="inline-flex items-center gap-1.5 text-gray-700">
               <IndianRupee className="h-4 w-4 text-blue-600" />
@@ -205,19 +230,35 @@ export function OrdersMapDialog({
           </div>
         </div>
 
-        {/* Map body */}
+        {/* ── Map body ───────────────────────────────────────────── */}
         <div className="flex-1 relative bg-gray-100">
-          {mappable.length === 0 ? (
+          {/* EDGE-4: all orders lack location data */}
+          {locationGroups.length === 0 ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-center px-6">
               <MapPin className="h-8 w-8 text-gray-300" />
               <p className="text-sm font-medium text-gray-600">
-                No buyer locations to display
+                No location data available for the selected orders
               </p>
               <p className="text-xs text-gray-500 max-w-sm">
-                None of the selected orders has a recorded customer location.
-                Coordinates are captured by the buyer app when an order is
-                placed.
+                Retailer delivery coordinates are captured by the buyer app
+                when an order is placed.
               </p>
+            </div>
+          ) : tileError ? (
+            /* ERR-MAP-01: tile load failure */
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center px-6">
+              <MapPin className="h-8 w-8 text-gray-300" />
+              <p className="text-sm font-medium text-gray-600">
+                Unable to load the map. Please try again.
+              </p>
+              <button
+                type="button"
+                onClick={() => setTileError(false)}
+                className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Retry
+              </button>
             </div>
           ) : (
             <MapContainer
@@ -230,6 +271,7 @@ export function OrdersMapDialog({
               <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                eventHandlers={{ tileerror: () => setTileError(true) }}
               />
               <MarkerClusterGroup
                 iconCreateFunction={buildClusterIcon}
@@ -237,31 +279,107 @@ export function OrdersMapDialog({
                 maxClusterRadius={50}
                 spiderfyOnMaxZoom
               >
-                {mappable.map((o) => (
+                {locationGroups.map((group) => (
                   <Marker
-                    key={o.id}
-                    position={[o.buyerLat!, o.buyerLng!]}
-                    icon={buildOrderIcon(o.connectivity)}
+                    key={group.key}
+                    position={[group.lat, group.lng]}
+                    icon={buildOrderIcon(group.connectivity)}
                   >
-                    <Popup>
-                      <div className="space-y-1 text-xs">
-                        <p className="font-semibold text-gray-900 leading-tight">
-                          {o.retailerName}
-                        </p>
-                        <p className="text-gray-500 font-mono">{o.id}</p>
-                        <p className="text-gray-700">
-                          ₹{(o.orderValue || 0).toLocaleString("en-IN")} · {o.paymentMode}
-                        </p>
-                        {o.buyerAddress && (
-                          <p className="text-gray-600 max-w-[220px]">
-                            {o.buyerAddress}
-                          </p>
-                        )}
-                        {o.connectivity && (
-                          <p className="text-[10px] uppercase tracking-wide font-semibold text-gray-500">
-                            {o.connectivity}
-                          </p>
-                        )}
+                    {/* BR-7: popup with order details + Copy Location */}
+                    <Popup minWidth={240} maxWidth={300}>
+                      <div style={{ fontFamily: "ui-sans-serif, system-ui, sans-serif" }}>
+                        {group.orders.map((o, i) => (
+                          <div key={o.id}>
+                            {i > 0 && (
+                              <hr
+                                style={{
+                                  margin: "8px 0",
+                                  border: "none",
+                                  borderTop: "1px solid #e5e7eb",
+                                }}
+                              />
+                            )}
+                            <p
+                              style={{
+                                margin: 0,
+                                fontWeight: 700,
+                                fontSize: 13,
+                                color: "#111827",
+                                lineHeight: 1.3,
+                              }}
+                            >
+                              {o.retailerName}
+                            </p>
+                            <p
+                              style={{
+                                margin: "3px 0 0",
+                                fontFamily: "ui-monospace, monospace",
+                                fontSize: 11,
+                                color: "#6b7280",
+                              }}
+                            >
+                              {o.id}
+                            </p>
+                            <p
+                              style={{
+                                margin: "2px 0 0",
+                                fontSize: 12,
+                                color: "#374151",
+                              }}
+                            >
+                              ₹{(o.orderValue || 0).toLocaleString("en-IN")}
+                            </p>
+                          </div>
+                        ))}
+
+                        {/* BR-9: Copy Location */}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            copyGoogleMapsUrl(group.lat, group.lng)
+                          }
+                          style={{
+                            marginTop: 10,
+                            width: "100%",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: 6,
+                            padding: "6px 10px",
+                            fontSize: 12,
+                            fontWeight: 600,
+                            color: "#1d4ed8",
+                            background: "#eff6ff",
+                            border: "1px solid #bfdbfe",
+                            borderRadius: 6,
+                            cursor: "pointer",
+                            transition: "background 0.15s",
+                          }}
+                          onMouseEnter={(e) => {
+                            (e.currentTarget as HTMLButtonElement).style.background =
+                              "#dbeafe";
+                          }}
+                          onMouseLeave={(e) => {
+                            (e.currentTarget as HTMLButtonElement).style.background =
+                              "#eff6ff";
+                          }}
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="13"
+                            height="13"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+                            <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+                          </svg>
+                          Copy Location
+                        </button>
                       </div>
                     </Popup>
                   </Marker>

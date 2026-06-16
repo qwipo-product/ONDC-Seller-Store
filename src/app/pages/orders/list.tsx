@@ -936,15 +936,13 @@ export function Orders() {
         const who = order.cancelledBy ?? "Seller";
         if (who === "Buyer") {
           return (
-            <Badge className="bg-amber-50 text-amber-800 border-amber-200 gap-1">
-              <XCircle className="h-3 w-3" />
+            <Badge className="bg-amber-50 text-amber-800 border-amber-200">
               Cancelled by Buyer
             </Badge>
           );
         }
         return (
-          <Badge className="bg-purple-50 text-purple-700 border-purple-200 gap-1">
-            <XCircle className="h-3 w-3" />
+          <Badge className="bg-purple-50 text-purple-700 border-purple-200">
             Cancelled by Seller
           </Badge>
         );
@@ -1727,13 +1725,12 @@ export function Orders() {
                         setCancelledByFilter("Buyer");
                         setCurrentPage(1);
                       }}
-                      className={`text-xs px-3 py-1.5 rounded-full border transition-colors gap-1.5 inline-flex items-center ${
+                      className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
                         cancelledByFilter === "Buyer"
                           ? "bg-amber-600 text-white border-amber-600"
                           : "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100"
                       }`}
                     >
-                      <XCircle className="h-3 w-3" />
                       Buyer ({cancelledByCounts.buyer})
                     </button>
                     <button
@@ -1741,13 +1738,12 @@ export function Orders() {
                         setCancelledByFilter("Seller");
                         setCurrentPage(1);
                       }}
-                      className={`text-xs px-3 py-1.5 rounded-full border transition-colors gap-1.5 inline-flex items-center ${
+                      className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
                         cancelledByFilter === "Seller"
                           ? "bg-purple-600 text-white border-purple-600"
                           : "bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100"
                       }`}
                     >
-                      <XCircle className="h-3 w-3" />
                       Seller ({cancelledByCounts.seller})
                     </button>
                   </div>

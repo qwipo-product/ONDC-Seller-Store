@@ -51,6 +51,7 @@ import {
   type Order,
   type CancelledBy,
 } from "../../lib/orders-data";
+import { sampleSKUs } from "../products/my-sku";
 
 /** One row in the QPS slab schedule for a SKU. */
 interface QpsSlabDef {
@@ -67,6 +68,8 @@ interface OrderProduct {
   id: string;
   name: string;
   skuId: string;
+  /** Short Name from My SKU details — read-only, —  when not set. */
+  shortName?: string;
   orderedQuantity: number;
   availableStock: number;
   pricePerUnit: number;
@@ -172,10 +175,19 @@ function buildOrderDetailFromStore(order: Order): OrderDetails {
   // For the rich-mock order, keep the existing hand-authored
   // products array (with QPS slabs) — synthesizeProducts strips the
   // QPS field so we'd lose it otherwise.
-  const products =
+  const rawProducts: OrderProduct[] =
     order.id === "QWI-ONDC-260330-8F3K92"
       ? RICH_PRODUCTS_FOR_SEED_ORDER
       : (synthesizeProducts(order) as OrderProduct[]);
+
+  // Attach Short Name from the SKU catalogue (BR-1). Falls back to
+  // whatever is already on the product (rich-mock) or undefined.
+  const products = rawProducts.map((p) => ({
+    ...p,
+    shortName:
+      p.shortName ??
+      sampleSKUs.find((s) => s.sku === p.skuId)?.shortName,
+  }));
 
   // Status mapping — the store's OrderStatus is a subset of the
   // detail page's wider union, so the cast is safe.
@@ -214,6 +226,7 @@ const RICH_PRODUCTS_FOR_SEED_ORDER: OrderProduct[] = [
     id: "1",
     name: "Freedom Refined Sunflower Oil 1L × 16",
     skuId: "180000008",
+    shortName: "FFR1",
     orderedQuantity: 25,
     availableStock: 642,
     basePrice: 171,
@@ -754,6 +767,9 @@ export function OrderDetail() {
                       <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
                         SKU
                       </th>
+                      <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
+                        Short Name
+                      </th>
                       <th className="px-3 py-2 text-center text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
                         Qty
                       </th>
@@ -785,6 +801,14 @@ export function OrderDetail() {
                           </td>
                           <td className="px-4 py-3">
                             <p className="text-xs font-mono text-gray-600">{product.skuId}</p>
+                          </td>
+                          <td className="px-4 py-3">
+                            <p
+                              className="text-xs text-gray-600 max-w-[120px] truncate"
+                              title={product.shortName ?? undefined}
+                            >
+                              {product.shortName ?? "—"}
+                            </p>
                           </td>
                           <td className="px-4 py-3 text-center">
                             <p className="font-semibold text-gray-900">
@@ -830,7 +854,7 @@ export function OrderDetail() {
                         <>
                           {totalQpsSaving > 0 && (
                             <tr className="bg-purple-50">
-                              <td colSpan={4} className="px-4 py-3 text-right text-[11px] font-semibold text-purple-800">
+                              <td colSpan={5} className="px-4 py-3 text-right text-[11px] font-semibold text-purple-800">
                                 Total QPS discount on this order
                               </td>
                               <td className="px-4 py-3 text-right text-xs font-bold text-purple-700">
@@ -839,7 +863,7 @@ export function OrderDetail() {
                             </tr>
                           )}
                           <tr>
-                            <td colSpan={4} className="px-4 py-3 text-right text-sm font-semibold">
+                            <td colSpan={5} className="px-4 py-3 text-right text-sm font-semibold">
                               Total Order Value:
                             </td>
                             <td className="px-4 py-3 text-right font-bold text-base text-green-600">
@@ -1020,7 +1044,7 @@ function QpsImpactRow({ product }: { product: OrderProduct }) {
   const base = product.basePrice ?? 0;
   return (
     <tr className="bg-purple-50/40">
-      <td colSpan={5} className="px-4 py-3">
+      <td colSpan={6} className="px-4 py-3">
         {/* Compact one-liner — the full slab schedule used to live
             below this strip but only rendered in Modify Items mode,
             which has been retired. Sellers who need the slab
