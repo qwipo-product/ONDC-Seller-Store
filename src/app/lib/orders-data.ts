@@ -51,6 +51,32 @@ export type CancelledBy = "Buyer" | "Seller";
  */
 export type DeliveryType = "Urgent" | "Regular";
 
+/**
+ * Whether the order rode the distributor's Sales Beat schedule or
+ * was an ad-hoc / standard order.
+ *
+ *   - "beat"     — Sales Beat order. Lower MOV, must be placed
+ *                  before the configured cut-off, lands on the
+ *                  customer's serviceability delivery day.
+ *   - "standard" — Non-beat. Higher MOV, no cut-off constraint.
+ *
+ * When absent on a seed row, fall back via {@link getOrderType} —
+ * we derive Beat when `beatName` is set (the same signal the orders
+ * list filter uses today).
+ */
+export type OrderType = "beat" | "standard";
+
+/** Stable derivation of orderType from an order — explicit field
+ *  wins, otherwise infer from `beatName`. Keep callers reading via
+ *  this helper so seed data without an explicit orderType still
+ *  classifies correctly. */
+export function getOrderType(o: {
+  orderType?: OrderType;
+  beatName?: string;
+}): OrderType {
+  return o.orderType ?? (o.beatName ? "beat" : "standard");
+}
+
 export interface OrderLineItem {
   skuCode: string;
   productName: string;
@@ -108,6 +134,9 @@ export interface Order {
    *  a configured serviceability beat). Surfaced on the badge and
    *  the detail page; orphan/ad-hoc deliveries leave this blank. */
   beatName?: string;
+  /** Whether the order rode the Sales Beat schedule. Optional on
+   *  seed rows — {@link getOrderType} falls back to `beatName`. */
+  orderType?: OrderType;
   /**
    * Reason recorded for a cancelled order. For seller-side
    * cancellations this is the option the seller picked in the Cancel
@@ -553,6 +582,203 @@ export const seedOrders: Order[] = [
     deliveryType: "Regular",
     buyerContact: "+91 98765 43224",
     channelOrderId: "FLPK-ORD-552031",
+  },
+
+  // ---- June 2026 workflow showcase rows ----------------------------
+  // The seed below was added so the seller can demo every Confirm /
+  // Confirmed workflow path side-by-side: Beat vs Standard, before
+  // vs after the 5 PM cut-off, and each status (New, Confirmed,
+  // Delivered, Cancelled). Without these, the original 16 rows are
+  // almost entirely Beat orders, so the Beat / Non-Beat filter on the
+  // Confirmed tab and the per-bucket groups in the Confirm dialog had
+  // no Non-Beat side to point at.
+
+  // [New · Beat · placed AFTER 5 PM cut-off → rolled one cycle].
+  // Banjara Hills beat delivers Tuesday. Order placed Tue 19 May at
+  // 6:48 PM is past the 17:00 cut-off, so the next eligible Tuesday
+  // (26 May) becomes the expected date. Lets the seller demo the
+  // cut-off rule without manually editing settings.
+  {
+    id: "QWI-ONDC-260519-X7B2QC",
+    brand: "ITC",
+    company: "ITC Limited",
+    source: "DMS-Bizom",
+    retailerName: "Annapurna Wholesale",
+    itemsSummary: "Aashirvaad Atta + Sunfeast Marie",
+    orderValue: 9800,
+    paymentMode: "Prepaid",
+    orderDate: "2026-05-19",
+    orderTime: "06:48 PM",
+    status: "New",
+    marketplace: "ONDC",
+    expectedDeliveryDate: "2026-05-26",
+    deliveryType: "Regular",
+    beatName: "Banjara Hills",
+    orderType: "beat",
+    buyerContact: "+91 98765 43224",
+    buyerCode: "BUYER-ANP-712",
+    channelOrderId: "ONDC-ORD-987541",
+  },
+
+  // [New · Standard · tomorrow]. Non-beat ad-hoc — lands in the
+  // Confirm dialog's "Other / Tomorrow" group with a Standard pill.
+  {
+    id: "QWI-ONDC-260520-P3R9KZ",
+    brand: "Marico",
+    company: "Marico Limited",
+    source: "DMS-Bizom",
+    retailerName: "Quick Mart Express",
+    itemsSummary: "30 units Parachute Coconut Oil 200ml",
+    orderValue: 1680,
+    paymentMode: "COD",
+    orderDate: "2026-05-20",
+    orderTime: "11:15 AM",
+    status: "New",
+    marketplace: "ONDC",
+    expectedDeliveryDate: "2026-05-21",
+    deliveryType: "Regular",
+    orderType: "standard",
+    buyerContact: "+91 98765 43225",
+    buyerCode: "BUYER-QME-301",
+    channelOrderId: "ONDC-ORD-784123",
+  },
+
+  // [New · Standard · today]. Non-beat same-day request — lands in
+  // the Confirm dialog's "Other" group.
+  {
+    id: "QWI-FLPK-260520-Y6N4HW",
+    brand: "Pepsi",
+    company: "PepsiCo India",
+    source: "DMS-Botery",
+    retailerName: "City Supermart",
+    itemsSummary: "24 units Pepsi Black Can 250ml",
+    orderValue: 1920,
+    paymentMode: "Prepaid",
+    orderDate: "2026-05-20",
+    orderTime: "09:30 AM",
+    status: "New",
+    marketplace: "Flipkart",
+    expectedDeliveryDate: "2026-05-20",
+    deliveryType: "Urgent",
+    orderType: "standard",
+    buyerContact: "+91 98765 43226",
+    channelOrderId: "FLPK-ORD-661204",
+  },
+
+  // [New · Standard · beyond tomorrow]. Non-beat with a future date —
+  // lands in the Confirm dialog's "Beyond Tomorrow" group.
+  {
+    id: "QWI-ONDC-260520-T8K1MR",
+    brand: "Adani Wilmar",
+    company: "Adani Wilmar Ltd",
+    source: "DMS-Bizom",
+    retailerName: "Patel Provision Store",
+    itemsSummary: "Fortune Sunflower Oil 5L × 12",
+    orderValue: 7200,
+    paymentMode: "COD",
+    orderDate: "2026-05-20",
+    orderTime: "02:18 PM",
+    status: "New",
+    marketplace: "ONDC",
+    expectedDeliveryDate: "2026-05-23",
+    deliveryType: "Regular",
+    orderType: "standard",
+    buyerContact: "+91 98765 43227",
+    channelOrderId: "ONDC-ORD-451890",
+  },
+
+  // [Confirmed · Standard · tomorrow]. Already confirmed for
+  // tomorrow — visible on the Confirmed tab when filtering Non-Beat.
+  {
+    id: "QWI-AMZN-260519-G4D7VX",
+    brand: "Marico",
+    company: "Marico Limited",
+    source: "DMS-Botery",
+    retailerName: "Sunshine Kirana",
+    itemsSummary: "20 units Saffola Honey 250g",
+    orderValue: 4400,
+    paymentMode: "Prepaid",
+    orderDate: "2026-05-19",
+    orderTime: "10:42 AM",
+    status: "Confirmed",
+    marketplace: "Amazon",
+    expectedDeliveryDate: "2026-05-21",
+    deliveryType: "Regular",
+    orderType: "standard",
+    buyerContact: "+91 98765 43228",
+    channelOrderId: "AMZN-ORD-303912",
+  },
+
+  // [Confirmed · Standard · 25 May]. Future-dated non-beat — Confirmed
+  // tab with date filter set to 25 May shows this only when the
+  // Non-Beat filter is active.
+  {
+    id: "QWI-ONDC-260518-L9F6QJ",
+    brand: "ITC",
+    company: "ITC Limited",
+    source: "DMS-Bizom",
+    retailerName: "Modern Retail Chain",
+    itemsSummary: "100 units Bingo Mad Angles 90g",
+    orderValue: 5200,
+    paymentMode: "Prepaid",
+    orderDate: "2026-05-18",
+    orderTime: "03:55 PM",
+    status: "Confirmed",
+    marketplace: "ONDC",
+    expectedDeliveryDate: "2026-05-25",
+    deliveryType: "Regular",
+    orderType: "standard",
+    buyerContact: "+91 98765 43229",
+    channelOrderId: "ONDC-ORD-562118",
+  },
+
+  // [Delivered · Standard · on time]. Non-beat delivered example —
+  // anchor for "what delivered Standard orders look like" in history.
+  {
+    id: "QWI-AMZN-260515-Z2H5BS",
+    brand: "Pepsi",
+    company: "PepsiCo India",
+    source: "DMS-Bizom",
+    retailerName: "Greenfield Mart",
+    itemsSummary: "50 units Doritos Nacho Cheese",
+    orderValue: 2750,
+    paymentMode: "COD",
+    orderDate: "2026-05-15",
+    orderTime: "11:30 AM",
+    status: "Delivered",
+    marketplace: "Amazon",
+    expectedDeliveryDate: "2026-05-16",
+    actualDeliveryDate: "2026-05-16",
+    deliveryType: "Regular",
+    orderType: "standard",
+    buyerContact: "+91 98765 43230",
+    channelOrderId: "AMZN-ORD-770521",
+  },
+
+  // [Cancelled · Standard · seller-side, out of stock]. Non-beat
+  // cancelled by the seller — closes the cross-product (Beat /
+  // Non-Beat) × (New / Confirmed / Delivered / Cancelled) grid.
+  {
+    id: "QWI-ONDC-260517-A3W8EU",
+    brand: "Adani Wilmar",
+    company: "Adani Wilmar Ltd",
+    source: "DMS-Botery",
+    retailerName: "Sai Krishna Provisions",
+    itemsSummary: "15 units Fortune Basmati Rice 5kg",
+    orderValue: 6750,
+    paymentMode: "COD",
+    orderDate: "2026-05-17",
+    orderTime: "04:10 PM",
+    status: "Cancelled",
+    cancellationReason: "Out of Stock",
+    cancelledBy: "Seller",
+    cancellationTime: "2026-05-17T05:22:00+05:30",
+    marketplace: "ONDC",
+    expectedDeliveryDate: "2026-05-18",
+    deliveryType: "Regular",
+    orderType: "standard",
+    buyerContact: "+91 98765 43231",
+    channelOrderId: "ONDC-ORD-911047",
   },
 ];
 

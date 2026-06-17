@@ -34,22 +34,34 @@ import { toast } from "sonner";
 import {
   getProcessingTimeHours,
   setProcessingTimeHours,
+  getBeatMov,
+  setBeatMov,
+  getNonBeatMov,
+  setNonBeatMov,
+  getBeatCutoffTime,
+  setBeatCutoffTime,
 } from "../../lib/order-settings-data";
 
 export function OrderSettings() {
   const navigate = useNavigate();
 
-  // ---- Minimum Order Value ----
-  // Maximum Order Value was retired — sellers wanted just a floor,
-  // no per-order ceiling, so the field plus its state, dirty flag,
-  // error key, and column have all been dropped.
-  const [minOrderAmount, setMinOrderAmount] = useState("1000");
-  const [savedMinOrderAmount, setSavedMinOrderAmount] = useState("1000");
-  const isOrderValueDirty = minOrderAmount !== savedMinOrderAmount;
+  // ---- Minimum Order Value — Beat vs Non-Beat ----
+  // Per the June review the single MOV split into two: Beat orders
+  // (ride the serviceability schedule, lower MOV) and Non-Beat
+  // orders (ad-hoc, higher MOV). Sellers configure both here.
+  const [beatMov, setBeatMovInput] = useState(() => String(getBeatMov()));
+  const [nonBeatMov, setNonBeatMovInput] = useState(() =>
+    String(getNonBeatMov()),
+  );
+  const [savedBeatMov, setSavedBeatMov] = useState(beatMov);
+  const [savedNonBeatMov, setSavedNonBeatMov] = useState(nonBeatMov);
+  const isOrderValueDirty =
+    beatMov !== savedBeatMov || nonBeatMov !== savedNonBeatMov;
   // Inline errors keyed by field — surfaces under the relevant input
   // instead of a toast.
   const [orderValueErrors, setOrderValueErrors] = useState<{
-    min?: string;
+    beat?: string;
+    nonBeat?: string;
   }>({});
 
   // ---- Order Processing ----
@@ -60,13 +72,20 @@ export function OrderSettings() {
     getProcessingTimeHours(),
   );
   const [cancellationWindow, setCancellationWindow] = useState("2");
+  // Beat order acceptance cut-off. Default 17:00 per the June review.
+  // Stored as `HH:MM` so it pairs cleanly with `<input type="time">`.
+  const [beatCutoffTime, setBeatCutoffTimeInput] = useState(() =>
+    getBeatCutoffTime(),
+  );
   const [savedProcessing, setSavedProcessing] = useState({
     processingTime: getProcessingTimeHours(),
     cancellationWindow: "2",
+    beatCutoffTime: getBeatCutoffTime(),
   });
   const isProcessingDirty =
     processingTime !== savedProcessing.processingTime ||
-    cancellationWindow !== savedProcessing.cancellationWindow;
+    cancellationWindow !== savedProcessing.cancellationWindow ||
+    beatCutoffTime !== savedProcessing.beatCutoffTime;
 
   // ---- Order Return ----
   // No section Save button — the toggle pop-up commits the change
@@ -85,19 +104,31 @@ export function OrderSettings() {
 
   // ---- Section save handlers ----
   const handleSaveOrderValue = () => {
-    const min = parseFloat(minOrderAmount);
-    if (minOrderAmount.trim() === "" || isNaN(min) || min < 0) {
-      setOrderValueErrors({ min: "Enter a non-negative number" });
+    const beat = parseFloat(beatMov);
+    const nonBeat = parseFloat(nonBeatMov);
+    const errs: { beat?: string; nonBeat?: string } = {};
+    if (beatMov.trim() === "" || isNaN(beat) || beat < 0) {
+      errs.beat = "Enter a non-negative number";
+    }
+    if (nonBeatMov.trim() === "" || isNaN(nonBeat) || nonBeat < 0) {
+      errs.nonBeat = "Enter a non-negative number";
+    }
+    if (errs.beat || errs.nonBeat) {
+      setOrderValueErrors(errs);
       return;
     }
     setOrderValueErrors({});
-    setSavedMinOrderAmount(minOrderAmount);
+    setBeatMov(beat);
+    setNonBeatMov(nonBeat);
+    setSavedBeatMov(beatMov);
+    setSavedNonBeatMov(nonBeatMov);
     toast.success("Order value saved.");
   };
 
   const handleSaveProcessing = () => {
-    setSavedProcessing({ processingTime, cancellationWindow });
+    setSavedProcessing({ processingTime, cancellationWindow, beatCutoffTime });
     setProcessingTimeHours(processingTime);
+    setBeatCutoffTime(beatCutoffTime);
     toast.success("Order processing saved.");
   };
 
@@ -156,9 +187,10 @@ export function OrderSettings() {
       <div className="max-w-5xl space-y-3">
         {/* Row 1: Order Value + Processing side-by-side */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          {/* Order Value — Minimum only. The Maximum column was retired;
-              sellers wanted a floor without an upper cap, so this card
-              now hosts a single field. */}
+          {/* Order Value — Beat + Non-Beat minimums. Sales Beat orders
+              ride the configured serviceability schedule and clear a
+              lower floor; non-beat (ad-hoc) orders clear the higher
+              standard floor. Both values feed downstream MOV checks. */}
           <Card>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between gap-2">
@@ -177,25 +209,55 @@ export function OrderSettings() {
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="pt-0">
+            <CardContent className="pt-0 grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label className="text-xs">Minimum (₹)</Label>
+                <Label className="text-xs">Sales Beat Minimum (₹)</Label>
+                <Input
+                  type="number"
+                  placeholder="500"
+                  value={beatMov}
+                  onChange={(e) => {
+                    setBeatMovInput(e.target.value);
+                    if (orderValueErrors.beat)
+                      setOrderValueErrors((prev) => ({ ...prev, beat: undefined }));
+                  }}
+                  className="h-8 text-sm"
+                  aria-invalid={!!orderValueErrors.beat}
+                />
+                {orderValueErrors.beat ? (
+                  <p className="text-[11px] text-red-600">
+                    {orderValueErrors.beat}
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-gray-500">
+                    Floor for orders riding a Sales Beat.
+                  </p>
+                )}
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Non-Beat Minimum (₹)</Label>
                 <Input
                   type="number"
                   placeholder="1000"
-                  value={minOrderAmount}
+                  value={nonBeatMov}
                   onChange={(e) => {
-                    setMinOrderAmount(e.target.value);
-                    if (orderValueErrors.min) setOrderValueErrors({});
+                    setNonBeatMovInput(e.target.value);
+                    if (orderValueErrors.nonBeat)
+                      setOrderValueErrors((prev) => ({
+                        ...prev,
+                        nonBeat: undefined,
+                      }));
                   }}
                   className="h-8 text-sm"
-                  aria-invalid={!!orderValueErrors.min}
+                  aria-invalid={!!orderValueErrors.nonBeat}
                 />
-                {orderValueErrors.min ? (
-                  <p className="text-[11px] text-red-600">{orderValueErrors.min}</p>
+                {orderValueErrors.nonBeat ? (
+                  <p className="text-[11px] text-red-600">
+                    {orderValueErrors.nonBeat}
+                  </p>
                 ) : (
                   <p className="text-[11px] text-gray-500">
-                    Orders below this aren't accepted.
+                    Floor for ad-hoc / standard orders.
                   </p>
                 )}
               </div>
@@ -221,7 +283,7 @@ export function OrderSettings() {
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="pt-0 grid grid-cols-2 gap-3">
+            <CardContent className="pt-0 grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="space-y-1">
                 <Label className="text-xs">Processing Time</Label>
                 <Select value={processingTime} onValueChange={setProcessingTime}>
@@ -257,6 +319,18 @@ export function OrderSettings() {
                 </Select>
                 <p className="text-[11px] text-gray-500">
                   Customer's cancellation window after placing.
+                </p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Sales Beat Cut-off</Label>
+                <Input
+                  type="time"
+                  value={beatCutoffTime}
+                  onChange={(e) => setBeatCutoffTimeInput(e.target.value)}
+                  className="h-8 text-sm"
+                />
+                <p className="text-[11px] text-gray-500">
+                  Beat orders placed after this roll to the next cycle.
                 </p>
               </div>
             </CardContent>
