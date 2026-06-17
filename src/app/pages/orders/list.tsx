@@ -64,6 +64,7 @@ import { OrdersMapDialog } from "../../components/orders-map-dialog";
 import {
   type Order,
   type OrderLineItem,
+  type OrderStatus,
   type DeliveryType,
   type DeliveryBucket,
   type CancelledBy,
@@ -75,15 +76,18 @@ import {
   getDeliveryBucket,
   deliveryLabelFor,
   getOrdersToday,
+  getOrderType,
 } from "../../lib/orders-data";
 
-// An order is a "beat" delivery when it's a regular scheduled
-// delivery riding a configured serviceability beat — i.e. it carries
-// a beat name AND its delivery type is Regular. Anything else
-// (urgent / off-schedule, or no beat configured) is a "non-beat"
-// delivery the seller has to handle as an exception.
+// An order is a "beat" delivery when it rides a configured
+// serviceability beat. The June 2026 review decoupled this from
+// Urgent / Regular — that delivery-type axis was a UI artefact, not
+// a routing one. Beat-vs-Standard now flows from the explicit
+// `orderType` field on the order, with `beatName` as a backstop for
+// older seeds. Kept as a wrapper around the shared `getOrderType`
+// helper so call-sites read clearly at usage.
 function isBeatOrder(order: Order): boolean {
-  return order.deliveryType === "Regular" && Boolean(order.beatName);
+  return getOrderType(order) === "beat";
 }
 
 // "rejected" tab label is retired alongside the status rename; the
@@ -307,11 +311,13 @@ export function Orders() {
           order.expectedDeliveryDate <= deliveryEndDate;
       }
 
-      // Confirmed sub-navigation — Delivery Day pill + Beat/Non-Beat
-      // tab. Only applies when viewing the Confirmed tab. "all" on
-      // either filter is a pass-through.
+      // Delivery Day pill + Beat/Non-Beat sub-navigation. Same shape
+      // on both the New and Confirmed tabs — the seller plans new
+      // arrivals and already-confirmed deliveries the same way (which
+      // day? which route?), so the filters mirror across both. "all"
+      // on either dimension is a pass-through.
       let matchesConfirmedSub = true;
-      if (tab === "confirmed") {
+      if (tab === "confirmed" || tab === "new") {
         if (confirmedDeliveryDay !== "all") {
           matchesConfirmedSub =
             matchesConfirmedSub &&
@@ -377,20 +383,24 @@ export function Orders() {
     ],
   );
 
-  // Counts for the Confirmed-tab navigation. We compute:
+  // Counts for the Delivery Day + Beat/Non-Beat sub-navigation. The
+  // same shape is rendered on both the New and the Confirmed tabs,
+  // so the compute is factored into a helper and called twice —
+  // once filtered to "New", once to "Confirmed". We expose:
   //   - dayBuckets: one entry per distinct expectedDeliveryDate
-  //     with how many Confirmed orders sit on that day (ignoring the
-  //     active day filter so the pill row stays steady when the user
-  //     hops between days).
-  //   - beatCounts: how many Beat vs Non-Beat orders sit inside the
-  //     currently-selected day (or across all days when day === "all").
+  //     with how many orders sit on that day (ignoring the active
+  //     day filter so the pill row stays steady when the user hops
+  //     between days).
+  //   - beat / nonBeat: how many Beat vs Non-Beat orders sit inside
+  //     the currently-selected day (or across all days when day ===
+  //     "all").
   //
-  // Both run off the same `baseConfirmed` source so a search /
-  // marketplace / brand filter is reflected in the counts the user
-  // sees on the pills + tabs.
-  const confirmedBucketCounts = useMemo(() => {
-    const baseConfirmed = orders.filter((o) => {
-      if (o.status !== "Confirmed") return false;
+  // Both run off the same base filter so a search / marketplace /
+  // brand filter is reflected in the counts the user sees on the
+  // pills + tabs.
+  const buildBucketCounts = (statusFilter: OrderStatus) => {
+    const base = orders.filter((o) => {
+      if (o.status !== statusFilter) return false;
       const matchesSearch =
         o.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
         o.retailerName.toLowerCase().includes(searchQuery.toLowerCase());
@@ -411,7 +421,7 @@ export function Orders() {
     });
 
     const dayMap = new Map<string, number>();
-    for (const o of baseConfirmed) {
+    for (const o of base) {
       dayMap.set(
         o.expectedDeliveryDate,
         (dayMap.get(o.expectedDeliveryDate) ?? 0) + 1,
@@ -423,25 +433,42 @@ export function Orders() {
 
     const scopedToDay =
       confirmedDeliveryDay === "all"
-        ? baseConfirmed
-        : baseConfirmed.filter(
+        ? base
+        : base.filter(
             (o) => o.expectedDeliveryDate === confirmedDeliveryDay,
           );
 
     return {
-      all: baseConfirmed.length,
+      all: base.length,
       dayBuckets,
       beat: scopedToDay.filter(isBeatOrder).length,
       nonBeat: scopedToDay.filter((o) => !isBeatOrder(o)).length,
     };
-  }, [
-    orders,
-    searchQuery,
-    marketplaceFilter,
-    selectedBrandFilters,
-    selectedDeliveryTypes,
-    confirmedDeliveryDay,
-  ]);
+  };
+
+  const confirmedBucketCounts = useMemo(
+    () => buildBucketCounts("Confirmed"),
+    [
+      orders,
+      searchQuery,
+      marketplaceFilter,
+      selectedBrandFilters,
+      selectedDeliveryTypes,
+      confirmedDeliveryDay,
+    ],
+  );
+
+  const newBucketCounts = useMemo(
+    () => buildBucketCounts("New"),
+    [
+      orders,
+      searchQuery,
+      marketplaceFilter,
+      selectedBrandFilters,
+      selectedDeliveryTypes,
+      confirmedDeliveryDay,
+    ],
+  );
 
   // Counts for the Cancelled tab's "Cancelled By" quick filter.
   // Counts respect the search box + global filters, but not the
@@ -491,10 +518,11 @@ export function Orders() {
     setActiveTab(tab as TabType);
     setSelectedOrders([]);
     setCurrentPage(1); // Reset to first page
-    // Reset the Confirmed sub-navigation whenever we leave Confirmed
-    // so the user always lands on "All days / All orders" the next
-    // time they open Confirmed.
-    if (tab !== "confirmed") {
+    // Reset the Delivery Day + Beat/Non-Beat sub-navigation whenever
+    // we leave New or Confirmed (the two tabs that host the
+    // filters), so a fresh visit always lands on "All days / All
+    // orders".
+    if (tab !== "confirmed" && tab !== "new") {
       setConfirmedDeliveryDay("all");
       setConfirmedBeatMode("all");
     }
@@ -515,26 +543,30 @@ export function Orders() {
     setCurrentPage(1);
   };
 
-  // Format an ISO delivery date as a pill label. "Today" / "Tomorrow"
-  // sit at the top of the operator's mental model; everything else
-  // reads as "Wed 22 May" so the seller knows the exact date without
-  // having to count days.
+  // Format an ISO delivery date as a pill label. Everything reads as
+  // a calendar date first ("Thu 21 May"), with Today / Tomorrow /
+  // Yesterday trailing as a relative suffix when applicable. Sellers
+  // told us the explicit date is what they reference when planning,
+  // so it always leads — but the relative label keeps the operator's
+  // mental model intact for the imminent window.
   const formatDeliveryPillLabel = (iso: string): string => {
-    const today = getOrdersToday();
-    if (iso === today) return "Today";
-    const t = Date.parse(today + "T00:00:00Z");
     const d = Date.parse(iso + "T00:00:00Z");
-    if (!Number.isNaN(t) && !Number.isNaN(d)) {
-      const diff = Math.round((d - t) / 86400000);
-      if (diff === 1) return "Tomorrow";
-    }
     if (Number.isNaN(d)) return iso;
-    return new Date(d).toLocaleDateString("en-GB", {
+    const dateLabel = new Date(d).toLocaleDateString("en-GB", {
       weekday: "short",
       day: "2-digit",
       month: "short",
       timeZone: "UTC",
     });
+    const today = getOrdersToday();
+    const t = Date.parse(today + "T00:00:00Z");
+    if (!Number.isNaN(t)) {
+      const diff = Math.round((d - t) / 86400000);
+      if (diff === 0) return `${dateLabel} · Today`;
+      if (diff === 1) return `${dateLabel} · Tomorrow`;
+      if (diff === -1) return `${dateLabel} · Yesterday`;
+    }
+    return dateLabel;
   };
 
   // Pagination calculations
@@ -1071,6 +1103,9 @@ export function Orders() {
                 Mobile
               </th>
               <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
+                Type
+              </th>
+              <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
                 Beat Name
               </th>
               <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
@@ -1172,6 +1207,20 @@ export function Orders() {
                     <p className="text-xs text-gray-400">—</p>
                   )}
                 </td>
+                {/* Order Type — Beat / Standard. Derived from the
+                    explicit `orderType` field, or inferred from
+                    `beatName` for legacy seed rows. */}
+                <td className="px-3 py-2.5 whitespace-nowrap">
+                  {getOrderType(order) === "beat" ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-indigo-200 bg-indigo-50 text-[11px] font-medium text-indigo-700">
+                      Beat
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-gray-200 bg-gray-50 text-[11px] font-medium text-gray-700">
+                      Standard
+                    </span>
+                  )}
+                </td>
                 {/* Beat Name — surfaces the configured serviceability
                     beat that owns this delivery. Falls back to "—"
                     for orphan / ad-hoc orders. */}
@@ -1187,12 +1236,15 @@ export function Orders() {
                     <span className="text-xs text-gray-400">—</span>
                   )}
                 </td>
-                {/* Expected Delivery — what the seller committed to. */}
+                {/* Expected Delivery — what the seller committed to.
+                    Renders as "Thu 21 May · Tomorrow" so the explicit
+                    date is always the reference and the relative
+                    label only trails for the imminent window. */}
                 <td
                   className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700"
                   title={order.expectedDeliveryDate}
                 >
-                  {formatShortDate(order.expectedDeliveryDate)}
+                  {formatDeliveryPillLabel(order.expectedDeliveryDate)}
                 </td>
                 {/* Actual Delivery — only populated once the order is
                     Delivered. Late deliveries (actual > expected)
@@ -1265,6 +1317,92 @@ export function Orders() {
   // identically to the populated state. The per-tab EmptyState
   // already handles rendering the illustration in each tab body.
   const isEmpty = orders.length === 0;
+
+  // Render helper — the Delivery Day pill row + Beat/Non-Beat tab
+  // row, parameterised on a counts object. Same JSX powers the New
+  // tab and the Confirmed tab so the surfaces stay in lockstep.
+  type BucketCounts = ReturnType<typeof buildBucketCounts>;
+  const renderDayAndBeatFilters = (counts: BucketCounts) => (
+    <div className="px-6 pt-4 pb-2 border-b flex-shrink-0 space-y-2">
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-xs font-medium text-gray-600 uppercase tracking-wide mr-1">
+          Delivery day:
+        </span>
+        <button
+          onClick={() => handleConfirmedDayChange("all")}
+          className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+            confirmedDeliveryDay === "all"
+              ? "bg-gray-900 text-white border-gray-900"
+              : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+          }`}
+        >
+          All days ({counts.all})
+        </button>
+        {counts.dayBuckets.map((b) => {
+          const isActive = confirmedDeliveryDay === b.date;
+          const label = formatDeliveryPillLabel(b.date);
+          const today = getOrdersToday();
+          const tone =
+            b.date === today
+              ? isActive
+                ? "bg-red-600 text-white border-red-600"
+                : "bg-red-50 text-red-800 border-red-200 hover:bg-red-100"
+              : isActive
+                ? "bg-blue-600 text-white border-blue-600"
+                : "bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100";
+          return (
+            <button
+              key={b.date}
+              onClick={() => handleConfirmedDayChange(b.date)}
+              className={`text-xs px-3 py-1.5 rounded-full border transition-colors gap-1.5 inline-flex items-center ${tone}`}
+              title={b.date}
+            >
+              <CalendarDays className="h-3 w-3" />
+              {label} ({b.count})
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-xs font-medium text-gray-600 uppercase tracking-wide mr-1">
+          Order type:
+        </span>
+        <button
+          onClick={() => handleConfirmedBeatModeChange("all")}
+          className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+            confirmedBeatMode === "all"
+              ? "bg-gray-900 text-white border-gray-900"
+              : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+          }`}
+        >
+          All ({counts.beat + counts.nonBeat})
+        </button>
+        <button
+          onClick={() => handleConfirmedBeatModeChange("beat")}
+          className={`text-xs px-3 py-1.5 rounded-full border transition-colors gap-1.5 inline-flex items-center ${
+            confirmedBeatMode === "beat"
+              ? "bg-emerald-600 text-white border-emerald-600"
+              : "bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
+          }`}
+        >
+          <Route className="h-3 w-3" />
+          Beat orders ({counts.beat})
+        </button>
+        <button
+          onClick={() => handleConfirmedBeatModeChange("non-beat")}
+          className={`text-xs px-3 py-1.5 rounded-full border transition-colors gap-1.5 inline-flex items-center ${
+            confirmedBeatMode === "non-beat"
+              ? "bg-amber-600 text-white border-amber-600"
+              : "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100"
+          }`}
+        >
+          <Zap className="h-3 w-3" />
+          Non-beat orders ({counts.nonBeat})
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
@@ -1427,6 +1565,7 @@ export function Orders() {
             </TabsContent>
 
             <TabsContent value="new" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
+              {!isEmpty && renderDayAndBeatFilters(newBucketCounts)}
               {!isEmpty && (
               <div className="px-6 py-4 border-b flex-shrink-0">
                 <div className="flex items-center justify-between gap-4">
@@ -1447,7 +1586,7 @@ export function Orders() {
                       </button>
                     )}
                   </div>
-                  
+
                   {/* Bulk Action Buttons — Confirm / Cancel keep the
                       green/red destructive treatment; View on Map sits
                       first because the seller usually wants to eyeball
@@ -1504,94 +1643,7 @@ export function Orders() {
             <TabsContent value="confirmed" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
               {!isEmpty && (
                 <>
-                  {/* Two-level navigation — replaces the old urgency
-                      sub-tabs.
-                        Row 1: Delivery Day pills. One pill per
-                        distinct expectedDeliveryDate the confirmed
-                        orders carry, plus an "All days" reset on the
-                        left. "Today" / "Tomorrow" labels make the
-                        first couple of pills read in operator-speak.
-                        Row 2: Beat vs Non-Beat tabs scoped to the
-                        currently-selected day. */}
-                  <div className="px-6 pt-4 pb-2 border-b flex-shrink-0 space-y-2">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-medium text-gray-600 uppercase tracking-wide mr-1">
-                        Delivery day:
-                      </span>
-                      <button
-                        onClick={() => handleConfirmedDayChange("all")}
-                        className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                          confirmedDeliveryDay === "all"
-                            ? "bg-gray-900 text-white border-gray-900"
-                            : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                        }`}
-                      >
-                        All days ({confirmedBucketCounts.all})
-                      </button>
-                      {confirmedBucketCounts.dayBuckets.map((b) => {
-                        const isActive = confirmedDeliveryDay === b.date;
-                        const label = formatDeliveryPillLabel(b.date);
-                        const today = getOrdersToday();
-                        const tone =
-                          b.date === today
-                            ? isActive
-                              ? "bg-red-600 text-white border-red-600"
-                              : "bg-red-50 text-red-800 border-red-200 hover:bg-red-100"
-                            : isActive
-                              ? "bg-blue-600 text-white border-blue-600"
-                              : "bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100";
-                        return (
-                          <button
-                            key={b.date}
-                            onClick={() => handleConfirmedDayChange(b.date)}
-                            className={`text-xs px-3 py-1.5 rounded-full border transition-colors gap-1.5 inline-flex items-center ${tone}`}
-                            title={b.date}
-                          >
-                            <CalendarDays className="h-3 w-3" />
-                            {label} ({b.count})
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-medium text-gray-600 uppercase tracking-wide mr-1">
-                        Order type:
-                      </span>
-                      <button
-                        onClick={() => handleConfirmedBeatModeChange("all")}
-                        className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                          confirmedBeatMode === "all"
-                            ? "bg-gray-900 text-white border-gray-900"
-                            : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                        }`}
-                      >
-                        All ({confirmedBucketCounts.beat + confirmedBucketCounts.nonBeat})
-                      </button>
-                      <button
-                        onClick={() => handleConfirmedBeatModeChange("beat")}
-                        className={`text-xs px-3 py-1.5 rounded-full border transition-colors gap-1.5 inline-flex items-center ${
-                          confirmedBeatMode === "beat"
-                            ? "bg-emerald-600 text-white border-emerald-600"
-                            : "bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
-                        }`}
-                      >
-                        <Route className="h-3 w-3" />
-                        Beat orders ({confirmedBucketCounts.beat})
-                      </button>
-                      <button
-                        onClick={() => handleConfirmedBeatModeChange("non-beat")}
-                        className={`text-xs px-3 py-1.5 rounded-full border transition-colors gap-1.5 inline-flex items-center ${
-                          confirmedBeatMode === "non-beat"
-                            ? "bg-amber-600 text-white border-amber-600"
-                            : "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100"
-                        }`}
-                      >
-                        <Zap className="h-3 w-3" />
-                        Non-beat orders ({confirmedBucketCounts.nonBeat})
-                      </button>
-                    </div>
-                  </div>
+                  {renderDayAndBeatFilters(confirmedBucketCounts)}
 
                   <div className="px-6 py-4 border-b flex-shrink-0">
                     <div className="flex items-center justify-between gap-4">
@@ -1869,9 +1921,22 @@ export function Orders() {
                           </span>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          {getDeliveryTypeBadge(o)}
+                          {/* Beat / Non-Beat is the classification the
+                              June review settled on — the older
+                              Urgent / Regular pill was retired here
+                              because it duplicates information without
+                              mapping to the cut-off + MOV rules. */}
+                          <span
+                            className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap border ${
+                              getOrderType(o) === "beat"
+                                ? "border-indigo-200 bg-indigo-50 text-indigo-700"
+                                : "border-gray-200 bg-gray-50 text-gray-700"
+                            }`}
+                          >
+                            {getOrderType(o) === "beat" ? "Beat" : "Non-Beat"}
+                          </span>
                           <span className="text-[10px] text-gray-600 whitespace-nowrap">
-                            {o.expectedDeliveryDate}
+                            {formatDeliveryPillLabel(o.expectedDeliveryDate)}
                           </span>
                         </div>
                       </li>
@@ -1896,7 +1961,7 @@ export function Orders() {
                   "beyond",
                 )}
                 {renderGroup(
-                  "Other (Today / Overdue / Urgent)",
+                  "Other (Today / Overdue)",
                   <Clock className="h-4 w-4 text-blue-600" />,
                   grouped.other,
                   "other",
