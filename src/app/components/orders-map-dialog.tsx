@@ -285,52 +285,44 @@ export function OrdersMapDialog({
                     position={[group.lat, group.lng]}
                     icon={buildOrderIcon(group.connectivity)}
                   >
-                    {/* BR-7: popup with order details + Copy Location */}
+                    {/* BR-4/BR-3: popup — retailer name once, each order
+                        as a comma-separated entry (Order ID, ₹Invoice) */}
                     <Popup minWidth={240} maxWidth={300}>
                       <div style={{ fontFamily: "ui-sans-serif, system-ui, sans-serif" }}>
-                        {group.orders.map((o, i) => (
-                          <div key={o.id}>
-                            {i > 0 && (
-                              <hr
+                        {/* Retailer name shown once — all orders at this
+                            pin share the same delivery location/retailer */}
+                        <p
+                          style={{
+                            margin: "0 0 6px",
+                            fontWeight: 700,
+                            fontSize: 13,
+                            color: "#111827",
+                            lineHeight: 1.3,
+                          }}
+                        >
+                          {group.orders[0].retailerName}
+                        </p>
+
+                        {/* BR-3: each order as one comma-separated entry */}
+                        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                          {group.orders.map((o) => (
+                            <p
+                              key={o.id}
+                              style={{ margin: 0, fontSize: 11, color: "#374151" }}
+                            >
+                              <span
                                 style={{
-                                  margin: "8px 0",
-                                  border: "none",
-                                  borderTop: "1px solid #e5e7eb",
+                                  fontFamily: "ui-monospace, monospace",
+                                  color: "#6b7280",
                                 }}
-                              />
-                            )}
-                            <p
-                              style={{
-                                margin: 0,
-                                fontWeight: 700,
-                                fontSize: 13,
-                                color: "#111827",
-                                lineHeight: 1.3,
-                              }}
-                            >
-                              {o.retailerName}
+                              >
+                                {o.id}
+                              </span>
+                              {", ₹"}
+                              {(o.orderValue || 0).toLocaleString("en-IN")}
                             </p>
-                            <p
-                              style={{
-                                margin: "3px 0 0",
-                                fontFamily: "ui-monospace, monospace",
-                                fontSize: 11,
-                                color: "#6b7280",
-                              }}
-                            >
-                              {o.id}
-                            </p>
-                            <p
-                              style={{
-                                margin: "2px 0 0",
-                                fontSize: 12,
-                                color: "#374151",
-                              }}
-                            >
-                              ₹{(o.orderValue || 0).toLocaleString("en-IN")}
-                            </p>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
 
                         {/* BR-9: Copy Location */}
                         <button
