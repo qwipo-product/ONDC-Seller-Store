@@ -285,44 +285,82 @@ export function OrdersMapDialog({
                     position={[group.lat, group.lng]}
                     icon={buildOrderIcon(group.connectivity)}
                   >
-                    {/* BR-4/BR-3: popup — retailer name once, each order
-                        as a comma-separated entry (Order ID, ₹Invoice) */}
+                    {/* BR-4/BR-3: popup — single order uses full detail
+                        layout; multiple orders at same pin show retailer
+                        name once then each order as one comma-separated
+                        entry (Order ID, ₹Invoice). */}
                     <Popup minWidth={240} maxWidth={300}>
                       <div style={{ fontFamily: "ui-sans-serif, system-ui, sans-serif" }}>
-                        {/* Retailer name shown once — all orders at this
-                            pin share the same delivery location/retailer */}
-                        <p
-                          style={{
-                            margin: "0 0 6px",
-                            fontWeight: 700,
-                            fontSize: 13,
-                            color: "#111827",
-                            lineHeight: 1.3,
-                          }}
-                        >
-                          {group.orders[0].retailerName}
-                        </p>
-
-                        {/* BR-3: each order as one comma-separated entry */}
-                        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                          {group.orders.map((o) => (
+                        {group.orders.length === 1 ? (
+                          /* ── Single order: original full-detail layout ── */
+                          <div>
                             <p
-                              key={o.id}
-                              style={{ margin: 0, fontSize: 11, color: "#374151" }}
+                              style={{
+                                margin: 0,
+                                fontWeight: 700,
+                                fontSize: 13,
+                                color: "#111827",
+                                lineHeight: 1.3,
+                              }}
                             >
-                              <span
-                                style={{
-                                  fontFamily: "ui-monospace, monospace",
-                                  color: "#6b7280",
-                                }}
-                              >
-                                {o.id}
-                              </span>
-                              {", ₹"}
-                              {(o.orderValue || 0).toLocaleString("en-IN")}
+                              {group.orders[0].retailerName}
                             </p>
-                          ))}
-                        </div>
+                            <p
+                              style={{
+                                margin: "3px 0 0",
+                                fontFamily: "ui-monospace, monospace",
+                                fontSize: 11,
+                                color: "#6b7280",
+                              }}
+                            >
+                              {group.orders[0].id}
+                            </p>
+                            <p
+                              style={{
+                                margin: "2px 0 0",
+                                fontSize: 12,
+                                color: "#374151",
+                              }}
+                            >
+                              ₹{(group.orders[0].orderValue || 0).toLocaleString("en-IN")}
+                            </p>
+                          </div>
+                        ) : (
+                          /* ── BR-3: multiple orders — retailer name once,
+                              each order as "Order ID, ₹Invoice" entry ── */
+                          <div>
+                            <p
+                              style={{
+                                margin: "0 0 6px",
+                                fontWeight: 700,
+                                fontSize: 13,
+                                color: "#111827",
+                                lineHeight: 1.3,
+                              }}
+                            >
+                              {group.orders[0].retailerName}
+                            </p>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                              {group.orders.map((o) => (
+                                <p
+                                  key={o.id}
+                                  style={{ margin: 0, fontSize: 11, color: "#374151" }}
+                                >
+                                  <span
+                                    style={{
+                                      fontFamily: "ui-monospace, monospace",
+                                      color: "#6b7280",
+                                    }}
+                                  >
+                                    {o.id}
+                                  </span>
+                                  {", ₹"}
+                                  {(o.orderValue || 0).toLocaleString("en-IN")}
+                                </p>
+                              ))}
+                            </div>
+                          </div>
+                        )}
 
                         {/* BR-9: Copy Location */}
                         <button

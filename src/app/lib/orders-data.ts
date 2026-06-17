@@ -390,6 +390,29 @@ export const seedOrders: Order[] = [
     beatName: "Bengaluru East",
     buyerContact: "+91 98765 43217",
   },
+  // Demo order — shares exact lat/lng with QWI-ONDC-260330-8F3K92 so
+  // "View on Map" on the New tab shows one multi-order pin (BR-3).
+  {
+    id: "QWI-ONDC-260520-M3P6FH",
+    brand: "ITC",
+    company: "ITC Limited",
+    source: "DMS-Bizom",
+    retailerName: "Balaji Kirana Store",
+    itemsSummary: "30 units Aashirvaad Atta",
+    orderValue: 8750,
+    paymentMode: "COD",
+    orderDate: "2026-05-20",
+    orderTime: "11:45 AM",
+    status: "New",
+    marketplace: "ONDC",
+    expectedDeliveryDate: "2026-05-21",
+    deliveryType: "Regular",
+    beatName: "KPHB 1",
+    buyerContact: "+91 98765 43210",
+    buyerCode: "BUYER-BAL-456",
+    channelOrderId: "ONDC-ORD-789457",
+    gstNumber: "29ABCDE1234F1Z5",
+  },
   {
     id: "QWI-AMZN-260517-B9D2MZ",
     brand: "Freedom Oil",
@@ -547,6 +570,13 @@ const ORDER_GEO: Record<
 > = {
   // Cluster 1 — Hitech City / Madhapur / Gachibowli (west)
   "QWI-ONDC-260330-8F3K92": {
+    lat: 17.4483,
+    lng: 78.3915,
+    address: "Shop 12, Cyber Towers Road, HITEC City, Madhapur, Hyderabad, Telangana 500081",
+    connectivity: "Online",
+  },
+  // Demo: same lat/lng as above → triggers BR-3 multi-order pin on the New tab.
+  "QWI-ONDC-260520-M3P6FH": {
     lat: 17.4483,
     lng: 78.3915,
     address: "Shop 12, Cyber Towers Road, HITEC City, Madhapur, Hyderabad, Telangana 500081",
