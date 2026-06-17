@@ -54,15 +54,13 @@ export interface DemoCustomer {
    */
   origin?: CustomerOrigin;
   /**
-   * Optional per-company serviceability bit override. Used by the
-   * showcase seed to surface scenarios the deterministic hash picker
-   * inside `findBitsForCustomer` can't produce — chiefly "one company,
-   * multiple delivery days for the same customer". Keyed by companyId
-   * and listing the bit ids the customer is mapped to.
+   * Optional serviceability beat override. Beats now live at the
+   * distributor level (one area = one beat applies to all companies),
+   * so this is just the list of beat ids the customer maps into.
    *
    * Production wiring will swap this for point-in-polygon results.
    */
-  serviceabilityOverrides?: Record<string, string[]>;
+  serviceabilityOverrides?: string[];
 }
 
 // ---------- Seed ----------
@@ -87,14 +85,13 @@ const SEED: DemoCustomer[] = [
       { companyId: "co-itc", companyName: "ITC Limited", status: "Active" },
       { companyId: "co-marico", companyName: "Marico", status: "Active" },
     ],
-    // Sunshine Kirana sits on ITC's KPHB 1 beat — that beat is
+    // Sunshine Kirana sits on the KPHB 1 beat — that beat is
     // configured (in Admin → Serviceability) to deliver on Monday
     // AND Tuesday, so the customer detail page surfaces both day
-    // chips behind a single beat row. One beat per company is the
-    // seller-side rule.
-    serviceabilityOverrides: {
-      "co-itc": ["beat-itc-kphb1"],
-    },
+    // chips behind a single beat row. Beats are distributor-level so
+    // the same schedule applies to every company the customer buys
+    // from (ITC + Marico here).
+    serviceabilityOverrides: ["beat-kphb1"],
   },
   {
     customerId: "c2",

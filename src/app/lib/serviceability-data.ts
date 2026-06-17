@@ -1,18 +1,16 @@
 // Shared store for delivery-beat serviceability configuration. Each
-// record is ONE beat per company — a beat carries its own beat name,
-// an array of delivery days it serves on, and an optional polygon.
+// record is ONE beat per AREA — a beat carries an area name (the beat
+// name), the days it serves on, and an optional polygon. Beats apply
+// to ALL companies the distributor handles; there is no company
+// dimension on the record.
 //
-// History note: an earlier model stored one record per (company,
-// beat, day) so KPHB 1-on-Monday and KPHB 1-on-Wednesday lived as two
-// separate rows. The June 2026 review collapsed that into "one beat
-// per company, multiple delivery days" — the model matches how
-// distributors think (KPHB 1 is one route, visited on N days) and
-// lets the admin list render the schedule on a single chip row per
-// beat instead of repeating the beat name across multiple rows.
-//
-// The exported `ServiceabilityBit` alias is intentional: downstream
-// consumers from the old model keep working while the rest of the
-// codebase migrates over to the new `ServiceabilityBeat` name.
+// History note: an earlier model stored one beat per (company, area)
+// so KPHB 1 lived as separate rows for ITC and for Marico, each
+// configurable with its own delivery day. The June 2026 review
+// collapsed that: a distributor runs one delivery operation across
+// every company, so one area = one beat = one delivery schedule. If
+// a new company gets linked later, every existing beat automatically
+// applies to it without any extra configuration step.
 //
 // In a real install this would live behind an API. For the demo
 // everything is in-memory and seeded with enough variety to drive
@@ -22,8 +20,6 @@ import type { DeliveryDay } from "./customers-data";
 
 export interface ServiceabilityBeat {
   id: string;
-  companyId: string;
-  companyName: string;
   beatName: string;
   /**
    * Delivery days this beat serves. Always at least one entry.
@@ -35,9 +31,6 @@ export interface ServiceabilityBeat {
   polygonData?: unknown;
   createdAt: string;
 }
-
-/** Back-compat alias — old consumers that imported `ServiceabilityBit`. */
-export type ServiceabilityBit = ServiceabilityBeat;
 
 // ---- Seed ----
 
@@ -63,158 +56,84 @@ const SAMPLE_FREEDOM_POLYGON = {
   ],
 };
 
-// ITC seed — 11 beats covering Monday → Saturday. KPHB 1 carries
-// TWO delivery days (Mon + Tue) — the explicit "one beat, two day
-// chips" showcase the meeting called out. Every other beat is
-// single-day.
-const ITC_SEED_BEATS: ServiceabilityBeat[] = [
+// One beat per area. KPHB 1 carries TWO delivery days (Mon + Tue) —
+// the "one beat, two day chips" showcase from the June review. Every
+// other beat is single-day for now.
+const SEED_BEATS: ServiceabilityBeat[] = [
   {
-    id: "beat-itc-kphb1",
-    companyId: "co-itc",
-    companyName: "ITC Limited",
+    id: "beat-kphb1",
     beatName: "KPHB 1",
     deliveryDays: ["Monday", "Tuesday"],
     createdAt: "2026-04-08T09:00:00Z",
   },
   {
-    id: "beat-itc-kphb2",
-    companyId: "co-itc",
-    companyName: "ITC Limited",
+    id: "beat-kphb2",
     beatName: "KPHB 2",
     deliveryDays: ["Monday"],
     createdAt: "2026-04-08T09:00:00Z",
   },
   {
-    id: "beat-itc-kphb3",
-    companyId: "co-itc",
-    companyName: "ITC Limited",
+    id: "beat-kphb3",
     beatName: "KPHB 3",
     deliveryDays: ["Monday"],
     createdAt: "2026-04-08T09:00:00Z",
   },
   {
-    id: "beat-itc-banjara",
-    companyId: "co-itc",
-    companyName: "ITC Limited",
+    id: "beat-banjara",
     beatName: "Banjara Hills",
     deliveryDays: ["Tuesday"],
     createdAt: "2026-04-08T09:00:00Z",
   },
   {
-    id: "beat-itc-jubilee",
-    companyId: "co-itc",
-    companyName: "ITC Limited",
+    id: "beat-jubilee",
     beatName: "Jubilee Hills",
     deliveryDays: ["Tuesday"],
     createdAt: "2026-04-08T09:00:00Z",
   },
   {
-    id: "beat-itc-sr-nagar",
-    companyId: "co-itc",
-    companyName: "ITC Limited",
+    id: "beat-sr-nagar",
     beatName: "SR Nagar",
     deliveryDays: ["Wednesday"],
     createdAt: "2026-04-08T09:00:00Z",
   },
   {
-    id: "beat-itc-madhapur",
-    companyId: "co-itc",
-    companyName: "ITC Limited",
+    id: "beat-madhapur",
     beatName: "Madhapur",
     deliveryDays: ["Thursday"],
     createdAt: "2026-04-08T09:00:00Z",
   },
   {
-    id: "beat-itc-gachibowli",
-    companyId: "co-itc",
-    companyName: "ITC Limited",
+    id: "beat-gachibowli",
     beatName: "Gachibowli",
     deliveryDays: ["Thursday"],
     createdAt: "2026-04-08T09:00:00Z",
   },
   {
-    id: "beat-itc-kondapur",
-    companyId: "co-itc",
-    companyName: "ITC Limited",
+    id: "beat-kondapur",
     beatName: "Kondapur",
     deliveryDays: ["Friday"],
     createdAt: "2026-04-08T09:00:00Z",
   },
   {
-    id: "beat-itc-hitec",
-    companyId: "co-itc",
-    companyName: "ITC Limited",
+    id: "beat-hitec",
     beatName: "HITEC City",
     deliveryDays: ["Friday"],
     createdAt: "2026-04-08T09:00:00Z",
   },
   {
-    id: "beat-itc-begumpet",
-    companyId: "co-itc",
-    companyName: "ITC Limited",
+    id: "beat-begumpet",
     beatName: "Begumpet",
     deliveryDays: ["Saturday"],
     createdAt: "2026-04-08T09:00:00Z",
   },
-];
-
-const ADANI_SEED_BEATS: ServiceabilityBeat[] = [
   {
-    id: "beat-adani-jubilee",
-    companyId: "co-adani",
-    companyName: "Adani Wilmar Ltd",
-    beatName: "Jubilee Hills",
-    deliveryDays: ["Next Day"],
-    createdAt: "2026-04-11T09:00:00Z",
-  },
-  {
-    id: "beat-adani-banjara",
-    companyId: "co-adani",
-    companyName: "Adani Wilmar Ltd",
-    beatName: "Banjara Hills",
-    deliveryDays: ["Next Day"],
-    createdAt: "2026-04-11T09:00:00Z",
-  },
-  {
-    id: "beat-adani-madhapur",
-    companyId: "co-adani",
-    companyName: "Adani Wilmar Ltd",
-    beatName: "Madhapur",
-    deliveryDays: ["Next Day"],
-    createdAt: "2026-04-11T09:00:00Z",
-  },
-  {
-    id: "beat-adani-kondapur",
-    companyId: "co-adani",
-    companyName: "Adani Wilmar Ltd",
-    beatName: "Kondapur",
-    deliveryDays: ["Next Day"],
-    createdAt: "2026-04-11T09:00:00Z",
-  },
-];
-
-const SEED_BEATS: ServiceabilityBeat[] = [
-  ...ITC_SEED_BEATS,
-  {
-    id: "beat-marico-kphb",
-    companyId: "co-marico",
-    companyName: "Marico",
-    beatName: "KPHB 1",
-    deliveryDays: ["Monday"],
-    createdAt: "2026-04-09T09:00:00Z",
-  },
-  {
-    id: "beat-marico-ameerpet",
-    companyId: "co-marico",
-    companyName: "Marico",
+    id: "beat-ameerpet",
     beatName: "Ameerpet",
     deliveryDays: ["Thursday"],
     createdAt: "2026-04-09T09:00:00Z",
   },
   {
     id: "beat-freedom-mum",
-    companyId: "co-freedom",
-    companyName: "Gemini Edibles & Fats India",
     beatName: "Mumbai Metro — North",
     deliveryDays: ["Monday"],
     polygonFileName: "freedom-zone.geojson",
@@ -223,13 +142,10 @@ const SEED_BEATS: ServiceabilityBeat[] = [
   },
   {
     id: "beat-freedom-hyd",
-    companyId: "co-freedom",
-    companyName: "Gemini Edibles & Fats India",
     beatName: "Hyderabad West",
     deliveryDays: ["Friday"],
     createdAt: "2026-04-10T09:00:00Z",
   },
-  ...ADANI_SEED_BEATS,
 ];
 
 // ---- In-memory store + subscribe API ----
@@ -257,21 +173,14 @@ export function subscribeToServiceabilityBeats(cb: () => void): () => void {
   };
 }
 
-// Back-compat shims so older imports keep working until the migration
-// is done. All four delegate to the new beat-named primitives.
-export const getServiceabilityBits = getServiceabilityBeats;
-export const setServiceabilityBits = setServiceabilityBeats;
-export const subscribeToServiceabilityBits = subscribeToServiceabilityBeats;
-
 export function makeServiceabilityBeatId(): string {
   return `beat-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 }
-export const makeServiceabilityBitId = makeServiceabilityBeatId;
 
 /**
  * Stable, content-derived identity for a polygon. Used to dedupe
- * delivery beats — two beats with the same (company, polygonId) are
- * considered the same physical area regardless of beat name.
+ * delivery beats — two beats with the same polygonId are considered
+ * the same physical area regardless of beat name.
  *
  *   - When the beat has polygon data, the id is a hash of the
  *     normalized JSON content. Re-uploading the same geometry under
@@ -319,19 +228,19 @@ export interface CustomerLocationKey {
   area?: string;
   pincode?: string;
   /**
-   * Per-company explicit beat-id list. When present, `findBeatsForCustomer`
-   * uses this verbatim instead of the deterministic hash picker — letting
-   * the demo seed showcase scenarios the hash can't fabricate.
+   * Explicit beat-id list — when present, lookups use it verbatim
+   * instead of the deterministic hash picker. Lets the demo seed
+   * showcase scenarios the hash can't fabricate.
    *
    * Production lookups will replace this with point-in-polygon tests
    * against the customer's lat/long.
    */
-  serviceabilityOverrides?: Record<string, string[]>;
+  serviceabilityOverrides?: string[];
 }
 
 /**
- * Return the single beat the customer would inherit for a given
- * company. Returns null when no beat is configured.
+ * Return the single beat the customer is mapped to. Returns null
+ * when no beat is configured.
  *
  * Honors `serviceabilityOverrides` first (first id wins for the
  * single-beat helper), otherwise picks by the deterministic hash
@@ -339,49 +248,37 @@ export interface CustomerLocationKey {
  */
 export function findBeatForCustomer(
   customer: CustomerLocationKey,
-  companyId: string,
 ): ServiceabilityBeat | null {
-  const override = customer.serviceabilityOverrides?.[companyId];
+  const override = customer.serviceabilityOverrides;
   if (override && override.length > 0) {
-    const overridden = _beats.find(
-      (b) => b.companyId === companyId && b.id === override[0],
-    );
+    const overridden = _beats.find((b) => b.id === override[0]);
     if (overridden) return overridden;
   }
-  const candidates = _beats.filter((b) => b.companyId === companyId);
-  if (candidates.length === 0) return null;
-  if (candidates.length === 1) return candidates[0];
+  if (_beats.length === 0) return null;
+  if (_beats.length === 1) return _beats[0];
   const key = `${customer.customerId}|${customer.city ?? ""}|${customer.area ?? ""}|${customer.pincode ?? ""}`;
-  return candidates[hashKey(key) % candidates.length];
+  return _beats[hashKey(key) % _beats.length];
 }
 
 /**
- * Return ALL beats the customer is mapped to for a given company.
- * Each beat now carries its own `deliveryDays` array — callers
- * iterating to render delivery days should flat-map over the
- * returned beats and their day arrays.
+ * Return ALL beats the customer is mapped to. Each beat carries its
+ * own `deliveryDays` array — callers iterating to render delivery
+ * days should flat-map over the returned beats and their day arrays.
  *
  * Honors explicit overrides; otherwise falls back to the single
  * hash-picked beat as a 1-element array.
  */
 export function findBeatsForCustomer(
   customer: CustomerLocationKey,
-  companyId: string,
 ): ServiceabilityBeat[] {
-  const override = customer.serviceabilityOverrides?.[companyId];
+  const override = customer.serviceabilityOverrides;
   if (override && override.length > 0) {
     const set = new Set(override);
-    const matched = _beats.filter(
-      (b) => b.companyId === companyId && set.has(b.id),
-    );
-    return matched.sort(beatDisplaySort);
+    return _beats.filter((b) => set.has(b.id)).sort(beatDisplaySort);
   }
-  const single = findBeatForCustomer(customer, companyId);
+  const single = findBeatForCustomer(customer);
   return single ? [single] : [];
 }
-
-export const findBitForCustomer = findBeatForCustomer;
-export const findBitsForCustomer = findBeatsForCustomer;
 
 // Calendar order for display surfaces — "Next Day" first (express),
 // then weekly Monday → Sunday.
@@ -411,11 +308,9 @@ function beatDisplaySort(a: ServiceabilityBeat, b: ServiceabilityBeat): number {
 }
 
 /** Convenience — first delivery day for a customer's matched beat,
- *  or null. Used by surfaces that only care about a single day
- *  (legacy behavior pre-multi-day model). */
+ *  or null. Used by surfaces that only care about a single day. */
 export function getDeliveryDayForCustomer(
   customer: CustomerLocationKey,
-  companyId: string,
 ): DeliveryDay | null {
-  return findBeatForCustomer(customer, companyId)?.deliveryDays[0] ?? null;
+  return findBeatForCustomer(customer)?.deliveryDays[0] ?? null;
 }
