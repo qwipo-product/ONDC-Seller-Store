@@ -155,13 +155,22 @@ const SEED: DemoCustomer[] = [
     totalRevenue: 1480000,
     companies: [
       { companyId: "co-itc", companyName: "ITC Limited", status: "Active" },
-      { companyId: "co-marico", companyName: "Marico", status: "Blocked" },
+      { companyId: "co-marico", companyName: "Marico", status: "Active" },
       {
         companyId: "co-freedom",
         companyName: "Gemini Edibles & Fats India",
         status: "Active",
       },
+      { companyId: "co-adani", companyName: "Adani Wilmar Ltd", status: "Active" },
     ],
+    // Pin City Supermart's serviceability to the Madhapur beat
+    // (Thursday delivery) — this is the showcase customer for the
+    // "same retailer, same day, four companies" demo. With the
+    // override the customer detail's Delivery Serviceability card
+    // matches the beatName carried by the four seed orders, so the
+    // narrative reads end-to-end ("their one beat covers all four
+    // brands they buy from").
+    serviceabilityOverrides: ["beat-madhapur"],
   },
   {
     customerId: "c5",
