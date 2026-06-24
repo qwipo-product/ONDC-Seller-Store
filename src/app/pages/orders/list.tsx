@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { Card, CardContent } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
@@ -41,9 +41,7 @@ import {
   ChevronLeft,
   Eye,
   Download,
-  Clock,
   Zap,
-  CalendarClock,
   Route,
   MapPin,
   CalendarDays,
@@ -66,15 +64,12 @@ import {
   type OrderLineItem,
   type OrderStatus,
   type DeliveryType,
-  type DeliveryBucket,
   type CancelledBy,
   SELLER_INFO,
   getOrders,
   setOrders as setOrdersStore,
   subscribeToOrders,
   updateOrderStatuses,
-  getDeliveryBucket,
-  deliveryLabelFor,
   getOrdersToday,
   getOrderType,
 } from "../../lib/orders-data";
@@ -139,13 +134,15 @@ export function Orders() {
   const [selectedStatusFilters, setSelectedStatusFilters] = useState<string[]>([]);
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
-  // Delivery filters
+  // Delivery filters — Delivery Type (Urgent / Regular) is still
+  // a useful slicer in the drawer; the Today / Tomorrow / Overdue
+  // bucket multi-select and the Tomorrow-only / Urgent-only quick
+  // toggles were retired in June 2026 along with the rest of the
+  // relative-date model. Sellers filter by a concrete Delivery Day
+  // (via the pill row + an optional date range below) instead.
   const [selectedDeliveryTypes, setSelectedDeliveryTypes] = useState<string[]>([]);
-  const [selectedDeliveryBuckets, setSelectedDeliveryBuckets] = useState<string[]>([]);
   const [deliveryStartDate, setDeliveryStartDate] = useState<string>("");
   const [deliveryEndDate, setDeliveryEndDate] = useState<string>("");
-  const [tomorrowOnly, setTomorrowOnly] = useState(false);
-  const [urgentOnly, setUrgentOnly] = useState(false);
   // "Cancelled By" quick filter — only consulted on the Cancelled
   // tab. "all" matches buyer + seller cancellations; the other two
   // narrow to just one origin so the seller can audit one cancellation
@@ -168,12 +165,6 @@ export function Orders() {
   const deliveryTypeOptions: { label: string; value: DeliveryType }[] = [
     { label: "Urgent", value: "Urgent" },
     { label: "Regular", value: "Regular" },
-  ];
-  const deliveryBucketOptions: { label: string; value: DeliveryBucket }[] = [
-    { label: "Today", value: "today" },
-    { label: "Tomorrow", value: "tomorrow" },
-    { label: "Beyond Tomorrow", value: "beyond" },
-    { label: "Overdue", value: "past" },
   ];
 
   // Pagination
@@ -293,16 +284,13 @@ export function Orders() {
         matchesDate = orderDate >= start && orderDate <= end;
       }
 
-      // Delivery filters
-      const bucket = getDeliveryBucket(order);
+      // Delivery filters — Delivery Type stays (Urgent / Regular),
+      // backed by the optional Delivery Day range below. The relative
+      // bucket multi-select and Tomorrow-only / Urgent-only quick
+      // toggles were dropped in June 2026.
       const matchesDeliveryType =
         selectedDeliveryTypes.length === 0 ||
         selectedDeliveryTypes.includes(order.deliveryType);
-      const matchesDeliveryBucket =
-        selectedDeliveryBuckets.length === 0 ||
-        selectedDeliveryBuckets.includes(bucket);
-      const matchesUrgentOnly = !urgentOnly || order.deliveryType === "Urgent";
-      const matchesTomorrowOnly = !tomorrowOnly || bucket === "tomorrow";
 
       let matchesDeliveryDateRange = true;
       if (deliveryStartDate && deliveryEndDate) {
@@ -350,9 +338,6 @@ export function Orders() {
         matchesStatusFilter &&
         matchesDate &&
         matchesDeliveryType &&
-        matchesDeliveryBucket &&
-        matchesUrgentOnly &&
-        matchesTomorrowOnly &&
         matchesDeliveryDateRange &&
         matchesConfirmedSub &&
         matchesCancelledBy
@@ -374,11 +359,8 @@ export function Orders() {
       startDate,
       endDate,
       selectedDeliveryTypes,
-      selectedDeliveryBuckets,
       deliveryStartDate,
       deliveryEndDate,
-      tomorrowOnly,
-      urgentOnly,
       cancelledByFilter,
     ],
   );
@@ -543,30 +525,21 @@ export function Orders() {
     setCurrentPage(1);
   };
 
-  // Format an ISO delivery date as a pill label. Everything reads as
-  // a calendar date first ("Thu 21 May"), with Today / Tomorrow /
-  // Yesterday trailing as a relative suffix when applicable. Sellers
-  // told us the explicit date is what they reference when planning,
-  // so it always leads — but the relative label keeps the operator's
-  // mental model intact for the imminent window.
+  // Format an ISO delivery date as a pill label. The June 2026 review
+  // dropped Today / Tomorrow / Yesterday suffixes — distributors plan
+  // around the committed delivery DAY, and the relative labels added
+  // noise without changing the operational decision. The pill row
+  // still tints today's date red (handled at the pill render site)
+  // so the imminent window stays visually distinct without text.
   const formatDeliveryPillLabel = (iso: string): string => {
     const d = Date.parse(iso + "T00:00:00Z");
     if (Number.isNaN(d)) return iso;
-    const dateLabel = new Date(d).toLocaleDateString("en-GB", {
+    return new Date(d).toLocaleDateString("en-GB", {
       weekday: "short",
       day: "2-digit",
       month: "short",
       timeZone: "UTC",
     });
-    const today = getOrdersToday();
-    const t = Date.parse(today + "T00:00:00Z");
-    if (!Number.isNaN(t)) {
-      const diff = Math.round((d - t) / 86400000);
-      if (diff === 0) return `${dateLabel} · Today`;
-      if (diff === 1) return `${dateLabel} · Tomorrow`;
-      if (diff === -1) return `${dateLabel} · Yesterday`;
-    }
-    return dateLabel;
   };
 
   // Pagination calculations
@@ -577,8 +550,25 @@ export function Orders() {
   }, [currentTabOrders, currentPage, itemsPerPage]);
 
   const totalPages = Math.ceil(currentTabOrders.length / itemsPerPage);
-  const totalValue = useMemo(() => {
-    return currentTabOrders.reduce((sum, order) => sum + order.orderValue, 0);
+  // Order Summary metrics — drives the strip rendered between the
+  // tab row and the per-tab content. Reads off `currentTabOrders`
+  // so the figures react to every active filter (tab, Beat /
+  // Non-Beat, Delivery Day pill, search, drawer filters).
+  // `customers` is a count of distinct retailers — each retailer
+  // can sit behind multiple orders in a single day, so the seller
+  // needs both axes to plan dispatch.
+  const orderSummary = useMemo(() => {
+    const customers = new Set<string>();
+    let value = 0;
+    for (const o of currentTabOrders) {
+      customers.add(o.retailerName);
+      value += o.orderValue;
+    }
+    return {
+      customers: customers.size,
+      orders: currentTabOrders.length,
+      value,
+    };
   }, [currentTabOrders]);
 
   // View on Map — bulk action available on the New + Confirmed
@@ -717,11 +707,8 @@ export function Orders() {
     setStartDate("");
     setEndDate("");
     setSelectedDeliveryTypes([]);
-    setSelectedDeliveryBuckets([]);
     setDeliveryStartDate("");
     setDeliveryEndDate("");
-    setTomorrowOnly(false);
-    setUrgentOnly(false);
   };
 
   const hasActiveFilters =
@@ -732,11 +719,8 @@ export function Orders() {
     startDate ||
     endDate ||
     selectedDeliveryTypes.length > 0 ||
-    selectedDeliveryBuckets.length > 0 ||
     deliveryStartDate ||
-    deliveryEndDate ||
-    tomorrowOnly ||
-    urgentOnly;
+    deliveryEndDate;
 
   // Handle export
   // ---- Export helpers ----
@@ -827,19 +811,20 @@ export function Orders() {
       return;
     }
 
-    // 23-column layout — one row per line item; order-level fields
+    // 26-column layout — one row per line item; order-level fields
     // (Original Order Value, Order Level Savings, Final Order Value)
-    // repeat on every row. Phase 1 retired four columns the ops team
-    // never used (Invoice ID, Buyer Code, Seller Code, Line Total),
-    // so the sheet stays focused on the fields finance actually
-    // reconciles against.
+    // repeat on every row. The June 2026 review replaced the
+    // Expected / Actual Delivery Date pair with a single Delivery
+    // Day field, and added Order Type (Beat / Non-Beat) so finance
+    // can reconcile by beat route without re-joining against the
+    // settings sheet.
     const headers = [
       "Order ID",
       "Order Status",
       "Order Date",
+      "Order Type",
       "Beat Name",
-      "Expected Delivery Date",
-      "Actual Delivery Date",
+      "Delivery Day",
       "Buyer Name",
       "Buyer Contact",
       "Buyer Address",
@@ -879,9 +864,9 @@ export function Orders() {
           order.id,
           statusLabelFor(order),
           orderDateLabelFor(order),
+          getOrderType(order) === "beat" ? "Beat" : "Non-Beat",
           order.beatName ?? "",
           order.expectedDeliveryDate,
-          order.actualDeliveryDate ?? "",
           order.retailerName,
           order.buyerContact ?? "",
           order.buyerAddress ?? "",
@@ -1082,11 +1067,13 @@ export function Orders() {
                   />
                 </th>
               )}
-              {/* Order Date moved to first per the May 2026 ops
-                  request — the distributor scans by "when did this
-                  land" before anything else. Beat Name +
-                  Expected/Actual Delivery Date columns follow so
-                  each row carries the full operational shape. */}
+              {/* Order Date leads — distributor scans by "when did
+                  this land" first. Type + Beat Name + Delivery Day
+                  follow so each row carries the operational shape
+                  the seller commits to. The June 2026 review dropped
+                  the Actual Delivery column (and the relative
+                  "Today / Tomorrow" indicator) — only the committed
+                  Delivery Day matters operationally. */}
               <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
                 Order Date
               </th>
@@ -1103,16 +1090,13 @@ export function Orders() {
                 Mobile
               </th>
               <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
-                Type
+                Order Type
               </th>
               <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
                 Beat Name
               </th>
               <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
-                Expected Delivery
-              </th>
-              <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
-                Actual Delivery
+                Delivery Day
               </th>
               <th className="text-right px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
                 Value
@@ -1207,17 +1191,23 @@ export function Orders() {
                     <p className="text-xs text-gray-400">—</p>
                   )}
                 </td>
-                {/* Order Type — Beat / Standard. Derived from the
+                {/* Order Type — Beat / Non-Beat. Derived from the
                     explicit `orderType` field, or inferred from
-                    `beatName` for legacy seed rows. */}
+                    `beatName` for legacy seed rows. The tone pairs
+                    with the New / Confirmed tab's Beat-vs-Non-Beat
+                    filter pills (emerald = beat route, amber =
+                    off-schedule) so the row and the filter speak
+                    the same visual language. */}
                 <td className="px-3 py-2.5 whitespace-nowrap">
                   {getOrderType(order) === "beat" ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-indigo-200 bg-indigo-50 text-[11px] font-medium text-indigo-700">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-emerald-200 bg-emerald-50 text-[11px] font-medium text-emerald-700">
+                      <Route className="h-3 w-3" />
                       Beat
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-gray-200 bg-gray-50 text-[11px] font-medium text-gray-700">
-                      Standard
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-amber-200 bg-amber-50 text-[11px] font-medium text-amber-800">
+                      <Zap className="h-3 w-3" />
+                      Non-Beat
                     </span>
                   )}
                 </td>
@@ -1236,37 +1226,17 @@ export function Orders() {
                     <span className="text-xs text-gray-400">—</span>
                   )}
                 </td>
-                {/* Expected Delivery — what the seller committed to.
-                    Renders as "Thu 21 May · Tomorrow" so the explicit
-                    date is always the reference and the relative
-                    label only trails for the imminent window. */}
+                {/* Delivery Day — the date the seller committed to
+                    deliver on. Renders as a calendar pill
+                    ("Thu 21 May"); the June 2026 review dropped the
+                    Actual Delivery column (and the relative Today /
+                    Tomorrow indicators) — only the committed day
+                    drives downstream operational planning. */}
                 <td
                   className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700"
                   title={order.expectedDeliveryDate}
                 >
                   {formatDeliveryPillLabel(order.expectedDeliveryDate)}
-                </td>
-                {/* Actual Delivery — only populated once the order is
-                    Delivered. Late deliveries (actual > expected)
-                    render in red so the seller can spot slippage at
-                    a glance. */}
-                <td
-                  className="px-3 py-2.5 whitespace-nowrap text-sm"
-                  title={order.actualDeliveryDate ?? "Not yet delivered"}
-                >
-                  {order.actualDeliveryDate ? (
-                    <span
-                      className={
-                        order.actualDeliveryDate > order.expectedDeliveryDate
-                          ? "text-red-700 font-medium"
-                          : "text-emerald-700 font-medium"
-                      }
-                    >
-                      {formatShortDate(order.actualDeliveryDate)}
-                    </span>
-                  ) : (
-                    <span className="text-xs text-gray-400">—</span>
-                  )}
                 </td>
                 <td className="px-3 py-2.5 whitespace-nowrap text-right">
                   <p className="text-sm font-semibold text-gray-900">
@@ -1491,6 +1461,45 @@ export function Orders() {
                 {/* Bulk Action Buttons for Confirmed Tab */}
                 {/* Removed - now beside search bar */}
               </div>
+
+              {/* Order Summary strip — three figures (Customers,
+                  Orders, Total Value) reading off `currentTabOrders`
+                  so they react to every active filter. Lets the
+                  seller eyeball the business shape of the slice
+                  they're looking at without exporting a report. */}
+              {!isEmpty && (
+                <div className="px-6 py-2.5 border-b border-gray-100 bg-gradient-to-r from-purple-50/40 via-white to-emerald-50/40 flex-shrink-0 flex flex-wrap items-center gap-x-6 gap-y-2">
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-[10px] uppercase tracking-wider font-semibold text-gray-500">
+                      Customers
+                    </span>
+                    <span className="text-sm font-semibold text-gray-900 tabular-nums">
+                      {orderSummary.customers.toLocaleString()}
+                    </span>
+                  </div>
+                  <span className="h-3 w-px bg-gray-200" />
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-[10px] uppercase tracking-wider font-semibold text-gray-500">
+                      Orders
+                    </span>
+                    <span className="text-sm font-semibold text-gray-900 tabular-nums">
+                      {orderSummary.orders.toLocaleString()}
+                    </span>
+                  </div>
+                  <span className="h-3 w-px bg-gray-200" />
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-[10px] uppercase tracking-wider font-semibold text-gray-500">
+                      Total Value
+                    </span>
+                    <span className="text-sm font-semibold text-emerald-700 tabular-nums">
+                      ₹{orderSummary.value.toLocaleString()}
+                    </span>
+                  </div>
+                  <span className="ml-auto text-[10px] text-gray-500">
+                    Updates with active filters
+                  </span>
+                </div>
+              )}
 
               {/* Applied Filter Tags */}
               {(selectedBrandFilters.length > 0 || selectedStatusFilters.length > 0 || marketplaceFilter !== "all") && (
@@ -1849,10 +1858,11 @@ export function Orders() {
       />
 
       {/* Confirm Orders Dialog — pure confirmation surface, no
-          dispatch metadata captured here. Visually splits the
-          selection into Tomorrow vs Beyond-Tomorrow groups so the
-          distributor knows what's urgent vs what's future-dated
-          before clicking Confirm. */}
+          dispatch metadata captured here. The selection is grouped
+          by Delivery Day (the concrete committed date) so the
+          distributor can plan packing & dispatch per-day instead of
+          via the older Tomorrow / Beyond-Tomorrow relative buckets
+          retired in June 2026. */}
       <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
@@ -1861,7 +1871,7 @@ export function Orders() {
               Confirm Orders
             </DialogTitle>
             <DialogDescription>
-              Review the delivery windows below, then confirm.
+              Review each delivery day below, then confirm.
             </DialogDescription>
           </DialogHeader>
 
@@ -1869,103 +1879,85 @@ export function Orders() {
             const selectedOrderObjects = orders.filter((o) =>
               selectedOrders.includes(o.id),
             );
-            const grouped = {
-              tomorrow: selectedOrderObjects.filter(
-                (o) => getDeliveryBucket(o) === "tomorrow",
-              ),
-              beyond: selectedOrderObjects.filter(
-                (o) => getDeliveryBucket(o) === "beyond",
-              ),
-              other: selectedOrderObjects.filter((o) => {
-                const b = getDeliveryBucket(o);
-                return b !== "tomorrow" && b !== "beyond";
-              }),
-            };
-
-            const renderGroup = (
-              title: string,
-              icon: ReactNode,
-              rows: Order[],
-              tone: "tomorrow" | "beyond" | "other",
-            ) => {
-              if (rows.length === 0) return null;
-              const toneClasses =
-                tone === "tomorrow"
-                  ? "border-amber-200 bg-amber-50/70"
-                  : tone === "beyond"
-                    ? "border-gray-200 bg-gray-50/70"
-                    : "border-blue-200 bg-blue-50/70";
-              return (
-                <div className={`rounded-md border p-3 ${toneClasses}`}>
-                  <div className="flex items-center gap-2 mb-2">
-                    {icon}
-                    <p className="text-sm font-semibold text-gray-900">
-                      {title}
-                    </p>
-                    <Badge variant="secondary" className="bg-white text-gray-700 border border-gray-200">
-                      {rows.length}
-                    </Badge>
-                  </div>
-                  <ul className="space-y-1.5 max-h-40 overflow-y-auto">
-                    {rows.map((o) => (
-                      <li
-                        key={o.id}
-                        className="flex items-center justify-between gap-2 text-xs bg-white rounded px-2 py-1.5 border border-gray-100"
-                      >
-                        <div className="flex flex-col min-w-0">
-                          <span className="font-medium text-gray-900 truncate">
-                            {o.retailerName}
-                          </span>
-                          <span className="text-[10px] text-gray-500">
-                            {o.id}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          {/* Beat / Non-Beat is the classification the
-                              June review settled on — the older
-                              Urgent / Regular pill was retired here
-                              because it duplicates information without
-                              mapping to the cut-off + MOV rules. */}
-                          <span
-                            className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap border ${
-                              getOrderType(o) === "beat"
-                                ? "border-indigo-200 bg-indigo-50 text-indigo-700"
-                                : "border-gray-200 bg-gray-50 text-gray-700"
-                            }`}
-                          >
-                            {getOrderType(o) === "beat" ? "Beat" : "Non-Beat"}
-                          </span>
-                          <span className="text-[10px] text-gray-600 whitespace-nowrap">
-                            {formatDeliveryPillLabel(o.expectedDeliveryDate)}
-                          </span>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              );
-            };
+            const today = getOrdersToday();
+            // Group by ISO delivery day, then render each group
+            // sorted chronologically. Today's day is tinted red so
+            // imminent work still pops without leaning on a relative
+            // "Tomorrow" label.
+            const byDay = new Map<string, Order[]>();
+            for (const o of selectedOrderObjects) {
+              const key = o.expectedDeliveryDate;
+              const arr = byDay.get(key);
+              if (arr) arr.push(o);
+              else byDay.set(key, [o]);
+            }
+            const dayGroups = Array.from(byDay.entries()).sort(
+              ([a], [b]) => a.localeCompare(b),
+            );
 
             return (
-              <div className="space-y-3 py-2">
-                {renderGroup(
-                  "Tomorrow Deliveries",
-                  <CalendarClock className="h-4 w-4 text-amber-600" />,
-                  grouped.tomorrow,
-                  "tomorrow",
-                )}
-                {renderGroup(
-                  "Beyond Tomorrow Deliveries",
-                  <CalendarDays className="h-4 w-4 text-gray-600" />,
-                  grouped.beyond,
-                  "beyond",
-                )}
-                {renderGroup(
-                  "Other (Today / Overdue)",
-                  <Clock className="h-4 w-4 text-blue-600" />,
-                  grouped.other,
-                  "other",
-                )}
+              <div className="space-y-3 py-2 max-h-[60vh] overflow-y-auto pr-1">
+                {dayGroups.map(([day, rows]) => {
+                  const isToday = day === today;
+                  const toneClasses = isToday
+                    ? "border-red-200 bg-red-50/60"
+                    : "border-blue-200 bg-blue-50/60";
+                  const iconClasses = isToday
+                    ? "text-red-600"
+                    : "text-blue-600";
+                  return (
+                    <div
+                      key={day}
+                      className={`rounded-md border p-3 ${toneClasses}`}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <CalendarDays className={`h-4 w-4 ${iconClasses}`} />
+                        <p className="text-sm font-semibold text-gray-900">
+                          {formatDeliveryPillLabel(day)}
+                        </p>
+                        <Badge variant="secondary" className="bg-white text-gray-700 border border-gray-200">
+                          {rows.length}
+                        </Badge>
+                      </div>
+                      <ul className="space-y-1.5 max-h-40 overflow-y-auto">
+                        {rows.map((o) => (
+                          <li
+                            key={o.id}
+                            className="flex items-center justify-between gap-2 text-xs bg-white rounded px-2 py-1.5 border border-gray-100"
+                          >
+                            <div className="flex flex-col min-w-0">
+                              <span className="font-medium text-gray-900 truncate">
+                                {o.retailerName}
+                              </span>
+                              <span className="text-[10px] text-gray-500">
+                                {o.id}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span
+                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap border ${
+                                  getOrderType(o) === "beat"
+                                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                    : "border-amber-200 bg-amber-50 text-amber-800"
+                                }`}
+                              >
+                                {getOrderType(o) === "beat" ? (
+                                  <Route className="h-3 w-3" />
+                                ) : (
+                                  <Zap className="h-3 w-3" />
+                                )}
+                                {getOrderType(o) === "beat" ? "Beat" : "Non-Beat"}
+                              </span>
+                              <span className="text-[10px] text-gray-600 whitespace-nowrap">
+                                ₹{o.orderValue.toLocaleString()}
+                              </span>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  );
+                })}
 
                 <div className="flex items-start gap-2 p-2.5 rounded border border-blue-100 bg-blue-50/60 text-[11px] text-blue-900">
                   <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
@@ -2389,9 +2381,14 @@ export function Orders() {
                     </div>
                   </div>
 
-                  {/* Delivery filters — anchored on the spec's
-                      operational priorities (Delivery Day, Delivery
-                      Type, Tomorrow / NDD quick toggles). */}
+                  {/* Delivery filters — June 2026 retired the relative
+                      bucket multi-select (Today / Tomorrow / Overdue)
+                      and the Tomorrow-only / Urgent-only quick toggles
+                      together with the broader Tomorrow indicator
+                      cleanup. Sellers slice deliveries by a concrete
+                      Delivery Day range (or via the pill row on the
+                      New / Confirmed tabs). Delivery Type stays as an
+                      Urgent vs Regular slicer. */}
                   <div className="pt-2 border-t border-gray-100">
                     <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-700 mb-3">
                       Delivery
@@ -2399,21 +2396,7 @@ export function Orders() {
 
                     <div className="space-y-4">
                       <div className="space-y-2">
-                        <Label>Delivery Day</Label>
-                        <MultiSelect
-                          options={deliveryBucketOptions.map((d) => ({
-                            label: d.label,
-                            value: d.value,
-                          }))}
-                          selected={selectedDeliveryBuckets}
-                          onChange={setSelectedDeliveryBuckets}
-                          placeholder="Any day"
-                          className="w-full"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Expected Delivery Date</Label>
+                        <Label>Delivery Day Range</Label>
                         <div className="flex flex-col gap-2">
                           <Input
                             type="date"
@@ -2443,34 +2426,6 @@ export function Orders() {
                           placeholder="Urgent / Regular"
                           className="w-full"
                         />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Quick toggles</Label>
-                        <div className="flex flex-col gap-2 rounded-md border border-gray-200 p-3">
-                          <label className="flex items-center gap-2 cursor-pointer">
-                            <Checkbox
-                              checked={tomorrowOnly}
-                              onCheckedChange={(v) =>
-                                setTomorrowOnly(Boolean(v))
-                              }
-                            />
-                            <span className="text-sm text-gray-800 flex items-center gap-1.5">
-                              <CalendarClock className="h-3.5 w-3.5 text-amber-600" />
-                              Tomorrow orders only
-                            </span>
-                          </label>
-                          <label className="flex items-center gap-2 cursor-pointer">
-                            <Checkbox
-                              checked={urgentOnly}
-                              onCheckedChange={(v) => setUrgentOnly(Boolean(v))}
-                            />
-                            <span className="text-sm text-gray-800 flex items-center gap-1.5">
-                              <Zap className="h-3.5 w-3.5 text-red-600" />
-                              Urgent orders only
-                            </span>
-                          </label>
-                        </div>
                       </div>
                     </div>
                   </div>
