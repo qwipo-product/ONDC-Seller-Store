@@ -335,98 +335,13 @@ export function CustomerDemoDetail() {
             </CardContent>
           </Card>
 
-          {/* Delivery Serviceability — ONE beat per customer, applied
-              to every company they buy from. The beat carries the
-              delivery days (one or more). Edit in Admin → Seller →
-              Serviceability. */}
-          {(() => {
-            const beat = findBeatForCustomer({
-              customerId: customer.customerId,
-              city: customer.city,
-              area: customer.area,
-              pincode: customer.pincode,
-              serviceabilityOverrides: customer.serviceabilityOverrides,
-            });
-            const uniqueDayCount = beat?.deliveryDays.length ?? 0;
-            return (
-              <Card>
-                <CardHeader className="py-2.5 px-4 border-b border-gray-100">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Route className="h-4 w-4 text-indigo-600" />
-                    Delivery Serviceability
-                    {beat && uniqueDayCount > 0 && (
-                      <Badge className="bg-blue-50 text-blue-700 border-blue-200 h-5 px-1.5 text-[10px]">
-                        {uniqueDayCount} delivery day
-                        {uniqueDayCount === 1 ? "" : "s"}
-                      </Badge>
-                    )}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-4">
-                  {!beat ? (
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
-                      <Lock className="h-3.5 w-3.5 text-gray-400" />
-                      No serviceability polygon covers this customer.
-                      Configure one in Admin → Seller → Serviceability.
-                    </div>
-                  ) : (
-                    <>
-                      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] gap-3 items-center">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <Route className="h-3.5 w-3.5 text-gray-400 shrink-0" />
-                          <span className="text-sm font-medium text-gray-900 truncate">
-                            {beat.beatName}
-                          </span>
-                          {beat.polygonFileName && (
-                            <span
-                              title={`Polygon: ${beat.polygonFileName}`}
-                              className="text-emerald-600 shrink-0"
-                            >
-                              <MapPin className="h-3 w-3" />
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          {beat.deliveryDays.map((day) => (
-                            <TooltipProvider key={day} delayDuration={150}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span className="w-fit cursor-help">
-                                    <Badge className="gap-1 bg-blue-50 text-blue-700 border-blue-200 font-medium">
-                                      <CalendarClock className="h-3 w-3" />
-                                      {day}
-                                      <Lock className="h-2.5 w-2.5 ml-0.5 opacity-60" />
-                                    </Badge>
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent className="max-w-xs text-xs">
-                                  Read-only — change this beat&apos;s
-                                  delivery days in Admin → Seller →
-                                  Serviceability.
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          ))}
-                        </div>
-                      </div>
-                      <p className="text-[11px] text-gray-500 pt-3">
-                        Beats are configured at the distributor level —
-                        the same schedule applies to every company this
-                        customer buys from. To re-route or shift days,
-                        edit the polygon in Admin → Seller →
-                        Serviceability.
-                      </p>
-                    </>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })()}
-
-          {/* Linked Companies — per-company status + Block/Unblock.
-              Beat info no longer lives here (one beat per customer
-              applies to all companies — see the Delivery Serviceability
-              card above). */}
+          {/* Linked Companies — one panel per company. Header carries
+              the company name, status, and Block / Unblock; the body
+              underneath lists every (Beat Name, Delivery Day) the
+              customer is mapped to for that company. A single company
+              with multiple delivery days renders as multiple rows in
+              its panel (e.g. ITC delivers Monday for KPHB and
+              Wednesday for SR Nagar). */}
           <Card>
             <CardHeader className="py-2.5 px-4 border-b border-gray-100">
               <CardTitle className="text-sm flex items-center gap-2">
@@ -434,78 +349,178 @@ export function CustomerDemoDetail() {
                 Linked Companies ({customer.companies.length})
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-4 space-y-2">
+            <CardContent className="p-4 space-y-3">
               {customer.companies.length === 0 ? (
                 <p className="text-sm text-gray-500 text-center py-2">
                   No companies linked to this customer yet.
                 </p>
               ) : (
                 <>
-                  {customer.companies.map((co) => (
-                    <div
-                      key={co.companyId}
-                      className={`flex items-center justify-between gap-3 px-3 py-2 rounded-lg border ${
-                        co.status === "Active"
-                          ? "border-gray-200 bg-gray-50/40"
-                          : "border-red-100 bg-red-50/30"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className="bg-blue-100 text-blue-700 p-1 rounded">
-                          <Building2 className="h-3.5 w-3.5" />
+                  {customer.companies.map((co) => {
+                    // Seller-side rule: each customer sits on ONE
+                    // beat per company — the beat its location maps
+                    // into. A beat can serve multiple delivery days,
+                    // and the customer inherits all of them, but the
+                    // row count stays at one per company.
+                    const beat = findBeatForCustomer(
+                      {
+                        customerId: customer.customerId,
+                        city: customer.city,
+                        area: customer.area,
+                        pincode: customer.pincode,
+                        serviceabilityOverrides:
+                          customer.serviceabilityOverrides,
+                      },
+                      co.companyId,
+                    );
+                    const uniqueDayCount = beat?.deliveryDays.length ?? 0;
+                    return (
+                      <div
+                        key={co.companyId}
+                        className={`rounded-lg border ${
+                          co.status === "Active"
+                            ? "border-gray-200"
+                            : "border-red-100 bg-red-50/30"
+                        } overflow-hidden`}
+                      >
+                        {/* Company header — Company name on the left,
+                            status badge + action button on the right. */}
+                        <div className="flex items-center justify-between gap-3 px-3 py-2 bg-gray-50 border-b border-gray-100">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="bg-blue-100 text-blue-700 p-1 rounded">
+                              <Building2 className="h-3.5 w-3.5" />
+                            </div>
+                            <p className="text-sm font-semibold text-gray-900 truncate">
+                              {co.companyName}
+                            </p>
+                            {beat && uniqueDayCount > 0 && (
+                              <Badge className="bg-blue-50 text-blue-700 border-blue-200 h-5 px-1.5 text-[10px]">
+                                {uniqueDayCount} delivery day
+                                {uniqueDayCount === 1 ? "" : "s"}
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {co.status === "Active" ? (
+                              <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1">
+                                <CheckCircle2 className="h-3 w-3" />
+                                Active
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-red-50 text-red-700 border-red-200 gap-1">
+                                <Ban className="h-3 w-3" />
+                                Blocked
+                              </Badge>
+                            )}
+                            {co.status === "Active" ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 gap-1 border-red-300 text-red-700 hover:bg-red-50"
+                                onClick={() =>
+                                  setPendingBlockToggle({
+                                    action: "block",
+                                    companyId: co.companyId,
+                                  })
+                                }
+                              >
+                                <Ban className="h-3.5 w-3.5" />
+                                Block
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                className="h-7 gap-1 bg-emerald-600 hover:bg-emerald-700"
+                                onClick={() =>
+                                  setPendingBlockToggle({
+                                    action: "unblock",
+                                    companyId: co.companyId,
+                                  })
+                                }
+                              >
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                Unblock
+                              </Button>
+                            )}
+                          </div>
                         </div>
-                        <p className="text-sm font-semibold text-gray-900 truncate">
-                          {co.companyName}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        {co.status === "Active" ? (
-                          <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1">
-                            <CheckCircle2 className="h-3 w-3" />
-                            Active
-                          </Badge>
+
+                        {/* Beats body — ONE beat per (customer × company)
+                            on the seller side. The beat name sits on
+                            the left, the delivery day chips it carries
+                            sit on the right (one beat can serve N
+                            days). When no polygon covers this
+                            customer for the company, show the empty
+                            state. */}
+                        {!beat ? (
+                          <div className="px-3 py-3 flex items-center gap-2 text-xs text-gray-500">
+                            <Lock className="h-3.5 w-3.5 text-gray-400" />
+                            No serviceability polygon covers this
+                            customer for {co.companyName}. Configure one
+                            in Admin → Seller → Serviceability.
+                          </div>
                         ) : (
-                          <Badge className="bg-red-50 text-red-700 border-red-200 gap-1">
-                            <Ban className="h-3 w-3" />
-                            Blocked
-                          </Badge>
-                        )}
-                        {co.status === "Active" ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-7 gap-1 border-red-300 text-red-700 hover:bg-red-50"
-                            onClick={() =>
-                              setPendingBlockToggle({
-                                action: "block",
-                                companyId: co.companyId,
-                              })
-                            }
-                          >
-                            <Ban className="h-3.5 w-3.5" />
-                            Block
-                          </Button>
-                        ) : (
-                          <Button
-                            size="sm"
-                            className="h-7 gap-1 bg-emerald-600 hover:bg-emerald-700"
-                            onClick={() =>
-                              setPendingBlockToggle({
-                                action: "unblock",
-                                companyId: co.companyId,
-                              })
-                            }
-                          >
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                            Unblock
-                          </Button>
+                          <div className="divide-y divide-gray-100">
+                            <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] gap-3 px-3 py-1.5 text-[10px] uppercase tracking-wider font-semibold text-gray-500 bg-gray-50/60">
+                              <span>Beat Name</span>
+                              <span>Delivery Days</span>
+                            </div>
+                            <div
+                              className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] gap-3 px-3 py-2 items-center"
+                            >
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <Route className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                                <span className="text-sm font-medium text-gray-900 truncate">
+                                  {beat.beatName}
+                                </span>
+                                {beat.polygonFileName && (
+                                  <span
+                                    title={`Polygon: ${beat.polygonFileName}`}
+                                    className="text-emerald-600 shrink-0"
+                                  >
+                                    <MapPin className="h-3 w-3" />
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                {beat.deliveryDays.map((day) => (
+                                  <TooltipProvider
+                                    key={day}
+                                    delayDuration={150}
+                                  >
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className="w-fit cursor-help">
+                                          <Badge className="gap-1 bg-blue-50 text-blue-700 border-blue-200 font-medium">
+                                            <CalendarClock className="h-3 w-3" />
+                                            {day}
+                                            <Lock className="h-2.5 w-2.5 ml-0.5 opacity-60" />
+                                          </Badge>
+                                        </span>
+                                      </TooltipTrigger>
+                                      <TooltipContent className="max-w-xs text-xs">
+                                        Read-only — change this
+                                        beat&apos;s delivery days in
+                                        Admin → Seller →
+                                        Serviceability.
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
                         )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                   <p className="text-[11px] text-gray-500 pt-1">
-                    Block / Unblock is tracked per company — a customer
-                    can be Active for one brand and Blocked for another.
+                    Status and Block / Unblock are tracked per company.
+                    Each company shows the <b>one beat</b> the
+                    customer&apos;s location maps into — that beat can
+                    carry multiple delivery days (e.g. KPHB 1 served
+                    Mon &amp; Tue). To re-route a customer or shift days,
+                    edit the polygons in Admin → Seller → Serviceability.
                   </p>
                 </>
               )}
