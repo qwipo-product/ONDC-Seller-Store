@@ -71,7 +71,6 @@ export function OrderSettings() {
   const [processingTime, setProcessingTime] = useState(() =>
     getProcessingTimeHours(),
   );
-  const [cancellationWindow, setCancellationWindow] = useState("2");
   // Beat order acceptance cut-off. Default 17:00 per the June review.
   // Stored as `HH:MM` so it pairs cleanly with `<input type="time">`.
   const [beatCutoffTime, setBeatCutoffTimeInput] = useState(() =>
@@ -79,12 +78,10 @@ export function OrderSettings() {
   );
   const [savedProcessing, setSavedProcessing] = useState({
     processingTime: getProcessingTimeHours(),
-    cancellationWindow: "2",
     beatCutoffTime: getBeatCutoffTime(),
   });
   const isProcessingDirty =
     processingTime !== savedProcessing.processingTime ||
-    cancellationWindow !== savedProcessing.cancellationWindow ||
     beatCutoffTime !== savedProcessing.beatCutoffTime;
 
   // ---- Order Return ----
@@ -126,7 +123,7 @@ export function OrderSettings() {
   };
 
   const handleSaveProcessing = () => {
-    setSavedProcessing({ processingTime, cancellationWindow, beatCutoffTime });
+    setSavedProcessing({ processingTime, beatCutoffTime });
     setProcessingTimeHours(processingTime);
     setBeatCutoffTime(beatCutoffTime);
     toast.success("Order processing saved.");
@@ -283,7 +280,7 @@ export function OrderSettings() {
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="pt-0 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <CardContent className="pt-0 grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label className="text-xs">Processing Time</Label>
                 <Select value={processingTime} onValueChange={setProcessingTime}>
@@ -303,26 +300,7 @@ export function OrderSettings() {
                 </p>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Cancellation Window</Label>
-                <Select value={cancellationWindow} onValueChange={setCancellationWindow}>
-                  <SelectTrigger className="h-8 text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">1 hour</SelectItem>
-                    <SelectItem value="2">2 hours</SelectItem>
-                    <SelectItem value="4">4 hours</SelectItem>
-                    <SelectItem value="6">6 hours</SelectItem>
-                    <SelectItem value="12">12 hours</SelectItem>
-                    <SelectItem value="24">24 hours</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-[11px] text-gray-500">
-                  Customer's cancellation window after placing.
-                </p>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Sales Beat Cut-off</Label>
+                <Label className="text-xs">Order Acceptance Time</Label>
                 <Input
                   type="time"
                   value={beatCutoffTime}
@@ -330,7 +308,7 @@ export function OrderSettings() {
                   className="h-8 text-sm"
                 />
                 <p className="text-[11px] text-gray-500">
-                  Beat orders placed after this roll to the next cycle.
+                  Orders received after this roll to the next delivery cycle.
                 </p>
               </div>
             </CardContent>
