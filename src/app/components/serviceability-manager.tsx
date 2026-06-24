@@ -286,14 +286,17 @@ function PolygonCell({
   );
 }
 
-// Day picker — multi-select chip grid for delivery days. Plain
-// buttons (not Radix ToggleGroup) so the selected state styles win
-// cleanly — the ToggleGroup variants ship a `data-[state=on]:bg-accent`
-// baseline that fights chip-style overrides.
+// Day picker — single-select chip grid (radio-style). The June 24
+// product review settled that a beat = one route delivered on ONE day;
+// distributors plan area-wise (KPHB 1 on Monday) and don't fan the
+// same beat across multiple weekdays. Picking a day replaces any
+// previous choice; clicking the active day clears the selection.
+//
+// Storage stays as `DeliveryDay[]` (the type predates this rule) but
+// the picker only ever emits a 0- or 1-element array.
 //
 // Layout: "Next Day" sits on its own full-width row (amber, express),
-// then a 4-col grid for the seven weekdays — wraps naturally and
-// keeps every label fully visible at any dialog width.
+// then a 4-col grid for the seven weekdays.
 function DayPicker({
   selected,
   onChange,
@@ -302,13 +305,12 @@ function DayPicker({
   onChange: (next: DeliveryDay[]) => void;
 }) {
   const weekdays = DELIVERY_DAY_OPTIONS.filter((d) => d !== "Next Day");
-  const isOn = (d: DeliveryDay) => selected.includes(d);
-  const toggleDay = (d: DeliveryDay) => {
-    if (isOn(d)) onChange(selected.filter((x) => x !== d));
-    else onChange([...selected, d]);
+  const current = selected[0];
+  const isOn = (d: DeliveryDay) => current === d;
+  const pick = (d: DeliveryDay) => {
+    if (current === d) onChange([]);
+    else onChange([d]);
   };
-  const clear = () => onChange([]);
-
   const nextDayOn = isOn("Next Day");
 
   return (
@@ -316,8 +318,9 @@ function DayPicker({
       {/* Express slot — Next Day on its own wide row. */}
       <button
         type="button"
-        onClick={() => toggleDay("Next Day")}
-        aria-pressed={nextDayOn}
+        onClick={() => pick("Next Day")}
+        role="radio"
+        aria-checked={nextDayOn}
         className={`h-10 w-full inline-flex items-center justify-center gap-1.5 rounded-lg border text-xs font-medium transition-colors ${
           nextDayOn
             ? "bg-amber-50 border-amber-400 text-amber-900 ring-1 ring-amber-200"
@@ -329,15 +332,16 @@ function DayPicker({
       </button>
 
       {/* Weekdays — 4-column grid (Mon Tue Wed Thu / Fri Sat Sun). */}
-      <div className="grid grid-cols-4 gap-1.5">
+      <div role="radiogroup" className="grid grid-cols-4 gap-1.5">
         {weekdays.map((d) => {
           const on = isOn(d);
           return (
             <button
               key={d}
               type="button"
-              onClick={() => toggleDay(d)}
-              aria-pressed={on}
+              onClick={() => pick(d)}
+              role="radio"
+              aria-checked={on}
               className={`h-10 w-full inline-flex items-center justify-center gap-1 rounded-lg border text-xs font-medium transition-colors ${
                 on
                   ? "bg-blue-50 border-blue-500 text-blue-700 ring-1 ring-blue-200"
@@ -351,18 +355,10 @@ function DayPicker({
         })}
       </div>
 
-      {/* Helper action — quick clear. */}
-      {selected.length > 0 && (
-        <div className="flex items-center gap-3 text-[11px]">
-          <button
-            type="button"
-            onClick={clear}
-            className="text-gray-500 hover:underline"
-          >
-            Clear all
-          </button>
-        </div>
-      )}
+      {/* Caption — clarifies the new one-day rule + how to clear. */}
+      <p className="text-[10px] text-gray-500">
+        Pick one day per beat. Click the selected day to clear it.
+      </p>
     </div>
   );
 }
@@ -433,7 +429,10 @@ export function ServiceabilityManager() {
     setEditingId(beatId);
     setEditCompanyId(beat.companyId);
     setEditBeatName(beat.beatName);
-    setEditDays(sortDeliveryDays(beat.deliveryDays));
+    // June 24 single-day rule: legacy beats may still carry multiple
+    // days. Pre-trim to the first so the picker shows truthful state;
+    // saving will persist that single day and drop the others.
+    setEditDays(beat.deliveryDays.slice(0, 1));
     setEditPolygon({
       file: null,
       data: beat.polygonData ?? null,
@@ -473,6 +472,26 @@ export function ServiceabilityManager() {
     if (nameCollision) {
       toast.error(
         `${company.name} already has a beat called "${beatName}". Beat names are unique per company.`,
+      );
+      return;
+    }
+
+    // Cross-company day-consistency check. A distributor runs one
+    // delivery operation per area: if "KPHB 1" delivers on Monday for
+    // ITC, then "KPHB 1" for any other company must also deliver on
+    // Monday. We block the save and tell the seller which company
+    // already pins the day so they can match it.
+    const editDay = editDays[0];
+    const dayConflict = beats.find(
+      (b) =>
+        b.id !== editingId &&
+        b.beatName.trim().toLowerCase() === beatName.toLowerCase() &&
+        b.deliveryDays[0] &&
+        b.deliveryDays[0] !== editDay,
+    );
+    if (dayConflict) {
+      toast.error(
+        `"${beatName}" already delivers on ${dayConflict.deliveryDays[0]} for ${dayConflict.companyName}. Pick ${dayConflict.deliveryDays[0]} to keep the area consistent across companies.`,
       );
       return;
     }
@@ -538,14 +557,18 @@ export function ServiceabilityManager() {
   const allVisibleSelected =
     filteredAdminCompanies.length > 0 &&
     filteredAdminCompanies.every((c) => addSelectedCompanies[c.id]);
+  const anyVisibleSelected = filteredAdminCompanies.some(
+    (c) => addSelectedCompanies[c.id],
+  );
 
-  const toggleAddAllVisible = () => {
+  const selectAllVisible = () => {
     const next = { ...addSelectedCompanies };
-    if (allVisibleSelected) {
-      for (const c of filteredAdminCompanies) delete next[c.id];
-    } else {
-      for (const c of filteredAdminCompanies) next[c.id] = true;
-    }
+    for (const c of filteredAdminCompanies) next[c.id] = true;
+    setAddSelectedCompanies(next);
+  };
+  const clearAllVisible = () => {
+    const next = { ...addSelectedCompanies };
+    for (const c of filteredAdminCompanies) delete next[c.id];
     setAddSelectedCompanies(next);
   };
 
@@ -572,6 +595,40 @@ export function ServiceabilityManager() {
       return;
     }
 
+    // Cross-company day-consistency pre-check. Distributors run one
+    // delivery operation per area, so a beat name's day must match
+    // across every company. We check both (a) form rows against each
+    // other and (b) form rows against the database before persisting.
+    // First mismatch found blocks the entire save with a precise
+    // error so the seller can fix the day and retry.
+    const rowsByKey = new Map<string, BeatRow>();
+    for (const row of validAddRows) {
+      const key = row.beatName.trim().toLowerCase();
+      const existing = rowsByKey.get(key);
+      if (existing && existing.deliveryDays[0] !== row.deliveryDays[0]) {
+        toast.error(
+          `"${row.beatName.trim()}" appears twice in this form with different days (${existing.deliveryDays[0]} and ${row.deliveryDays[0]}). One beat name = one delivery day.`,
+        );
+        return;
+      }
+      if (!existing) rowsByKey.set(key, row);
+    }
+    for (const row of validAddRows) {
+      const key = row.beatName.trim().toLowerCase();
+      const dbConflict = beats.find(
+        (b) =>
+          b.beatName.trim().toLowerCase() === key &&
+          b.deliveryDays[0] &&
+          b.deliveryDays[0] !== row.deliveryDays[0],
+      );
+      if (dbConflict) {
+        toast.error(
+          `"${row.beatName.trim()}" already delivers on ${dbConflict.deliveryDays[0]} for ${dbConflict.companyName}. Pick ${dbConflict.deliveryDays[0]} to keep the area consistent across companies.`,
+        );
+        return;
+      }
+    }
+
     const created: ServiceabilityBeat[] = [];
     const skipped: string[] = [];
     const now = new Date().toISOString();
@@ -585,8 +642,9 @@ export function ServiceabilityManager() {
         const beatName = row.beatName.trim();
         const key = beatName.toLowerCase();
         // Uniqueness: one beat name per company. Same name on a
-        // different company is fine (e.g. ITC has KPHB 1 and Marico
-        // also has KPHB 1 — different polygons, different routes).
+        // different company is fine — and per the day-consistency
+        // rule above, every same-named beat across companies now
+        // shares the same delivery day too.
         const dbCollision = beats.some(
           (b) =>
             b.companyId === cid &&
@@ -957,8 +1015,9 @@ export function ServiceabilityManager() {
             </DialogTitle>
             <DialogDescription>
               Pick one or many companies on the left, then list each beat
-              on the right. Each beat picks its own delivery days — one
-              beat record per (company × beat name).
+              on the right. Each beat picks <b>one delivery day</b>; the
+              same beat name must use the same day across every company
+              it's added to.
             </DialogDescription>
           </DialogHeader>
 
@@ -968,13 +1027,27 @@ export function ServiceabilityManager() {
                 <div className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
                   Companies ({addSelectedCount})
                 </div>
-                <button
-                  type="button"
-                  onClick={toggleAddAllVisible}
-                  className="text-[11px] text-indigo-600 hover:underline"
-                >
-                  {allVisibleSelected ? "Clear visible" : "Select visible"}
-                </button>
+                <div className="flex items-center gap-1.5 text-[11px]">
+                  <button
+                    type="button"
+                    onClick={selectAllVisible}
+                    disabled={
+                      filteredAdminCompanies.length === 0 || allVisibleSelected
+                    }
+                    className="text-indigo-600 hover:underline disabled:text-gray-400 disabled:no-underline disabled:cursor-not-allowed"
+                  >
+                    Select all
+                  </button>
+                  <span className="text-gray-300">·</span>
+                  <button
+                    type="button"
+                    onClick={clearAllVisible}
+                    disabled={!anyVisibleSelected}
+                    className="text-indigo-600 hover:underline disabled:text-gray-400 disabled:no-underline disabled:cursor-not-allowed"
+                  >
+                    Clear all
+                  </button>
+                </div>
               </div>
               <div className="px-3 py-2 border-b bg-white">
                 <div className="relative">
@@ -1113,12 +1186,10 @@ export function ServiceabilityManager() {
                     <div>
                       <div className="flex items-center justify-between mb-1.5">
                         <Label className="text-[10px] text-gray-500">
-                          Delivery days *
+                          Delivery day *
                         </Label>
                         <span className="text-[10px] text-gray-500">
-                          {row.deliveryDays.length === 0
-                            ? "No day picked"
-                            : `${row.deliveryDays.length} day${row.deliveryDays.length === 1 ? "" : "s"} picked`}
+                          {row.deliveryDays[0] ?? "No day picked"}
                         </span>
                       </div>
                       <DayPicker
@@ -1133,6 +1204,35 @@ export function ServiceabilityManager() {
                           )
                         }
                       />
+                      {/* Inline cross-company conflict hint. Fires
+                          when the typed beat name already exists in
+                          the database for any company on a different
+                          day. Educates the seller before they hit the
+                          save-time error. */}
+                      {(() => {
+                        const name = row.beatName.trim().toLowerCase();
+                        const day = row.deliveryDays[0];
+                        if (!name || !day) return null;
+                        const conflict = beats.find(
+                          (b) =>
+                            b.beatName.trim().toLowerCase() === name &&
+                            b.deliveryDays[0] &&
+                            b.deliveryDays[0] !== day,
+                        );
+                        if (!conflict) return null;
+                        return (
+                          <div className="mt-2 flex items-start gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-900">
+                            <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-600" />
+                            <span>
+                              <b>{conflict.beatName}</b> already delivers on{" "}
+                              <b>{conflict.deliveryDays[0]}</b> for{" "}
+                              <b>{conflict.companyName}</b>. Pick{" "}
+                              <b>{conflict.deliveryDays[0]}</b> to keep the area
+                              consistent across companies.
+                            </span>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 ))}
@@ -1230,15 +1330,41 @@ export function ServiceabilityManager() {
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label>
-                  Delivery days <span className="text-red-500">*</span>
+                  Delivery day <span className="text-red-500">*</span>
                 </Label>
                 <span className="text-[11px] text-gray-500">
-                  {editDays.length === 0
-                    ? "No day picked"
-                    : `${editDays.length} day${editDays.length === 1 ? "" : "s"} picked`}
+                  {editDays[0] ?? "No day picked"}
                 </span>
               </div>
               <DayPicker selected={editDays} onChange={setEditDays} />
+              {/* Inline cross-company conflict hint — mirrors the
+                  add-dialog warning so an edit that changes the day
+                  also gets early feedback. */}
+              {(() => {
+                const name = editBeatName.trim().toLowerCase();
+                const day = editDays[0];
+                if (!name || !day) return null;
+                const conflict = beats.find(
+                  (b) =>
+                    b.id !== editingId &&
+                    b.beatName.trim().toLowerCase() === name &&
+                    b.deliveryDays[0] &&
+                    b.deliveryDays[0] !== day,
+                );
+                if (!conflict) return null;
+                return (
+                  <div className="flex items-start gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-900">
+                    <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-600" />
+                    <span>
+                      <b>{conflict.beatName}</b> already delivers on{" "}
+                      <b>{conflict.deliveryDays[0]}</b> for{" "}
+                      <b>{conflict.companyName}</b>. Pick{" "}
+                      <b>{conflict.deliveryDays[0]}</b> to keep the area
+                      consistent across companies.
+                    </span>
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="space-y-1.5">
