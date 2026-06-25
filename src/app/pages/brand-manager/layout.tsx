@@ -46,7 +46,7 @@ export function BrandManagerLayout() {
 
   const handleLogout = () => {
     logout();
-    navigate("/brand-manager/login");
+    navigate("/login");
   };
 
   const isActive = (href: string) => {

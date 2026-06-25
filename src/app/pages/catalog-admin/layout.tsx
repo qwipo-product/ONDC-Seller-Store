@@ -46,7 +46,7 @@ export function CatalogAdminLayout() {
 
   const handleLogout = () => {
     logout();
-    navigate("/catalog-admin/login");
+    navigate("/login");
   };
 
   const isActive = (href: string) => {
