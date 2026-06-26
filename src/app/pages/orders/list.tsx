@@ -1849,8 +1849,7 @@ export function Orders() {
             <DialogDescription>
               Sellers can confirm orders delivering <b>today, tomorrow, or
               earlier</b>. Orders further out have to wait until the day
-              before delivery — they&apos;re listed below for visibility but
-              won&apos;t be touched.
+              before delivery.
             </DialogDescription>
           </DialogHeader>
 
@@ -1956,46 +1955,6 @@ export function Orders() {
                         </div>
                       );
                     })}
-                  </div>
-                )}
-
-                {ineligible.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <AlertCircle className="h-4 w-4 text-amber-600" />
-                      <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
-                        Cannot confirm yet
-                      </p>
-                      <Badge className="bg-amber-100 text-amber-800 border-amber-200">
-                        {ineligible.length}
-                      </Badge>
-                    </div>
-                    <div className="rounded-md border border-amber-200 bg-amber-50/60 p-3 space-y-2">
-                      <p className="text-[11px] text-amber-900">
-                        Delivery day is more than 1 day out. These orders
-                        stay in <b>New</b>; come back to confirm them the
-                        day before delivery.
-                      </p>
-                      {groupByDay(ineligible).map(([day, rows]) => (
-                        <div key={day} className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <CalendarDays className="h-3.5 w-3.5 text-amber-700" />
-                            <p className="text-xs font-medium text-amber-900">
-                              {formatDeliveryPillLabel(day)}
-                            </p>
-                            <Badge
-                              variant="secondary"
-                              className="bg-white text-amber-800 border border-amber-200 text-[10px] h-4 px-1.5"
-                            >
-                              {rows.length}
-                            </Badge>
-                          </div>
-                          <ul className="space-y-1.5 max-h-32 overflow-y-auto">
-                            {rows.map(renderRow)}
-                          </ul>
-                        </div>
-                      ))}
-                    </div>
                   </div>
                 )}
 
