@@ -72,6 +72,7 @@ import {
   updateOrderStatuses,
   getOrdersToday,
   getOrderType,
+  isConfirmableDeliveryDay,
 } from "../../lib/orders-data";
 
 // An order is a "beat" delivery when it rides a configured
@@ -596,19 +597,47 @@ export function Orders() {
     setIsMapDialogOpen(true);
   };
 
-  // Confirm orders (New → Confirmed). Pure confirmation surface —
-  // dispatch date / time / notes are no longer captured here.
+  // Confirm orders (New → Confirmed). The June 25 review settled that
+  // a seller can only confirm orders whose committed Delivery Day is
+  // today, tomorrow, or in the past — anything further out has to
+  // wait until the day-before window. We filter the selection to the
+  // eligible subset, flip just those to Confirmed, and leave the
+  // ineligible ones selected so the seller can revisit them later.
+  // The confirm dialog body already calls this out per-row; the toast
+  // copy mirrors the split so the action's outcome is unambiguous.
   const handleConfirmOrders = () => {
+    const allSelected = orders.filter((o) => selectedOrders.includes(o.id));
+    const eligible = allSelected.filter((o) =>
+      isConfirmableDeliveryDay(o.expectedDeliveryDate),
+    );
+    if (eligible.length === 0) {
+      toast.error(
+        "Nothing to confirm — every selected order delivers more than 1 day out.",
+      );
+      return;
+    }
+    const eligibleIds = new Set(eligible.map((o) => o.id));
     setOrders((prev) =>
       prev.map((order) =>
-        selectedOrders.includes(order.id)
+        eligibleIds.has(order.id)
           ? { ...order, status: "Confirmed" as const }
-          : order
-      )
+          : order,
+      ),
     );
-
-    toast.success(`${selectedOrders.length} order(s) confirmed.`);
-    setSelectedOrders([]);
+    const skipped = allSelected.length - eligible.length;
+    if (skipped > 0) {
+      toast.success(
+        `Confirmed ${eligible.length} order${eligible.length === 1 ? "" : "s"}. Skipped ${skipped} that deliver more than 1 day out.`,
+      );
+    } else {
+      toast.success(
+        `Confirmed ${eligible.length} order${eligible.length === 1 ? "" : "s"}.`,
+      );
+    }
+    // Drop the confirmed ids from the selection; keep the ineligible
+    // ones selected so the seller can act on them later (or unselect
+    // by hand).
+    setSelectedOrders((prev) => prev.filter((id) => !eligibleIds.has(id)));
     setIsConfirmDialogOpen(false);
   };
 
@@ -969,49 +998,6 @@ export function Orders() {
     }
   };
 
-  // Delivery-type badge — collapsed to two operational classes per
-  // the May 2026 product call. Urgent reads red with a lightning
-  // icon so dispatch staff can spot priority work; Regular is a
-  // muted blue with the route icon so the bulk of the table doesn't
-  // scream for attention. Beat name (when present) shows alongside
-  // as supporting context — the type tells you "how soon", the beat
-  // tells you "which truck".
-  const getDeliveryTypeBadge = (order: Order) => {
-    switch (order.deliveryType) {
-      case "Urgent":
-        return (
-          <Badge className="bg-red-50 text-red-700 border-red-200 gap-1">
-            <Zap className="h-3 w-3" />
-            Urgent
-          </Badge>
-        );
-      case "Regular":
-        return (
-          <Badge className="bg-blue-50 text-blue-700 border-blue-200 gap-1">
-            <Route className="h-3 w-3" />
-            Regular
-          </Badge>
-        );
-      default:
-        return null;
-    }
-  };
-
-  // Short date formatter — "Wed, 21 May" / "Mon, 16 May". Strips
-  // the year (always current in the demo data) so dates fit on a
-  // single line in the table. Returns the input unchanged when it's
-  // not a parseable ISO date.
-  const formatShortDate = (iso: string): string => {
-    const t = Date.parse(iso + "T00:00:00Z");
-    if (Number.isNaN(t)) return iso;
-    return new Date(t).toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      weekday: "short",
-      timeZone: "UTC",
-    });
-  };
-
   // (Priority badge was retired alongside the May 2026 column sweep
   // — urgency now reads off the Delivery Type badge, and the row
   // surfaces Beat Name + Beat Delivery Day as first-class columns
@@ -1067,24 +1053,25 @@ export function Orders() {
                   />
                 </th>
               )}
-              {/* Order Date leads — distributor scans by "when did
-                  this land" first. Type + Beat Name + Delivery Day
-                  follow so each row carries the operational shape
-                  the seller commits to. The June 2026 review dropped
-                  the Actual Delivery column (and the relative
-                  "Today / Tomorrow" indicator) — only the committed
-                  Delivery Day matters operationally. */}
+              {/* Column shape locked on June 26 — Order Date leads
+                  (when did it land), followed by Delivery Date (when
+                  it ships), then the order ID, identity columns,
+                  operational tags (Type / Beat), commercial (Value /
+                  Marketplace), and Status + per-tab Actions. */}
               <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
                 Order Date
               </th>
               <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
-                Order
+                Delivery Date
+              </th>
+              <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
+                Order ID
               </th>
               <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
                 Company
               </th>
               <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
-                Retailer
+                Business Name
               </th>
               <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
                 Mobile
@@ -1095,11 +1082,11 @@ export function Orders() {
               <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
                 Beat Name
               </th>
-              <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
-                Delivery Day
-              </th>
               <th className="text-right px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
-                Value
+                Order Value
+              </th>
+              <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
+                Marketplace
               </th>
               <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
                 Status
@@ -1130,37 +1117,33 @@ export function Orders() {
                     />
                   </td>
                 )}
-                {/* Order Date — now the first content column. Stacks
-                    the ISO source under the formatted line so the
-                    seller can grok both at a glance. */}
+                {/* Order Date — ISO date the order landed. */}
                 <td
-                  className="px-3 py-2.5 whitespace-nowrap"
-                  title={order.orderDate}
+                  className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700 tabular-nums"
+                  title={order.orderTime ? `${order.orderDate} ${order.orderTime}` : order.orderDate}
                 >
-                  <p className="text-sm font-medium text-gray-900">
-                    {formatShortDate(order.orderDate)}
-                  </p>
-                  {order.orderTime && (
-                    <p className="text-[10px] text-gray-500">
-                      {order.orderTime}
-                    </p>
-                  )}
+                  {order.orderDate}
                 </td>
-                {/* Order ID + marketplace stacked compactly. Showing
-                    the last 8 chars keeps the chip readable; full
-                    ID is on hover via CopyOnHover. */}
+                {/* Delivery Date — the date the seller committed to
+                    deliver on. Same ISO format as Order Date so the
+                    two columns read in lockstep. */}
+                <td
+                  className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700 tabular-nums"
+                  title={order.expectedDeliveryDate}
+                >
+                  {order.expectedDeliveryDate}
+                </td>
+                {/* Order ID — full ID rendered as a code chip with
+                    copy-on-hover. */}
                 <td className="px-3 py-2.5 whitespace-nowrap">
                   <CopyOnHover value={order.id} label="Order ID">
                     <code
                       className="text-[11px] bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded font-mono"
                       title={order.id}
                     >
-                      …{order.id.slice(-8)}
+                      {order.id}
                     </code>
                   </CopyOnHover>
-                  <p className="text-[10px] text-gray-500 mt-0.5">
-                    {order.marketplace}
-                  </p>
                 </td>
                 <td className="px-3 py-2.5">
                   <p
@@ -1171,7 +1154,7 @@ export function Orders() {
                   </p>
                 </td>
                 <td className="px-3 py-2.5">
-                  <CopyOnHover value={order.retailerName} label="Retailer name">
+                  <CopyOnHover value={order.retailerName} label="Business name">
                     <p
                       className="text-sm font-medium text-gray-900 truncate max-w-[160px]"
                       title={order.retailerName}
@@ -1226,22 +1209,15 @@ export function Orders() {
                     <span className="text-xs text-gray-400">—</span>
                   )}
                 </td>
-                {/* Delivery Day — the date the seller committed to
-                    deliver on. Renders as a calendar pill
-                    ("Thu 21 May"); the June 2026 review dropped the
-                    Actual Delivery column (and the relative Today /
-                    Tomorrow indicators) — only the committed day
-                    drives downstream operational planning. */}
-                <td
-                  className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700"
-                  title={order.expectedDeliveryDate}
-                >
-                  {formatDeliveryPillLabel(order.expectedDeliveryDate)}
-                </td>
                 <td className="px-3 py-2.5 whitespace-nowrap text-right">
-                  <p className="text-sm font-semibold text-gray-900">
-                    ₹{order.orderValue.toLocaleString()}
+                  <p className="text-sm font-semibold text-gray-900 tabular-nums">
+                    ₹{order.orderValue.toFixed(2)}
                   </p>
+                </td>
+                <td className="px-3 py-2.5 whitespace-nowrap">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded border border-gray-200 bg-white text-[11px] font-medium text-gray-700">
+                    {order.marketplace}
+                  </span>
                 </td>
                 <td className="px-3 py-2.5 whitespace-nowrap">
                   {getStatusBadge(order)}
@@ -1871,7 +1847,10 @@ export function Orders() {
               Confirm Orders
             </DialogTitle>
             <DialogDescription>
-              Review each delivery day below, then confirm.
+              Sellers can confirm orders delivering <b>today, tomorrow, or
+              earlier</b>. Orders further out have to wait until the day
+              before delivery — they&apos;re listed below for visibility but
+              won&apos;t be touched.
             </DialogDescription>
           </DialogHeader>
 
@@ -1880,95 +1859,156 @@ export function Orders() {
               selectedOrders.includes(o.id),
             );
             const today = getOrdersToday();
-            // Group by ISO delivery day, then render each group
-            // sorted chronologically. Today's day is tinted red so
-            // imminent work still pops without leaning on a relative
-            // "Tomorrow" label.
-            const byDay = new Map<string, Order[]>();
-            for (const o of selectedOrderObjects) {
-              const key = o.expectedDeliveryDate;
-              const arr = byDay.get(key);
-              if (arr) arr.push(o);
-              else byDay.set(key, [o]);
-            }
-            const dayGroups = Array.from(byDay.entries()).sort(
-              ([a], [b]) => a.localeCompare(b),
+            const eligible = selectedOrderObjects.filter((o) =>
+              isConfirmableDeliveryDay(o.expectedDeliveryDate),
+            );
+            const ineligible = selectedOrderObjects.filter(
+              (o) => !isConfirmableDeliveryDay(o.expectedDeliveryDate),
+            );
+
+            const groupByDay = (rows: Order[]) => {
+              const map = new Map<string, Order[]>();
+              for (const o of rows) {
+                const key = o.expectedDeliveryDate;
+                const arr = map.get(key);
+                if (arr) arr.push(o);
+                else map.set(key, [o]);
+              }
+              return Array.from(map.entries()).sort(([a], [b]) =>
+                a.localeCompare(b),
+              );
+            };
+
+            const renderRow = (o: Order) => (
+              <li
+                key={o.id}
+                className="flex items-center justify-between gap-2 text-xs bg-white rounded px-2 py-1.5 border border-gray-100"
+              >
+                <div className="flex flex-col min-w-0">
+                  <span className="font-medium text-gray-900 truncate">
+                    {o.retailerName}
+                  </span>
+                  <span className="text-[10px] text-gray-500">{o.id}</span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span
+                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap border ${
+                      getOrderType(o) === "beat"
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                        : "border-amber-200 bg-amber-50 text-amber-800"
+                    }`}
+                  >
+                    {getOrderType(o) === "beat" ? (
+                      <Route className="h-3 w-3" />
+                    ) : (
+                      <Zap className="h-3 w-3" />
+                    )}
+                    {getOrderType(o) === "beat" ? "Beat" : "Non-Beat"}
+                  </span>
+                  <span className="text-[10px] text-gray-600 whitespace-nowrap">
+                    ₹{o.orderValue.toLocaleString()}
+                  </span>
+                </div>
+              </li>
             );
 
             return (
               <div className="space-y-3 py-2 max-h-[60vh] overflow-y-auto pr-1">
-                {dayGroups.map(([day, rows]) => {
-                  const isToday = day === today;
-                  const toneClasses = isToday
-                    ? "border-red-200 bg-red-50/60"
-                    : "border-blue-200 bg-blue-50/60";
-                  const iconClasses = isToday
-                    ? "text-red-600"
-                    : "text-blue-600";
-                  return (
-                    <div
-                      key={day}
-                      className={`rounded-md border p-3 ${toneClasses}`}
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <CalendarDays className={`h-4 w-4 ${iconClasses}`} />
-                        <p className="text-sm font-semibold text-gray-900">
-                          {formatDeliveryPillLabel(day)}
-                        </p>
-                        <Badge variant="secondary" className="bg-white text-gray-700 border border-gray-200">
-                          {rows.length}
-                        </Badge>
-                      </div>
-                      <ul className="space-y-1.5 max-h-40 overflow-y-auto">
-                        {rows.map((o) => (
-                          <li
-                            key={o.id}
-                            className="flex items-center justify-between gap-2 text-xs bg-white rounded px-2 py-1.5 border border-gray-100"
-                          >
-                            <div className="flex flex-col min-w-0">
-                              <span className="font-medium text-gray-900 truncate">
-                                {o.retailerName}
-                              </span>
-                              <span className="text-[10px] text-gray-500">
-                                {o.id}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                              <span
-                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap border ${
-                                  getOrderType(o) === "beat"
-                                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                                    : "border-amber-200 bg-amber-50 text-amber-800"
-                                }`}
-                              >
-                                {getOrderType(o) === "beat" ? (
-                                  <Route className="h-3 w-3" />
-                                ) : (
-                                  <Zap className="h-3 w-3" />
-                                )}
-                                {getOrderType(o) === "beat" ? "Beat" : "Non-Beat"}
-                              </span>
-                              <span className="text-[10px] text-gray-600 whitespace-nowrap">
-                                ₹{o.orderValue.toLocaleString()}
-                              </span>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
+                {eligible.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                      <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                        Will be confirmed
+                      </p>
+                      <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">
+                        {eligible.length}
+                      </Badge>
                     </div>
-                  );
-                })}
+                    {groupByDay(eligible).map(([day, rows]) => {
+                      const isToday = day === today;
+                      const tone = isToday
+                        ? "border-red-200 bg-red-50/60"
+                        : "border-blue-200 bg-blue-50/60";
+                      const iconTone = isToday
+                        ? "text-red-600"
+                        : "text-blue-600";
+                      return (
+                        <div
+                          key={day}
+                          className={`rounded-md border p-3 ${tone}`}
+                        >
+                          <div className="flex items-center gap-2 mb-2">
+                            <CalendarDays className={`h-4 w-4 ${iconTone}`} />
+                            <p className="text-sm font-semibold text-gray-900">
+                              {formatDeliveryPillLabel(day)}
+                            </p>
+                            <Badge
+                              variant="secondary"
+                              className="bg-white text-gray-700 border border-gray-200"
+                            >
+                              {rows.length}
+                            </Badge>
+                          </div>
+                          <ul className="space-y-1.5 max-h-40 overflow-y-auto">
+                            {rows.map(renderRow)}
+                          </ul>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
 
-                <div className="flex items-start gap-2 p-2.5 rounded border border-blue-100 bg-blue-50/60 text-[11px] text-blue-900">
-                  <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                  <p>
-                    All {selectedOrders.length} order
-                    {selectedOrders.length === 1 ? "" : "s"} will be
-                    confirmed in a single action. The split above is
-                    only to help you plan packing &amp; dispatch — it
-                    doesn&apos;t change what gets confirmed.
-                  </p>
-                </div>
+                {ineligible.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 text-amber-600" />
+                      <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+                        Cannot confirm yet
+                      </p>
+                      <Badge className="bg-amber-100 text-amber-800 border-amber-200">
+                        {ineligible.length}
+                      </Badge>
+                    </div>
+                    <div className="rounded-md border border-amber-200 bg-amber-50/60 p-3 space-y-2">
+                      <p className="text-[11px] text-amber-900">
+                        Delivery day is more than 1 day out. These orders
+                        stay in <b>New</b>; come back to confirm them the
+                        day before delivery.
+                      </p>
+                      {groupByDay(ineligible).map(([day, rows]) => (
+                        <div key={day} className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <CalendarDays className="h-3.5 w-3.5 text-amber-700" />
+                            <p className="text-xs font-medium text-amber-900">
+                              {formatDeliveryPillLabel(day)}
+                            </p>
+                            <Badge
+                              variant="secondary"
+                              className="bg-white text-amber-800 border border-amber-200 text-[10px] h-4 px-1.5"
+                            >
+                              {rows.length}
+                            </Badge>
+                          </div>
+                          <ul className="space-y-1.5 max-h-32 overflow-y-auto">
+                            {rows.map(renderRow)}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {eligible.length === 0 && (
+                  <div className="flex items-start gap-2 p-2.5 rounded border border-amber-200 bg-amber-50 text-[11px] text-amber-900">
+                    <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    <p>
+                      None of the selected orders is eligible to confirm
+                      yet. Confirm window opens 1 day before each
+                      order&apos;s Delivery Day.
+                    </p>
+                  </div>
+                )}
               </div>
             );
           })()}
@@ -1980,11 +2020,25 @@ export function Orders() {
             >
               Cancel
             </Button>
-            <Button onClick={handleConfirmOrders} className="gap-2">
-              <CheckCircle2 className="h-4 w-4" />
-              Confirm {selectedOrders.length}{" "}
-              {selectedOrders.length === 1 ? "Order" : "Orders"}
-            </Button>
+            {(() => {
+              const eligibleCount = orders.filter(
+                (o) =>
+                  selectedOrders.includes(o.id) &&
+                  isConfirmableDeliveryDay(o.expectedDeliveryDate),
+              ).length;
+              return (
+                <Button
+                  onClick={handleConfirmOrders}
+                  disabled={eligibleCount === 0}
+                  className="gap-2"
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                  {eligibleCount === 0
+                    ? "Nothing to confirm"
+                    : `Confirm ${eligibleCount} order${eligibleCount === 1 ? "" : "s"}`}
+                </Button>
+              );
+            })()}
           </DialogFooter>
         </DialogContent>
       </Dialog>

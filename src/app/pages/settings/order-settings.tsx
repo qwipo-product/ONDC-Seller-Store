@@ -34,10 +34,10 @@ import { toast } from "sonner";
 import {
   getProcessingTimeHours,
   setProcessingTimeHours,
-  getBeatMov,
-  setBeatMov,
-  getNonBeatMov,
-  setNonBeatMov,
+  getOrderValueMin,
+  setOrderValueMin,
+  getOrderValueMax,
+  setOrderValueMax,
   getBeatCutoffTime,
   setBeatCutoffTime,
 } from "../../lib/order-settings-data";
@@ -45,23 +45,21 @@ import {
 export function OrderSettings() {
   const navigate = useNavigate();
 
-  // ---- Minimum Order Value — Beat vs Non-Beat ----
-  // Per the June review the single MOV split into two: Beat orders
-  // (ride the serviceability schedule, lower MOV) and Non-Beat
-  // orders (ad-hoc, higher MOV). Sellers configure both here.
-  const [beatMov, setBeatMovInput] = useState(() => String(getBeatMov()));
-  const [nonBeatMov, setNonBeatMovInput] = useState(() =>
-    String(getNonBeatMov()),
-  );
-  const [savedBeatMov, setSavedBeatMov] = useState(beatMov);
-  const [savedNonBeatMov, setSavedNonBeatMov] = useState(nonBeatMov);
+  // ---- Order Value — Minimum + optional Maximum ----
+  // Single MOV floor (Minimum) plus an optional ceiling (Maximum).
+  // Orders under the minimum are rejected; the maximum caps a single
+  // order's value when set. Both persist via order-settings-data.
+  const [orderMin, setOrderMinInput] = useState(() => String(getOrderValueMin()));
+  const [orderMax, setOrderMaxInput] = useState(() => String(getOrderValueMax()));
+  const [savedOrderMin, setSavedOrderMin] = useState(orderMin);
+  const [savedOrderMax, setSavedOrderMax] = useState(orderMax);
   const isOrderValueDirty =
-    beatMov !== savedBeatMov || nonBeatMov !== savedNonBeatMov;
+    orderMin !== savedOrderMin || orderMax !== savedOrderMax;
   // Inline errors keyed by field — surfaces under the relevant input
   // instead of a toast.
   const [orderValueErrors, setOrderValueErrors] = useState<{
-    beat?: string;
-    nonBeat?: string;
+    min?: string;
+    max?: string;
   }>({});
 
   // ---- Order Processing ----
@@ -101,24 +99,26 @@ export function OrderSettings() {
 
   // ---- Section save handlers ----
   const handleSaveOrderValue = () => {
-    const beat = parseFloat(beatMov);
-    const nonBeat = parseFloat(nonBeatMov);
-    const errs: { beat?: string; nonBeat?: string } = {};
-    if (beatMov.trim() === "" || isNaN(beat) || beat < 0) {
-      errs.beat = "Enter a non-negative number";
+    const min = parseFloat(orderMin);
+    const max = orderMax.trim() === "" ? 0 : parseFloat(orderMax);
+    const errs: { min?: string; max?: string } = {};
+    if (orderMin.trim() === "" || isNaN(min) || min < 0) {
+      errs.min = "Enter a non-negative number";
     }
-    if (nonBeatMov.trim() === "" || isNaN(nonBeat) || nonBeat < 0) {
-      errs.nonBeat = "Enter a non-negative number";
+    if (orderMax.trim() !== "" && (isNaN(max) || max < 0)) {
+      errs.max = "Enter a non-negative number";
+    } else if (!errs.min && orderMax.trim() !== "" && max > 0 && max < min) {
+      errs.max = "Maximum can't be below the minimum";
     }
-    if (errs.beat || errs.nonBeat) {
+    if (errs.min || errs.max) {
       setOrderValueErrors(errs);
       return;
     }
     setOrderValueErrors({});
-    setBeatMov(beat);
-    setNonBeatMov(nonBeat);
-    setSavedBeatMov(beatMov);
-    setSavedNonBeatMov(nonBeatMov);
+    setOrderValueMin(min);
+    setOrderValueMax(max);
+    setSavedOrderMin(orderMin);
+    setSavedOrderMax(orderMax);
     toast.success("Order value saved.");
   };
 
@@ -184,10 +184,11 @@ export function OrderSettings() {
       <div className="max-w-5xl space-y-3">
         {/* Row 1: Order Value + Processing side-by-side */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          {/* Order Value — Beat + Non-Beat minimums. Sales Beat orders
-              ride the configured serviceability schedule and clear a
-              lower floor; non-beat (ad-hoc) orders clear the higher
-              standard floor. Both values feed downstream MOV checks. */}
+          {/* Order Value — Minimum (mandatory floor) + Maximum
+              (optional per-order ceiling). The minimum is the MOV
+              guard for downstream checks; the maximum is "0 = no
+              cap" otherwise it's the hard upper bound on any single
+              order. */}
           <Card>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between gap-2">
@@ -208,60 +209,60 @@ export function OrderSettings() {
             </CardHeader>
             <CardContent className="pt-0 grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label className="text-xs">Sales Beat Minimum (₹)</Label>
+                <Label className="text-xs">Minimum (₹)</Label>
                 <Input
                   type="number"
-                  placeholder="500"
-                  value={beatMov}
+                  placeholder="2500"
+                  value={orderMin}
                   onChange={(e) => {
-                    setBeatMovInput(e.target.value);
-                    if (orderValueErrors.beat)
-                      setOrderValueErrors((prev) => ({ ...prev, beat: undefined }));
+                    setOrderMinInput(e.target.value);
+                    if (orderValueErrors.min)
+                      setOrderValueErrors((prev) => ({ ...prev, min: undefined }));
                   }}
                   className="h-8 text-sm"
-                  aria-invalid={!!orderValueErrors.beat}
+                  aria-invalid={!!orderValueErrors.min}
                 />
-                {orderValueErrors.beat ? (
+                {orderValueErrors.min ? (
                   <p className="text-[11px] text-red-600">
-                    {orderValueErrors.beat}
+                    {orderValueErrors.min}
                   </p>
                 ) : (
                   <p className="text-[11px] text-gray-500">
-                    Floor for orders riding a Sales Beat.
+                    Orders below this aren&apos;t accepted.
                   </p>
                 )}
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Non-Beat Minimum (₹)</Label>
+                <Label className="text-xs">Maximum (₹)</Label>
                 <Input
                   type="number"
-                  placeholder="1000"
-                  value={nonBeatMov}
+                  placeholder="5000"
+                  value={orderMax}
                   onChange={(e) => {
-                    setNonBeatMovInput(e.target.value);
-                    if (orderValueErrors.nonBeat)
+                    setOrderMaxInput(e.target.value);
+                    if (orderValueErrors.max)
                       setOrderValueErrors((prev) => ({
                         ...prev,
-                        nonBeat: undefined,
+                        max: undefined,
                       }));
                   }}
                   className="h-8 text-sm"
-                  aria-invalid={!!orderValueErrors.nonBeat}
+                  aria-invalid={!!orderValueErrors.max}
                 />
-                {orderValueErrors.nonBeat ? (
+                {orderValueErrors.max ? (
                   <p className="text-[11px] text-red-600">
-                    {orderValueErrors.nonBeat}
+                    {orderValueErrors.max}
                   </p>
                 ) : (
                   <p className="text-[11px] text-gray-500">
-                    Floor for ad-hoc / standard orders.
+                    Optional cap per order.
                   </p>
                 )}
               </div>
             </CardContent>
           </Card>
 
-          {/* Processing — Default Processing Time + Cancellation Window */}
+          {/* Processing — Default Processing Time + Order Acceptance Time */}
           <Card>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between gap-2">

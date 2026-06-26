@@ -164,7 +164,7 @@ const ADANI_SEED_BEATS: ServiceabilityBeat[] = [
     companyId: "co-adani",
     companyName: "Adani Wilmar Ltd",
     beatName: "Jubilee Hills",
-    deliveryDays: ["Next Day"],
+    deliveryDays: ["Monday", "Thursday"],
     createdAt: "2026-04-11T09:00:00Z",
   },
   {
@@ -172,7 +172,7 @@ const ADANI_SEED_BEATS: ServiceabilityBeat[] = [
     companyId: "co-adani",
     companyName: "Adani Wilmar Ltd",
     beatName: "Banjara Hills",
-    deliveryDays: ["Next Day"],
+    deliveryDays: ["Tuesday", "Friday"],
     createdAt: "2026-04-11T09:00:00Z",
   },
   {
@@ -180,7 +180,7 @@ const ADANI_SEED_BEATS: ServiceabilityBeat[] = [
     companyId: "co-adani",
     companyName: "Adani Wilmar Ltd",
     beatName: "Madhapur",
-    deliveryDays: ["Next Day"],
+    deliveryDays: ["Wednesday"],
     createdAt: "2026-04-11T09:00:00Z",
   },
   {
@@ -188,7 +188,7 @@ const ADANI_SEED_BEATS: ServiceabilityBeat[] = [
     companyId: "co-adani",
     companyName: "Adani Wilmar Ltd",
     beatName: "Kondapur",
-    deliveryDays: ["Next Day"],
+    deliveryDays: ["Saturday"],
     createdAt: "2026-04-11T09:00:00Z",
   },
 ];

@@ -1,13 +1,5 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router";
-import {
-  getHolidays,
-  getWeekOff,
-  setHolidays as persistHolidays,
-  setWeekOff as persistWeekOff,
-  type FixedHoliday as PersistedHoliday,
-  type WeekDay as PersistedWeekDay,
-} from "../../lib/store-settings-data";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
@@ -24,43 +16,19 @@ import {
 } from "../../components/ui/dialog";
 import {
   ArrowLeft,
-  Save,
   Store,
-  Calendar,
-  Clock,
-  Trash2,
-  Plus,
   Warehouse as WarehouseIcon,
   CheckCircle2,
   Star,
   AlertCircle,
   Lock,
+  Clock,
+  Calendar,
   CalendarOff,
+  Save,
+  Plus,
 } from "lucide-react";
 import { toast } from "sonner";
-
-// ---------- Working Hours ----------
-// Phase 1: a single open/close window applies to every working day.
-// Day-of-week splits move to a later phase if a seller actually
-// needs them — most distributors keep one schedule.
-
-type FixedHoliday = PersistedHoliday;
-
-// ---------- Weekly Off ----------
-// Recurring weekly closures. The seller picks one or more weekdays
-// that are always closed, regardless of working hours. The persisted
-// store-settings-data lib owns the source of truth; this page reads
-// from it on mount and writes back via Save handlers.
-type WeekDay = PersistedWeekDay;
-const WEEK_DAYS: { key: WeekDay; label: string; short: string }[] = [
-  { key: "mon", label: "Monday", short: "Mon" },
-  { key: "tue", label: "Tuesday", short: "Tue" },
-  { key: "wed", label: "Wednesday", short: "Wed" },
-  { key: "thu", label: "Thursday", short: "Thu" },
-  { key: "fri", label: "Friday", short: "Fri" },
-  { key: "sat", label: "Saturday", short: "Sat" },
-  { key: "sun", label: "Sunday", short: "Sun" },
-];
 
 // ---------- Warehouses ----------
 // Phase 1 rule: warehouses are append-only. Once created they can't
@@ -87,66 +55,6 @@ export function StoreSettings() {
   // new orders stop until they manually flip it back on.
   const [acceptOrders, setAcceptOrders] = useState(true);
   const [pendingAcceptOrders, setPendingAcceptOrders] = useState<boolean | null>(null);
-
-  // ---- Working Hours (single window) ----
-  // One open/close pair applies to every working day. Per-day splits
-  // were removed — sellers told us they keep one schedule.
-  const [openTime, setOpenTime] = useState("09:00");
-  const [closeTime, setCloseTime] = useState("21:00");
-
-  // ---- Weekly Off ----
-  // Initial value read from the persisted store-settings lib so a
-  // weekOff change made elsewhere (or from a prior session) survives.
-  const initialWeekOff = getWeekOff();
-  const [weekOff, setWeekOff] = useState<Set<WeekDay>>(
-    () => new Set(initialWeekOff),
-  );
-  // Last-saved snapshot for the whole Working Hours section
-  // (open + close + weekly off). Save is gated on dirty.
-  const [savedWorkingHours, setSavedWorkingHours] = useState({
-    openTime: "09:00",
-    closeTime: "21:00",
-    weekOff: initialWeekOff,
-  });
-  const isWorkingHoursDirty =
-    openTime !== savedWorkingHours.openTime ||
-    closeTime !== savedWorkingHours.closeTime ||
-    savedWorkingHours.weekOff.length !== weekOff.size ||
-    savedWorkingHours.weekOff.some((d) => !weekOff.has(d));
-  const toggleWeekOff = (key: WeekDay) =>
-    setWeekOff((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-
-  // ---- Fixed Holidays ----
-  // Source of truth is store-settings-data (persisted to localStorage).
-  // We read on mount and call the persistor on every mutation so other
-  // pages (delivery-date predictor, orders list) see the change live.
-  const [holidays, setHolidaysState] = useState<FixedHoliday[]>(() =>
-    getHolidays(),
-  );
-  const setHolidays = (
-    updater: FixedHoliday[] | ((prev: FixedHoliday[]) => FixedHoliday[]),
-  ) => {
-    setHolidaysState((prev) => {
-      const next = typeof updater === "function" ? updater(prev) : updater;
-      persistHolidays(next);
-      return next;
-    });
-  };
-  const [newHolidayName, setNewHolidayName] = useState("");
-  const [newHolidayDate, setNewHolidayDate] = useState("");
-
-  // Persist weekOff whenever the saved snapshot changes. Centralised in
-  // an effect so every code path that ends up calling
-  // setSavedWorkingHours also flushes to localStorage without each
-  // caller having to remember.
-  useEffect(() => {
-    persistWeekOff(savedWorkingHours.weekOff);
-  }, [savedWorkingHours.weekOff]);
 
   // ---- Warehouses ----
   const [warehouses, setWarehouses] = useState<Warehouse[]>([
@@ -181,53 +89,6 @@ export function StoreSettings() {
     latitude?: string;
     longitude?: string;
   }>({});
-
-  // ---- Section save handlers ----
-  // Each card has its own Save button; there's no longer a global
-  // "Save Changes" at the page level. Sellers can change one section
-  // and persist it without touching the others.
-  const handleSaveWorkingHours = () => {
-    if (openTime >= closeTime) {
-      toast.error("Closing time must be after opening time");
-      return;
-    }
-    if (weekOff.size === 7) {
-      toast.error("At least one working day is required");
-      return;
-    }
-    setSavedWorkingHours({
-      openTime,
-      closeTime,
-      weekOff: Array.from(weekOff),
-    });
-    toast.success("Working hours saved.");
-  };
-
-  const handleAddHoliday = () => {
-    if (!newHolidayName.trim() || !newHolidayDate) {
-      toast.error("Please enter both the holiday name and date");
-      return;
-    }
-    if (holidays.some((h) => h.date === newHolidayDate)) {
-      toast.error("A holiday already exists on this date");
-      return;
-    }
-    setHolidays((prev) =>
-      [
-        ...prev,
-        { id: `h-${Date.now()}`, name: newHolidayName.trim(), date: newHolidayDate },
-      ].sort((a, b) => a.date.localeCompare(b.date)),
-    );
-    setNewHolidayName("");
-    setNewHolidayDate("");
-    toast.success("Holiday added.");
-  };
-
-  const handleRemoveHoliday = (id: string) => {
-    const h = holidays.find((x) => x.id === id);
-    setHolidays((prev) => prev.filter((x) => x.id !== id));
-    if (h) toast.success(`Removed "${h.name}"`);
-  };
 
   // ---- Warehouse handlers ----
   const openCreateWarehouse = () => {
@@ -311,14 +172,6 @@ export function StoreSettings() {
     warehouseDraft.longitude.trim() !== "" &&
     !isNaN(parseFloat(warehouseDraft.longitude)) &&
     Math.abs(parseFloat(warehouseDraft.longitude)) <= 180;
-
-  const formatHolidayDate = (iso: string) => {
-    const d = new Date(iso + "T00:00:00");
-    return d.toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-    });
-  };
 
   return (
     <div className="p-4 space-y-3 bg-gray-50 min-h-full">
@@ -432,86 +285,90 @@ export function StoreSettings() {
           </Card>
         </div>
 
-        {/* Weekly Off + Fixed Holidays — recurring days off and one-off
-            holidays, kept side-by-side. Open/close working hours moved
-            out — sellers told us the per-day window was overkill, so
-            the only schedule control left is which weekdays are closed. */}
+        {/* Working Hours + Fixed Holidays — Phase 1 stubs. Both
+            cards render the final UI shape (so onboarding screenshots
+            line up with the eventual feature) but are pointer-locked
+            and visually muted, with a "Coming soon" pill called out
+            over each editable region. The persistence layer in
+            store-settings-data still feeds the delivery-date
+            predictor from its defaults; only the seller-facing edit
+            UI is parked. */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          {/* Working Hours — open/close pair + weekly off chips. Weekly
-              off persists to store-settings-data so the delivery-date
-              predictor + orders list pick up the change live. */}
-          <Card>
+          <Card className="opacity-60 select-none">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between gap-2">
                 <CardTitle className="text-sm flex items-center gap-2">
                   <Clock className="h-4 w-4 text-blue-600" />
                   Working Hours
                   <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-[10px]">
-                    {weekOff.size} weekly off
+                    1 weekly off
                   </Badge>
                 </CardTitle>
-                <Button
-                  size="sm"
-                  className="h-7 gap-1 text-xs"
-                  onClick={handleSaveWorkingHours}
-                  disabled={!isWorkingHoursDirty}
-                >
+                <Button size="sm" className="h-7 gap-1 text-xs" disabled>
                   <Save className="h-3.5 w-3.5" />
                   Save
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="pt-0 space-y-3">
-              <div className="flex items-end gap-3">
+            <CardContent className="pt-0 space-y-3 pointer-events-none">
+              <div className="relative flex items-end gap-3">
                 <div className="space-y-1">
                   <Label className="text-xs">Open</Label>
                   <Input
                     type="time"
-                    value={openTime}
-                    onChange={(e) => setOpenTime(e.target.value)}
+                    defaultValue="09:00"
                     className="w-28 h-8 text-sm"
+                    disabled
                   />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Close</Label>
                   <Input
                     type="time"
-                    value={closeTime}
-                    onChange={(e) => setCloseTime(e.target.value)}
+                    defaultValue="20:00"
                     className="w-28 h-8 text-sm"
+                    disabled
                   />
                 </div>
                 <p className="text-[11px] text-gray-500 pb-1.5">
                   Buyers will see the store based on the configured working
                   days.
                 </p>
+                <span className="absolute left-1/2 -translate-x-1/2 -bottom-2 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white border border-gray-200 shadow-sm text-[11px] font-medium text-gray-700">
+                  <Clock className="h-3 w-3" />
+                  Coming soon
+                </span>
               </div>
-              <div className="space-y-1.5 pt-1 border-t border-gray-100">
+              <div className="space-y-1.5 pt-3 border-t border-gray-100">
                 <Label className="text-xs flex items-center gap-1.5 text-gray-700 pt-2">
                   <CalendarOff className="h-3.5 w-3.5 text-amber-600" />
                   Weekly Off
                 </Label>
                 <p className="text-[11px] text-gray-500">
-                  Tap the days the store is always closed. Sundays are
-                  off by default.
+                  Tap the days the store is always closed.
                 </p>
                 <div className="flex flex-wrap gap-1.5">
-                  {WEEK_DAYS.map((d) => {
-                    const on = weekOff.has(d.key);
+                  {[
+                    { key: "mon", short: "Mon" },
+                    { key: "tue", short: "Tue" },
+                    { key: "wed", short: "Wed" },
+                    { key: "thu", short: "Thu" },
+                    { key: "fri", short: "Fri" },
+                    { key: "sat", short: "Sat" },
+                    { key: "sun", short: "Sun" },
+                  ].map((d) => {
+                    const on = d.key === "sun";
                     return (
-                      <button
-                        type="button"
+                      <span
                         key={d.key}
-                        onClick={() => toggleWeekOff(d.key)}
-                        aria-pressed={on}
-                        className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-colors ${
+                        className={`px-2.5 py-1 rounded-md text-xs font-medium border ${
                           on
                             ? "bg-amber-50 border-amber-300 text-amber-800"
-                            : "bg-white border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50"
+                            : "bg-white border-gray-200 text-gray-700"
                         }`}
                       >
                         {d.short}
-                      </button>
+                      </span>
                     );
                   })}
                 </div>
@@ -519,74 +376,44 @@ export function StoreSettings() {
             </CardContent>
           </Card>
 
-          {/* Fixed Holidays — distributor-configured closures. Persisted
-              via store-settings-data so the delivery-date predictor
-              skips these dates when assigning expected delivery. */}
-          <Card>
+          <Card className="opacity-60 select-none">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between gap-2">
                 <CardTitle className="text-sm flex items-center gap-2">
                   <Calendar className="h-4 w-4 text-rose-600" />
                   Fixed Holidays
                   <Badge className="bg-rose-50 text-rose-700 border-rose-200 text-[10px]">
-                    {holidays.length}
+                    0
                   </Badge>
                 </CardTitle>
               </div>
             </CardHeader>
-            <CardContent className="pt-0 space-y-2">
-              <div className="grid grid-cols-1 gap-1.5 max-h-48 overflow-y-auto">
-                {holidays.length === 0 && (
-                  <div className="p-2 text-center text-xs text-gray-500 border border-gray-200 rounded-md">
-                    No fixed holidays configured.
-                  </div>
-                )}
-                {holidays.map((h) => (
-                  <div
-                    key={h.id}
-                    className="flex items-center justify-between gap-2 border border-gray-200 rounded-md px-2 py-1.5"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-[10px] font-semibold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded shrink-0">
-                        {formatHolidayDate(h.date)}
-                      </span>
-                      <p className="text-sm text-gray-900 truncate">{h.name}</p>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 text-red-600 hover:bg-red-50"
-                      onClick={() => handleRemoveHoliday(h.id)}
-                      aria-label={`Remove ${h.name}`}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ))}
+            <CardContent className="pt-0 space-y-2 pointer-events-none">
+              <div className="grid grid-cols-1 gap-1.5">
+                <div className="p-2 text-center text-xs text-gray-500 border border-gray-200 rounded-md">
+                  No fixed holidays configured.
+                </div>
               </div>
 
-              <div className="border border-dashed border-gray-300 rounded-md p-2 grid grid-cols-[1fr_140px_auto] gap-1.5 items-end">
+              <div className="relative border border-dashed border-gray-300 rounded-md p-2 grid grid-cols-[1fr_140px_auto] gap-1.5 items-end">
                 <Input
                   placeholder="Holiday name"
-                  value={newHolidayName}
-                  onChange={(e) => setNewHolidayName(e.target.value)}
                   className="h-8 text-sm"
+                  disabled
                 />
                 <Input
                   type="date"
-                  value={newHolidayDate}
-                  onChange={(e) => setNewHolidayDate(e.target.value)}
                   className="h-8 text-sm"
+                  disabled
                 />
-                <Button
-                  size="sm"
-                  className="h-8 gap-1"
-                  onClick={handleAddHoliday}
-                  disabled={!newHolidayName.trim() || !newHolidayDate}
-                >
+                <Button size="sm" className="h-8 gap-1" disabled>
                   <Plus className="h-3.5 w-3.5" />
                   Add
                 </Button>
+                <span className="absolute left-1/2 -translate-x-1/2 -top-3 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white border border-gray-200 shadow-sm text-[11px] font-medium text-gray-700">
+                  <Clock className="h-3 w-3" />
+                  Coming soon
+                </span>
               </div>
             </CardContent>
           </Card>

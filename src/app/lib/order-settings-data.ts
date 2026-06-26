@@ -8,19 +8,19 @@
 // order-settings.tsx.
 
 const PROCESSING_TIME_KEY = "qwipo.orderSettings.processingTimeHours";
-const BEAT_MOV_KEY = "qwipo.orderSettings.beatMov";
-const NON_BEAT_MOV_KEY = "qwipo.orderSettings.nonBeatMov";
+const ORDER_MIN_KEY = "qwipo.orderSettings.orderMin";
+const ORDER_MAX_KEY = "qwipo.orderSettings.orderMax";
 const BEAT_CUTOFF_TIME_KEY = "qwipo.orderSettings.beatCutoffTime";
 
 /** Default if the seller has never opened Order Settings. Matches the
  *  default the page seeds. */
 const DEFAULT_PROCESSING_TIME_HOURS = "24";
 
-/** Beat orders ride the configured serviceability schedule and
- *  generally land in larger volumes — sellers set a lower MOV than
- *  the ad-hoc / non-beat orders. */
-const DEFAULT_BEAT_MOV = 500;
-const DEFAULT_NON_BEAT_MOV = 1000;
+/** Single Minimum Order Value floor — orders below this aren't
+ *  accepted. The optional Maximum cap is a per-order ceiling; a
+ *  value of 0 means no cap. */
+const DEFAULT_ORDER_MIN = 2500;
+const DEFAULT_ORDER_MAX = 5000;
 
 /** Cut-off time after which Beat orders for the next scheduled
  *  delivery cycle stop being accepted. Default agreed in the June
@@ -73,25 +73,25 @@ function readNumber(key: string, fallback: number): number {
   }
 }
 
-export function getBeatMov(): number {
-  return readNumber(BEAT_MOV_KEY, DEFAULT_BEAT_MOV);
+export function getOrderValueMin(): number {
+  return readNumber(ORDER_MIN_KEY, DEFAULT_ORDER_MIN);
 }
 
-export function setBeatMov(value: number) {
+export function setOrderValueMin(value: number) {
   try {
-    localStorage.setItem(BEAT_MOV_KEY, String(value));
+    localStorage.setItem(ORDER_MIN_KEY, String(value));
   } catch {
     /* no-op */
   }
 }
 
-export function getNonBeatMov(): number {
-  return readNumber(NON_BEAT_MOV_KEY, DEFAULT_NON_BEAT_MOV);
+export function getOrderValueMax(): number {
+  return readNumber(ORDER_MAX_KEY, DEFAULT_ORDER_MAX);
 }
 
-export function setNonBeatMov(value: number) {
+export function setOrderValueMax(value: number) {
   try {
-    localStorage.setItem(NON_BEAT_MOV_KEY, String(value));
+    localStorage.setItem(ORDER_MAX_KEY, String(value));
   } catch {
     /* no-op */
   }

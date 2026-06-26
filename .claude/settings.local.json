@@ -102,7 +102,9 @@
       "Bash(git commit *)",
       "Bash(npx --no-install vite build)",
       "Bash(awk 'NR==86,NR==207' \"C:\\\\Users\\\\Lenovo\\\\OneDrive - Xavica Primary\\\\Desktop\\\\Seller Store\\\\src\\\\app\\\\pages\\\\customers-demo.tsx\")",
-      "Bash(/Users/shubham/Desktop/Qwipo/Seller-Store/node_modules/vite/bin/vite.js build *)"
+      "Bash(/Users/shubham/Desktop/Qwipo/Seller-Store/node_modules/vite/bin/vite.js build *)",
+      "Skill(run)",
+      "Skill(run:*)"
     ]
   }
 }

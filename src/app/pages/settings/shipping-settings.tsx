@@ -1,272 +1,285 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
-import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
-import { Switch } from "../../components/ui/switch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../../components/ui/select";
-import { ArrowLeft, Save, Truck, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Save, Truck, Plus, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
+import {
+  getDeliveryFeeSlabs,
+  setDeliveryFeeSlabs,
+  type DeliveryFeeSlab,
+} from "../../lib/shipping-settings-data";
+
+// Phase 1 caps the seller at a single Delivery Fee Slab. The "Add
+// slab" button is rendered (and disabled with a tooltip) so the
+// seller knows multi-slab support is on the roadmap without us
+// having to redesign this screen later.
+const MAX_SLABS_PHASE_1 = 1;
+
+interface DraftSlab {
+  min: string;
+  max: string;
+  charges: string;
+}
+
+const toDraft = (s: DeliveryFeeSlab): DraftSlab => ({
+  min: String(s.minOrderValue),
+  max: String(s.maxOrderValue),
+  charges: String(s.deliveryCharges),
+});
+
+const parseDraft = (d: DraftSlab): DeliveryFeeSlab => ({
+  minOrderValue: Number(d.min),
+  maxOrderValue: Number(d.max),
+  deliveryCharges: Number(d.charges),
+});
 
 export function ShippingSettings() {
   const navigate = useNavigate();
-  const [freeShipping, setFreeShipping] = useState(true);
-  const [codAvailable, setCodAvailable] = useState(true);
 
-  const handleSave = () => {
-    toast.success("Shipping settings saved successfully!");
+  const initialSlabs = useMemo(() => getDeliveryFeeSlabs(), []);
+  const [drafts, setDrafts] = useState<DraftSlab[]>(() =>
+    initialSlabs.map(toDraft),
+  );
+  const [saved, setSaved] = useState<DraftSlab[]>(() =>
+    initialSlabs.map(toDraft),
+  );
+  // Inline validation errors keyed by slab index + field.
+  const [errors, setErrors] = useState<
+    Record<number, Partial<Record<keyof DraftSlab, string>>>
+  >({});
+
+  const isDirty = useMemo(
+    () =>
+      drafts.length !== saved.length ||
+      drafts.some(
+        (d, i) =>
+          d.min !== saved[i]?.min ||
+          d.max !== saved[i]?.max ||
+          d.charges !== saved[i]?.charges,
+      ),
+    [drafts, saved],
+  );
+
+  const updateField = (
+    idx: number,
+    field: keyof DraftSlab,
+    value: string,
+  ) => {
+    setDrafts((prev) =>
+      prev.map((d, i) => (i === idx ? { ...d, [field]: value } : d)),
+    );
+    setErrors((prev) => {
+      const slabErrs = { ...(prev[idx] ?? {}) };
+      delete slabErrs[field];
+      return { ...prev, [idx]: slabErrs };
+    });
   };
 
+  const handleSave = () => {
+    const newErrors: typeof errors = {};
+    const parsed: DeliveryFeeSlab[] = [];
+
+    drafts.forEach((d, i) => {
+      const slabErrs: Partial<Record<keyof DraftSlab, string>> = {};
+      const min = Number(d.min);
+      const max = Number(d.max);
+      const charges = Number(d.charges);
+      if (d.min.trim() === "" || !Number.isFinite(min) || min < 0)
+        slabErrs.min = "Enter a non-negative number";
+      if (d.max.trim() === "" || !Number.isFinite(max) || max <= 0)
+        slabErrs.max = "Enter a positive number";
+      if (d.charges.trim() === "" || !Number.isFinite(charges) || charges < 0)
+        slabErrs.charges = "Enter a non-negative number";
+      if (!slabErrs.min && !slabErrs.max && max <= min)
+        slabErrs.max = "Max must be greater than Min";
+      if (Object.keys(slabErrs).length > 0) {
+        newErrors[i] = slabErrs;
+      } else {
+        parsed.push({
+          minOrderValue: min,
+          maxOrderValue: max,
+          deliveryCharges: charges,
+        });
+      }
+    });
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      toast.error("Fix the highlighted fields before saving.");
+      return;
+    }
+
+    setDeliveryFeeSlabs(parsed);
+    setSaved(parsed.map(toDraft));
+    setErrors({});
+    toast.success("Shipping settings saved.");
+  };
+
+  const addSlab = () => {
+    if (drafts.length >= MAX_SLABS_PHASE_1) return;
+    setDrafts((prev) => [
+      ...prev,
+      { min: "0", max: "1000", charges: "50" },
+    ]);
+  };
+
+  const atPhaseCap = drafts.length >= MAX_SLABS_PHASE_1;
+
   return (
-    <div className="p-6 space-y-6 bg-gray-50 min-h-full">
-      {/* Header */}
-      <div className="flex items-center gap-4">
+    <div className="p-4 space-y-3 bg-gray-50 min-h-full">
+      {/* Compact header — single line, same shape as Order Settings. */}
+      <div className="flex items-center gap-3">
         <Button
           variant="outline"
           size="icon"
           onClick={() => navigate("/settings")}
-          className="hover:bg-gray-100"
+          className="h-8 w-8 hover:bg-gray-100"
         >
-          <ArrowLeft className="h-5 w-5" />
+          <ArrowLeft className="h-4 w-4" />
         </Button>
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-            <Truck className="h-8 w-8 text-amber-600" />
-            Shipping Settings
-          </h1>
-          <p className="text-gray-600 mt-1">
-            Set delivery charges and shipping rules
-          </p>
-        </div>
+        <h1 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+          <Truck className="h-5 w-5 text-amber-600" />
+          Shipping Settings
+        </h1>
       </div>
 
-      <div className="max-w-4xl space-y-6">
-        {/* Delivery Charges */}
+      <div className="max-w-3xl space-y-3">
         <Card>
-          <CardHeader>
-            <CardTitle>Delivery Charges</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label className="text-base">Free Shipping</Label>
-                <p className="text-sm text-gray-600">
-                  Enable free shipping for all orders
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <CardTitle className="text-sm">Delivery Fee Slabs</CardTitle>
+                <p className="text-[11px] text-gray-500 mt-0.5">
+                  Order value range → flat delivery fee. Phase 1 supports a
+                  single slab per distributor.
                 </p>
               </div>
-              <Switch checked={freeShipping} onCheckedChange={setFreeShipping} />
-            </div>
-
-            {!freeShipping && (
-              <>
-                <div className="grid grid-cols-2 gap-4 pt-4">
-                  <div className="space-y-2">
-                    <Label>Base Shipping Charge (₹)</Label>
-                    <Input
-                      type="number"
-                      placeholder="Enter amount"
-                      defaultValue="50"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Free Shipping Above (₹)</Label>
-                    <Input
-                      type="number"
-                      placeholder="Enter amount"
-                      defaultValue="999"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Per KM Charge (₹)</Label>
-                  <Input
-                    type="number"
-                    placeholder="Enter per km charge"
-                    defaultValue="5"
-                  />
-                  <p className="text-xs text-gray-500">
-                    Additional charge per kilometer for long-distance delivery
-                  </p>
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Shipping Zones */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Shipping Zones</CardTitle>
-              <Button size="sm" className="gap-2">
-                <Plus className="h-4 w-4" />
-                Add Zone
+              <Button
+                size="sm"
+                className="h-7 gap-1 text-xs"
+                onClick={handleSave}
+                disabled={!isDirty}
+              >
+                <Save className="h-3.5 w-3.5" />
+                Save
               </Button>
             </div>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <p className="font-medium">Zone A - Local</p>
-                    <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
-                      Active
-                    </span>
+          <CardContent className="pt-0 space-y-3">
+            {drafts.map((d, idx) => {
+              const slabErrs = errors[idx] ?? {};
+              return (
+                <div
+                  key={idx}
+                  className="rounded-md border border-gray-200 bg-gray-50/40 p-3"
+                >
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Min Order Value (₹)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={d.min}
+                        onChange={(e) =>
+                          updateField(idx, "min", e.target.value)
+                        }
+                        className="h-8 text-sm"
+                        aria-invalid={!!slabErrs.min}
+                      />
+                      {slabErrs.min ? (
+                        <p className="text-[11px] text-red-600">
+                          {slabErrs.min}
+                        </p>
+                      ) : (
+                        <p className="text-[11px] text-gray-500">
+                          Inclusive lower bound.
+                        </p>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Max Order Value (₹)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={d.max}
+                        onChange={(e) =>
+                          updateField(idx, "max", e.target.value)
+                        }
+                        className="h-8 text-sm"
+                        aria-invalid={!!slabErrs.max}
+                      />
+                      {slabErrs.max ? (
+                        <p className="text-[11px] text-red-600">
+                          {slabErrs.max}
+                        </p>
+                      ) : (
+                        <p className="text-[11px] text-gray-500">
+                          Inclusive upper bound.
+                        </p>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Delivery Charges (₹)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={d.charges}
+                        onChange={(e) =>
+                          updateField(idx, "charges", e.target.value)
+                        }
+                        className="h-8 text-sm"
+                        aria-invalid={!!slabErrs.charges}
+                      />
+                      {slabErrs.charges ? (
+                        <p className="text-[11px] text-red-600">
+                          {slabErrs.charges}
+                        </p>
+                      ) : (
+                        <p className="text-[11px] text-gray-500">
+                          Flat fee applied to orders in this range.
+                        </p>
+                      )}
+                    </div>
                   </div>
-                  <p className="text-sm text-gray-600">
-                    Within 25 KM • ₹30 base charge
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Pincodes: 400001-400100
-                  </p>
                 </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm">
-                    Edit
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    <Trash2 className="h-4 w-4 text-red-500" />
-                  </Button>
-                </div>
-              </div>
+              );
+            })}
 
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <p className="font-medium">Zone B - Regional</p>
-                    <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
-                      Active
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-600">
-                    25-100 KM • ₹80 base charge
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Pincodes: 400101-420000
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm">
-                    Edit
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    <Trash2 className="h-4 w-4 text-red-500" />
-                  </Button>
-                </div>
-              </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5 text-xs"
+              onClick={addSlab}
+              disabled={atPhaseCap}
+              title={
+                atPhaseCap
+                  ? "Phase 1 supports a single slab. Multi-slab support is on the roadmap."
+                  : "Add another slab"
+              }
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add slab
+            </Button>
 
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <p className="font-medium">Zone C - State-wide</p>
-                    <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
-                      Active
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-600">
-                    100+ KM • ₹150 base charge
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Pincodes: 420001-450000
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm">
-                    Edit
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    <Trash2 className="h-4 w-4 text-red-500" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Delivery Time */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Delivery Time</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Standard Delivery (days)</Label>
-                <Select defaultValue="3">
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">1-2 days</SelectItem>
-                    <SelectItem value="3">3-5 days</SelectItem>
-                    <SelectItem value="7">7-10 days</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Express Delivery (days)</Label>
-                <Select defaultValue="1">
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="0">Same day</SelectItem>
-                    <SelectItem value="1">Next day</SelectItem>
-                    <SelectItem value="2">2 days</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Express Delivery Charge (₹)</Label>
-              <Input
-                type="number"
-                placeholder="Additional charge"
-                defaultValue="100"
-              />
-              <p className="text-xs text-gray-500">
-                Additional charge for express delivery
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Cash on Delivery */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Cash on Delivery (COD)</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label className="text-base">Enable COD</Label>
-                <p className="text-sm text-gray-600">
-                  Allow customers to pay on delivery
+            {atPhaseCap && (
+              <div className="flex items-start gap-2 p-2.5 rounded border border-blue-100 bg-blue-50/60 text-[11px] text-blue-900">
+                <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                <p>
+                  Phase 1 ships a single delivery fee slab per distributor.
+                  Multi-slab support is on the roadmap.
                 </p>
               </div>
-              <Switch checked={codAvailable} onCheckedChange={setCodAvailable} />
-            </div>
+            )}
           </CardContent>
         </Card>
-
-        {/* Save Button */}
-        <div className="flex justify-end gap-3 pt-4">
-          <Button variant="outline" onClick={() => navigate("/settings")}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave} className="gap-2">
-            <Save className="h-4 w-4" />
-            Save Changes
-          </Button>
-        </div>
       </div>
     </div>
   );

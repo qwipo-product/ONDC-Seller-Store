@@ -56,12 +56,11 @@ const settingsCards: SettingCard[] = [
   {
     id: "shipping",
     title: "Shipping Settings",
-    description: "Set delivery charges and shipping rules",
+    description: "Configure delivery fee slabs",
     icon: <Truck className="h-6 w-6" />,
     path: "/settings/shipping",
     iconBg: "bg-amber-100",
     iconColor: "text-amber-600",
-    comingSoon: true,
   },
   {
     id: "payment",

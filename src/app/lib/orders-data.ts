@@ -1180,6 +1180,21 @@ export function getDeliveryBucket(order: Order): DeliveryBucket {
   return "beyond";
 }
 
+/**
+ * Confirm-eligibility gate. Sellers can confirm orders whose committed
+ * Delivery Day is today, tomorrow, or in the past — anything two or
+ * more days out has to wait until the day-before window. Keeps the
+ * dispatch desk from over-committing on routes that may still shift.
+ *
+ * Rule lives here so the bulk list, the single-order detail page, and
+ * any future automation share the same definition.
+ */
+export function isConfirmableDeliveryDay(iso: string): boolean {
+  const today = getOrdersToday();
+  const tomorrow = addDays(today, 1);
+  return iso <= tomorrow;
+}
+
 /** Day-of-week label for a YYYY-MM-DD date. Used by the
  *  "Friday Delivery" / "Monday Delivery" callouts on the row. */
 export function dayOfWeekLabel(iso: string): string {
