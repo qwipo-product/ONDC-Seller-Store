@@ -395,7 +395,7 @@ export function CustomerDemoDetail() {
                             </p>
                             {beat && uniqueDayCount > 0 && (
                               <Badge className="bg-blue-50 text-blue-700 border-blue-200 h-5 px-1.5 text-[10px]">
-                                {uniqueDayCount} delivery day
+                                {uniqueDayCount} beat day
                                 {uniqueDayCount === 1 ? "" : "s"}
                               </Badge>
                             )}
