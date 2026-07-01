@@ -463,7 +463,7 @@ export function CustomerDemoDetail() {
                           <div className="divide-y divide-gray-100">
                             <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] gap-3 px-3 py-1.5 text-[10px] uppercase tracking-wider font-semibold text-gray-500 bg-gray-50/60">
                               <span>Beat Name</span>
-                              <span>Delivery Days</span>
+                              <span>Beat Days</span>
                             </div>
                             <div
                               className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] gap-3 px-3 py-2 items-center"
