@@ -56,6 +56,10 @@ interface Props {
   /** When true the trigger itself is non-interactive. Useful while the
    *  parent is awaiting a network round-trip. */
   disabled?: boolean;
+  /** Hide the "N brands" subtitle in each row. Default true so existing
+   *  callers (Add Seller, Companies & Brands) keep the brand-count
+   *  hint; the serviceability dialog opts out for a leaner row. */
+  showBrandCount?: boolean;
 }
 
 export function CompanyComboBox({
@@ -66,6 +70,7 @@ export function CompanyComboBox({
   emptyMessage = "No matching company found.",
   className,
   disabled,
+  showBrandCount = true,
 }: Props) {
   const [open, setOpen] = useState(false);
   const selected = useMemo(
@@ -147,9 +152,12 @@ export function CompanyComboBox({
                           </span>
                         )}
                       </div>
-                      <p className="text-[11px] text-gray-500 mt-0.5">
-                        {c.brandCount} {c.brandCount === 1 ? "brand" : "brands"}
-                      </p>
+                      {showBrandCount && (
+                        <p className="text-[11px] text-gray-500 mt-0.5">
+                          {c.brandCount}{" "}
+                          {c.brandCount === 1 ? "brand" : "brands"}
+                        </p>
+                      )}
                     </div>
                   </CommandItem>
                 );

@@ -4,13 +4,6 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "./ui/select";
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -18,7 +11,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
-import { Checkbox } from "./ui/checkbox";
+import {
+  CompanyComboBox,
+  type CompanyOption,
+} from "./company-combobox";
 import {
   Save,
   MapPin,
@@ -35,7 +31,6 @@ import {
   ChevronDown,
   ChevronRight,
   Building2,
-  Search,
   Route,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -145,25 +140,6 @@ const emptyPolygonDraft = (): PolygonDraft => ({
   valid: null,
 });
 
-interface BeatRow {
-  id: string;
-  beatName: string;
-  deliveryDays: DeliveryDay[];
-  polygon: PolygonDraft;
-}
-
-const newRowId = () =>
-  `row-${Math.random().toString(36).slice(2, 8)}-${Math.random()
-    .toString(36)
-    .slice(2, 5)}`;
-
-const newBeatRow = (preset?: Partial<BeatRow>): BeatRow => ({
-  id: newRowId(),
-  beatName: preset?.beatName ?? "",
-  deliveryDays: preset?.deliveryDays ?? [],
-  polygon: preset?.polygon ?? emptyPolygonDraft(),
-});
-
 async function readPolygonFile(file: File): Promise<PolygonDraft> {
   if (!file.name.endsWith(".json") && !file.name.endsWith(".geojson")) {
     toast.error(`${file.name}: not a JSON/GeoJSON file.`);
@@ -260,6 +236,30 @@ function PolygonCell({
           <span className="truncate flex-1" title={polygon.existingName}>
             {polygon.existingName}
           </span>
+          {polygon.data != null && (
+            <button
+              type="button"
+              onClick={() => {
+                const blob = new Blob(
+                  [JSON.stringify(polygon.data, null, 2)],
+                  { type: "application/geo+json;charset=utf-8;" },
+                );
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = polygon.existingName ?? "beat.geojson";
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+              }}
+              className="inline-flex items-center gap-1 text-emerald-700 underline-offset-2 hover:underline"
+              title="Download attached polygon"
+            >
+              <Download className="h-3 w-3" />
+              Download
+            </button>
+          )}
           <button
             type="button"
             onClick={() => ref.current?.click()}
@@ -495,196 +495,105 @@ export function ServiceabilityManager() {
     resetEdit();
   };
 
-  // ---- Unified Add Delivery Beats dialog ----
+  // ---- Add Delivery Beat dialog (single company, single beat) ----
+  // Mirrors the Edit dialog shape on purpose — the bulk multi-company
+  // multi-row form was retired in favour of a focused "one company at
+  // a time" flow. The only enhancement vs the original v1 form is the
+  // multi-day chip picker (a beat can serve more than one weekday).
   const [addOpen, setAddOpen] = useState(false);
-  const [addSelectedCompanies, setAddSelectedCompanies] = useState<
-    Record<string, boolean>
-  >({});
-  const [addRows, setAddRows] = useState<BeatRow[]>([newBeatRow()]);
-  const [addSearch, setAddSearch] = useState("");
+  const [addCompanyId, setAddCompanyId] = useState("");
+  const [addBeatName, setAddBeatName] = useState("");
+  const [addDays, setAddDays] = useState<DeliveryDay[]>([]);
+  const [addPolygon, setAddPolygon] = useState<PolygonDraft>(
+    emptyPolygonDraft(),
+  );
 
   const resetAdd = () => {
-    setAddSelectedCompanies({});
-    setAddRows([newBeatRow()]);
-    setAddSearch("");
+    setAddCompanyId("");
+    setAddBeatName("");
+    setAddDays([]);
+    setAddPolygon(emptyPolygonDraft());
   };
 
   const openAdd = (preset?: { companyId?: string; day?: DeliveryDay }) => {
     resetAdd();
-    if (preset?.companyId) {
-      setAddSelectedCompanies({ [preset.companyId]: true });
-    }
-    if (preset?.day) {
-      setAddRows([newBeatRow({ deliveryDays: [preset.day] })]);
-    }
+    if (preset?.companyId) setAddCompanyId(preset.companyId);
+    if (preset?.day) setAddDays([preset.day]);
     setAddOpen(true);
   };
 
-  const filteredAdminCompanies = useMemo(() => {
-    const q = addSearch.trim().toLowerCase();
-    if (!q) return adminCompanies;
-    return adminCompanies.filter((c) => c.name.toLowerCase().includes(q));
-  }, [adminCompanies, addSearch]);
-  const addSelectedCount =
-    Object.values(addSelectedCompanies).filter(Boolean).length;
-  const allVisibleSelected =
-    filteredAdminCompanies.length > 0 &&
-    filteredAdminCompanies.every((c) => addSelectedCompanies[c.id]);
-  const anyVisibleSelected = filteredAdminCompanies.some(
-    (c) => addSelectedCompanies[c.id],
-  );
-
-  const selectAllVisible = () => {
-    const next = { ...addSelectedCompanies };
-    for (const c of filteredAdminCompanies) next[c.id] = true;
-    setAddSelectedCompanies(next);
-  };
-  const clearAllVisible = () => {
-    const next = { ...addSelectedCompanies };
-    for (const c of filteredAdminCompanies) delete next[c.id];
-    setAddSelectedCompanies(next);
-  };
-
-  const validAddRows = addRows.filter(
-    (r) => r.beatName.trim().length > 0 && r.deliveryDays.length > 0,
-  );
-
   const saveAdd = () => {
-    const companyIds = Object.entries(addSelectedCompanies)
-      .filter(([, v]) => v)
-      .map(([k]) => k);
-    if (companyIds.length === 0) {
-      toast.error("Select at least one company.");
+    if (!addCompanyId) {
+      toast.error("Company is required.");
       return;
     }
-    if (validAddRows.length === 0) {
+    const company = adminCompanies.find((c) => c.id === addCompanyId);
+    if (!company) {
+      toast.error("Selected company not found.");
+      return;
+    }
+    const beatName = addBeatName.trim();
+    if (!beatName) {
+      toast.error("Beat name is required.");
+      return;
+    }
+    if (addDays.length === 0) {
+      toast.error("Pick at least one delivery day.");
+      return;
+    }
+    if (addPolygon.file && addPolygon.valid !== true) {
+      toast.error("Fix the polygon file before saving.");
+      return;
+    }
+
+    // Uniqueness: one beat name per company.
+    const nameCollision = beats.find(
+      (b) =>
+        b.companyId === addCompanyId &&
+        b.beatName.trim().toLowerCase() === beatName.toLowerCase(),
+    );
+    if (nameCollision) {
       toast.error(
-        "Add at least one beat row with a name and at least one day.",
+        `${company.name} already has a beat called "${beatName}". Beat names are unique per company.`,
       );
       return;
     }
-    if (validAddRows.some((r) => r.polygon.file && r.polygon.valid !== true)) {
-      toast.error("Fix the invalid polygon files before saving.");
-      return;
-    }
 
-    // Cross-company day-consistency pre-check. Distributors run one
-    // delivery operation per area, so a beat name's day must match
-    // across every company. We check both (a) form rows against each
-    // other and (b) form rows against the database before persisting.
-    // First mismatch found blocks the entire save with a precise
-    // error so the seller can fix the day and retry.
-    const rowsByKey = new Map<string, BeatRow>();
-    for (const row of validAddRows) {
-      const key = row.beatName.trim().toLowerCase();
-      const existing = rowsByKey.get(key);
-      if (existing && daysKey(existing.deliveryDays) !== daysKey(row.deliveryDays)) {
-        toast.error(
-          `"${row.beatName.trim()}" appears twice in this form with different day-sets (${sortDeliveryDays(existing.deliveryDays).join(", ")} and ${sortDeliveryDays(row.deliveryDays).join(", ")}). One beat name = one day-set.`,
-        );
-        return;
-      }
-      if (!existing) rowsByKey.set(key, row);
-    }
-    for (const row of validAddRows) {
-      const key = row.beatName.trim().toLowerCase();
-      const rowKey = daysKey(row.deliveryDays);
-      const dbConflict = beats.find(
-        (b) =>
-          b.beatName.trim().toLowerCase() === key &&
-          b.deliveryDays.length > 0 &&
-          daysKey(b.deliveryDays) !== rowKey,
-      );
-      if (dbConflict) {
-        const conflictDays = sortDeliveryDays(dbConflict.deliveryDays).join(", ");
-        toast.error(
-          `"${row.beatName.trim()}" already delivers on ${conflictDays} for ${dbConflict.companyName}. Match those days to keep the area consistent across companies.`,
-        );
-        return;
-      }
-    }
-
-    const created: ServiceabilityBeat[] = [];
-    const skipped: string[] = [];
-    const now = new Date().toISOString();
-    const lookupCompany = (id: string) =>
-      adminCompanies.find((c) => c.id === id);
-
-    for (const cid of companyIds) {
-      const company = lookupCompany(cid);
-      if (!company) continue;
-      for (const row of validAddRows) {
-        const beatName = row.beatName.trim();
-        const key = beatName.toLowerCase();
-        // Uniqueness: one beat name per company. Same name on a
-        // different company is fine — and per the day-consistency
-        // rule above, every same-named beat across companies now
-        // shares the same delivery day too.
-        const dbCollision = beats.some(
-          (b) =>
-            b.companyId === cid &&
-            b.beatName.trim().toLowerCase() === key,
-        );
-        const formCollision = created.some(
-          (b) =>
-            b.companyId === cid &&
-            b.beatName.trim().toLowerCase() === key,
-        );
-        if (dbCollision || formCollision) {
-          skipped.push(`${company.name} · ${beatName}`);
-          continue;
-        }
-        created.push({
-          id: makeServiceabilityBeatId(),
-          companyId: cid,
-          companyName: company.name,
-          beatName,
-          deliveryDays: sortDeliveryDays(row.deliveryDays),
-          polygonFileName: row.polygon.file?.name,
-          polygonData: row.polygon.file ? row.polygon.data : undefined,
-          createdAt: now,
-        });
-      }
-    }
-
-    if (created.length === 0) {
+    // Cross-company day-consistency. Distributors run one delivery
+    // operation per area, so the day-set for a beat name must match
+    // across every company that uses it.
+    const addKey = daysKey(addDays);
+    const dayConflict = beats.find(
+      (b) =>
+        b.beatName.trim().toLowerCase() === beatName.toLowerCase() &&
+        b.deliveryDays.length > 0 &&
+        daysKey(b.deliveryDays) !== addKey,
+    );
+    if (dayConflict) {
+      const conflictDays = sortDeliveryDays(dayConflict.deliveryDays).join(", ");
       toast.error(
-        "Nothing to add — every (company × beat name) combination already exists.",
+        `"${beatName}" already delivers on ${conflictDays} for ${dayConflict.companyName}. Match those days to keep the area consistent across companies.`,
       );
       return;
     }
 
-    writeBeats((prev) => [...prev, ...created]);
+    const created: ServiceabilityBeat = {
+      id: makeServiceabilityBeatId(),
+      companyId: addCompanyId,
+      companyName: company.name,
+      beatName,
+      deliveryDays: sortDeliveryDays(addDays),
+      polygonFileName: addPolygon.file?.name,
+      polygonData: addPolygon.file ? addPolygon.data : undefined,
+      createdAt: new Date().toISOString(),
+    };
 
-    const summary = `Added ${created.length} delivery beat${created.length === 1 ? "" : "s"} across ${companyIds.length} compan${companyIds.length === 1 ? "y" : "ies"}.`;
-    if (skipped.length > 0) {
-      toast.success(
-        `${summary} Skipped ${skipped.length} duplicate beat name${skipped.length === 1 ? "" : "s"}.`,
-      );
-    } else {
-      toast.success(summary);
-    }
+    writeBeats((prev) => [...prev, created]);
+    toast.success(
+      `Added "${beatName}" for ${company.name} (${addDays.length} day${addDays.length === 1 ? "" : "s"})`,
+    );
     setAddOpen(false);
     resetAdd();
-  };
-
-  const downloadPolygon = (
-    data: unknown,
-    fileName: string | undefined,
-    fallback: string,
-  ) => {
-    if (!data) return;
-    const blob = new Blob([JSON.stringify(data, null, 2)], {
-      type: "application/geo+json;charset=utf-8;",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = fileName ?? fallback;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
   };
 
   const deleteBeat = (beatId: string) => {
@@ -709,7 +618,19 @@ export function ServiceabilityManager() {
 
   const noCompanies = adminCompanies.length === 0;
   const noBeats = groups.length === 0;
-  const previewCount = addSelectedCount * validAddRows.length;
+
+  // Options for the searchable Company picker. Built from the seller's
+  // linked admin-catalog companies; brandCount drives the small "N
+  // brands" subtitle in the combobox row.
+  const companyOptions: CompanyOption[] = useMemo(
+    () =>
+      adminCompanies.map((c) => ({
+        id: c.id,
+        name: c.name,
+        brandCount: c.brands?.length ?? 0,
+      })),
+    [adminCompanies],
+  );
 
   return (
     <div>
@@ -974,7 +895,7 @@ export function ServiceabilityManager() {
         </div>
       )}
 
-      {/* ---------- Unified Add Delivery Beats dialog ---------- */}
+      {/* ---------- Add Delivery Beat dialog (single company) ---------- */}
       <Dialog
         open={addOpen}
         onOpenChange={(o) => {
@@ -982,257 +903,92 @@ export function ServiceabilityManager() {
           if (!o) resetAdd();
         }}
       >
-        <DialogContent className="sm:max-w-4xl max-h-[92vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <MapPin className="h-5 w-5 text-indigo-600" />
-              Add Delivery Beats
+              Add Delivery Beat
             </DialogTitle>
             <DialogDescription>
-              Pick one or many companies on the left, then list each beat
-              on the right. A beat can serve <b>one or more weekdays</b>;
-              the same beat name must use the same day-set across every
-              company it's added to.
+              Configure a delivery beat for a single company. A beat can
+              serve <b>one or more weekdays</b>; the same beat name must
+              use the same day-set across every company it's added to.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 py-1">
-            <div className="md:col-span-4 border border-gray-200 rounded-lg overflow-hidden bg-gray-50/50">
-              <div className="px-3 py-2 border-b bg-white flex items-center justify-between">
-                <div className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
-                  Companies ({addSelectedCount})
-                </div>
-                <div className="flex items-center gap-1.5 text-[11px]">
-                  <button
-                    type="button"
-                    onClick={selectAllVisible}
-                    disabled={
-                      filteredAdminCompanies.length === 0 || allVisibleSelected
-                    }
-                    className="text-indigo-600 hover:underline disabled:text-gray-400 disabled:no-underline disabled:cursor-not-allowed"
-                  >
-                    Select all
-                  </button>
-                  <span className="text-gray-300">·</span>
-                  <button
-                    type="button"
-                    onClick={clearAllVisible}
-                    disabled={!anyVisibleSelected}
-                    className="text-indigo-600 hover:underline disabled:text-gray-400 disabled:no-underline disabled:cursor-not-allowed"
-                  >
-                    Clear all
-                  </button>
-                </div>
-              </div>
-              <div className="px-3 py-2 border-b bg-white">
-                <div className="relative">
-                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
-                  <Input
-                    value={addSearch}
-                    onChange={(e) => setAddSearch(e.target.value)}
-                    placeholder="Search company"
-                    className="pl-7 h-8 text-sm"
-                  />
-                </div>
-              </div>
-              <div className="h-[28rem] overflow-y-auto p-2 space-y-1">
-                {filteredAdminCompanies.length === 0 ? (
-                  <p className="text-center text-xs text-gray-500 py-6">
-                    No matches.
-                  </p>
-                ) : (
-                  filteredAdminCompanies.map((c) => {
-                    const checked = !!addSelectedCompanies[c.id];
-                    return (
-                      <label
-                        key={c.id}
-                        className={`flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer text-sm ${
-                          checked
-                            ? "bg-indigo-50 border border-indigo-200"
-                            : "bg-white border border-transparent hover:border-gray-200"
-                        }`}
-                      >
-                        <Checkbox
-                          checked={checked}
-                          onCheckedChange={(v) =>
-                            setAddSelectedCompanies((prev) => ({
-                              ...prev,
-                              [c.id]: !!v,
-                            }))
-                          }
-                        />
-                        <span className="truncate">{c.name}</span>
-                      </label>
-                    );
-                  })
-                )}
-              </div>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>
+                Company <span className="text-red-500">*</span>
+              </Label>
+              <CompanyComboBox
+                companies={companyOptions}
+                value={addCompanyId}
+                onChange={setAddCompanyId}
+                placeholder="Search company linked to this seller…"
+                showBrandCount={false}
+              />
             </div>
 
-            <div className="md:col-span-8 border border-gray-200 rounded-lg overflow-hidden">
-              <div className="px-3 py-2 border-b bg-white flex items-center justify-between">
-                <div className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
-                  Delivery beats ({addRows.length})
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setAddRows((rows) => [...rows, newBeatRow()])}
-                  className="text-[11px] text-indigo-600 hover:underline inline-flex items-center gap-1"
-                >
-                  <Plus className="h-3 w-3" />
-                  Add row
-                </button>
+            <div className="space-y-1.5">
+              <Label>
+                Beat name <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                value={addBeatName}
+                onChange={(e) => setAddBeatName(e.target.value)}
+                placeholder="e.g. KPHB 1"
+                maxLength={64}
+              />
+              <p className="text-[11px] text-gray-500">
+                Unique per company. Use the sales route or polygon identifier.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label>
+                  Delivery days <span className="text-red-500">*</span>
+                </Label>
+                <span className="text-[11px] text-gray-500">
+                  {addDays.length === 0
+                    ? "No days picked"
+                    : sortDeliveryDays(addDays).join(", ")}
+                </span>
               </div>
-              <div className="max-h-[28rem] overflow-y-auto p-3 space-y-3 bg-gray-50/50">
-                {addRows.map((row, idx) => (
-                  <div
-                    key={row.id}
-                    className="bg-white rounded-lg border border-gray-200 p-3 space-y-3 shadow-sm"
-                  >
-                    {/* Row header — Beat # label + remove button. */}
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">
-                        Beat {idx + 1}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setAddRows((rows) =>
-                            rows.length === 1
-                              ? rows
-                              : rows.filter((r) => r.id !== row.id),
-                          )
-                        }
-                        className={`inline-flex items-center gap-1 text-[11px] text-gray-500 hover:text-red-600 ${
-                          addRows.length === 1
-                            ? "opacity-30 cursor-not-allowed"
-                            : ""
-                        }`}
-                        aria-label={`Remove row ${idx + 1}`}
-                        disabled={addRows.length === 1}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        Remove
-                      </button>
-                    </div>
-
-                    {/* Beat name + Polygon side-by-side. Beat name takes
-                        most of the row; polygon sits compact next to it. */}
-                    <div className="grid grid-cols-1 sm:grid-cols-[1fr_minmax(0,220px)] gap-3">
-                      <div>
-                        <Label className="text-[10px] text-gray-500 mb-1 block">
-                          Beat name *
-                        </Label>
-                        <Input
-                          value={row.beatName}
-                          onChange={(e) =>
-                            setAddRows((rows) =>
-                              rows.map((r) =>
-                                r.id === row.id
-                                  ? { ...r, beatName: e.target.value }
-                                  : r,
-                              ),
-                            )
-                          }
-                          placeholder="e.g. KPHB 1"
-                          className="h-9 text-sm"
-                          maxLength={64}
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-[10px] text-gray-500 mb-1 block">
-                          Polygon
-                        </Label>
-                        <PolygonCell
-                          polygon={row.polygon}
-                          onChange={(p) =>
-                            setAddRows((rows) =>
-                              rows.map((r) =>
-                                r.id === row.id ? { ...r, polygon: p } : r,
-                              ),
-                            )
-                          }
-                          compact
-                        />
-                      </div>
-                    </div>
-
-                    {/* Day picker — full row width so chips can breathe. */}
-                    <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <Label className="text-[10px] text-gray-500">
-                          Delivery days *
-                        </Label>
-                        <span className="text-[10px] text-gray-500">
-                          {row.deliveryDays.length === 0
-                            ? "No days picked"
-                            : sortDeliveryDays(row.deliveryDays).join(", ")}
-                        </span>
-                      </div>
-                      <DayPicker
-                        selected={row.deliveryDays}
-                        onChange={(days) =>
-                          setAddRows((rows) =>
-                            rows.map((r) =>
-                              r.id === row.id
-                                ? { ...r, deliveryDays: days }
-                                : r,
-                            ),
-                          )
-                        }
-                      />
-                      {(() => {
-                        const name = row.beatName.trim().toLowerCase();
-                        if (!name || row.deliveryDays.length === 0) return null;
-                        const rowKey = daysKey(row.deliveryDays);
-                        const conflict = beats.find(
-                          (b) =>
-                            b.beatName.trim().toLowerCase() === name &&
-                            b.deliveryDays.length > 0 &&
-                            daysKey(b.deliveryDays) !== rowKey,
-                        );
-                        if (!conflict) return null;
-                        const conflictDays = sortDeliveryDays(
-                          conflict.deliveryDays,
-                        ).join(", ");
-                        return (
-                          <div className="mt-2 flex items-start gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-900">
-                            <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-600" />
-                            <span>
-                              <b>{conflict.beatName}</b> already delivers on{" "}
-                              <b>{conflictDays}</b> for{" "}
-                              <b>{conflict.companyName}</b>. Match those days to
-                              keep the area consistent across companies.
-                            </span>
-                          </div>
-                        );
-                      })()}
-                    </div>
+              <DayPicker selected={addDays} onChange={setAddDays} />
+              {(() => {
+                const name = addBeatName.trim().toLowerCase();
+                if (!name || addDays.length === 0) return null;
+                const addKey = daysKey(addDays);
+                const conflict = beats.find(
+                  (b) =>
+                    b.beatName.trim().toLowerCase() === name &&
+                    b.deliveryDays.length > 0 &&
+                    daysKey(b.deliveryDays) !== addKey,
+                );
+                if (!conflict) return null;
+                const conflictDays = sortDeliveryDays(
+                  conflict.deliveryDays,
+                ).join(", ");
+                return (
+                  <div className="flex items-start gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-900">
+                    <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-600" />
+                    <span>
+                      <b>{conflict.beatName}</b> already delivers on{" "}
+                      <b>{conflictDays}</b> for{" "}
+                      <b>{conflict.companyName}</b>. Match those days to keep
+                      the area consistent across companies.
+                    </span>
                   </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => setAddRows((rows) => [...rows, newBeatRow()])}
-                  className="w-full inline-flex items-center justify-center gap-1.5 py-2 rounded-md border border-dashed border-gray-300 hover:border-indigo-400 hover:bg-indigo-50/40 text-xs text-gray-600"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Add another beat
-                </button>
-              </div>
+                );
+              })()}
             </div>
-          </div>
 
-          <div className="text-[11px] text-gray-600 bg-indigo-50/60 border border-indigo-200 rounded-md px-3 py-2 flex items-start gap-2">
-            <AlertCircle className="h-3.5 w-3.5 text-indigo-600 mt-0.5 shrink-0" />
-            <span>
-              We&apos;ll create{" "}
-              <b>
-                {addSelectedCount} × {validAddRows.length} = {previewCount} beat
-                {previewCount === 1 ? "" : "s"}
-              </b>{" "}
-              when you save. Beat names must be unique within a company —
-              duplicates are skipped silently.
-            </span>
+            <div className="space-y-1.5">
+              <Label className="text-sm">Polygon (GeoJSON, optional)</Label>
+              <PolygonCell polygon={addPolygon} onChange={setAddPolygon} />
+            </div>
           </div>
 
           <DialogFooter>
@@ -1241,7 +997,7 @@ export function ServiceabilityManager() {
             </Button>
             <Button onClick={saveAdd} className="gap-2">
               <Save className="h-4 w-4" />
-              Create delivery beats
+              Save
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1272,21 +1028,13 @@ export function ServiceabilityManager() {
               <Label>
                 Company <span className="text-red-500">*</span>
               </Label>
-              <Select
+              <CompanyComboBox
+                companies={companyOptions}
                 value={editCompanyId}
-                onValueChange={setEditCompanyId}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a company" />
-                </SelectTrigger>
-                <SelectContent>
-                  {adminCompanies.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                onChange={setEditCompanyId}
+                placeholder="Search company…"
+                showBrandCount={false}
+              />
             </div>
 
             <div className="space-y-1.5">
@@ -1345,25 +1093,6 @@ export function ServiceabilityManager() {
             <div className="space-y-1.5">
               <Label className="text-sm">Polygon (GeoJSON, optional)</Label>
               <PolygonCell polygon={editPolygon} onChange={setEditPolygon} />
-              {editPolygon.existingName && !editPolygon.file && (
-                <div className="flex items-center justify-between text-[11px] text-gray-500 pt-1">
-                  <span>Polygon already attached.</span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      downloadPolygon(
-                        editPolygon.data,
-                        editPolygon.existingName,
-                        "beat.geojson",
-                      )
-                    }
-                    className="inline-flex items-center gap-1 underline-offset-2 hover:underline"
-                  >
-                    <Download className="h-3 w-3" />
-                    Download current
-                  </button>
-                </div>
-              )}
             </div>
           </div>
 
