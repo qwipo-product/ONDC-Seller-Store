@@ -393,7 +393,7 @@ export function OrderDetail() {
         if (who === "Buyer") {
           return (
             <Badge className="bg-amber-50 text-amber-800 border-amber-200 text-base px-4 py-1">
-              Cancelled by Buyer
+              Cancelled by Customer
             </Badge>
           );
         }
@@ -591,7 +591,7 @@ export function OrderDetail() {
                 <XCircle className={`h-5 w-5 mt-0.5 shrink-0 ${iconWrap}`} />
                 <div className="min-w-0 text-sm leading-snug">
                   <p className="font-semibold">
-                    This order was cancelled by the {isBuyer ? "buyer" : "seller"}
+                    This order was cancelled by the {isBuyer ? "customer" : "seller"}
                     {whenLabel ? ` on ${whenLabel}` : ""}.
                   </p>
                   {orderData.cancellationReason && (
@@ -702,7 +702,7 @@ export function OrderDetail() {
                   <div className="flex justify-between text-xs gap-2">
                     <span className="text-gray-500 shrink-0">Cancelled By</span>
                     <span className="text-gray-900 font-medium">
-                      {orderData.cancelledBy ?? "Seller"}
+                      {orderData.cancelledBy === "Buyer" ? "Customer" : "Seller"}
                     </span>
                   </div>
                   {orderData.cancellationTime && (
