@@ -37,6 +37,7 @@ import {
 import {
   ServiceabilityMapDialog,
   PolygonPreviewMap,
+  type WarehousePoint,
 } from "./serviceability-map-view";
 import { toast } from "sonner";
 import { Badge } from "./ui/badge";
@@ -345,7 +346,12 @@ function DayPicker({
 
 const daysKey = (days: DeliveryDay[]) => sortDeliveryDays(days).join("|");
 
-export function ServiceabilityManager() {
+export function ServiceabilityManager({
+  warehouse,
+}: {
+  /** Distributor's warehouse location — pinned on the Map View. */
+  warehouse?: WarehousePoint | null;
+} = {}) {
   const [adminCompanies, setAdminCompanies] = useState<AdminCatalogCompany[]>(
     () => getAdminCatalogCompanies(),
   );
@@ -1184,6 +1190,7 @@ export function ServiceabilityManager() {
         beats={beats}
         initialCompanyId={mapCompanyId}
         focusBeatId={mapFocusBeatId}
+        warehouse={warehouse}
       />
     </div>
   );

@@ -26,7 +26,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
-import { MapContainer, TileLayer, GeoJSON, useMap } from "react-leaflet";
+import {
+  MapContainer,
+  TileLayer,
+  GeoJSON,
+  Marker,
+  Popup,
+  useMap,
+} from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { GeoJsonObject } from "geojson";
@@ -39,6 +46,7 @@ import {
   AlertTriangle,
   Maximize2,
   Building2,
+  Warehouse,
 } from "lucide-react";
 import {
   getPolygonId,
@@ -86,24 +94,128 @@ function getGeoJsonBounds(data: unknown): L.LatLngBounds | null {
 const esc = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
+// Planar shoelace on an equirectangular projection — plenty accurate
+// for city-scale delivery zones.
+function ringAreaKm2(ring: [number, number][]): number {
+  const R = 6371;
+  const rad = Math.PI / 180;
+  const lat0 =
+    (ring.reduce((s, p) => s + p[1], 0) / ring.length) * rad;
+  let area = 0;
+  for (let i = 0; i < ring.length - 1; i++) {
+    const x1 = R * ring[i][0] * rad * Math.cos(lat0);
+    const y1 = R * ring[i][1] * rad;
+    const x2 = R * ring[i + 1][0] * rad * Math.cos(lat0);
+    const y2 = R * ring[i + 1][1] * rad;
+    area += x1 * y2 - x2 * y1;
+  }
+  return Math.abs(area) / 2;
+}
+
+function polygonAreaKm2(data: unknown): number | null {
+  try {
+    let total = 0;
+    const walkGeometry = (geom: {
+      type?: string;
+      coordinates?: unknown;
+    }) => {
+      if (!geom) return;
+      if (geom.type === "Polygon") {
+        total += ringAreaKm2(
+          (geom.coordinates as [number, number][][])[0],
+        );
+      } else if (geom.type === "MultiPolygon") {
+        for (const poly of geom.coordinates as [number, number][][][]) {
+          total += ringAreaKm2(poly[0]);
+        }
+      }
+    };
+    const d = data as {
+      type?: string;
+      features?: { geometry: { type?: string } }[];
+      geometry?: { type?: string };
+    };
+    if (d.type === "FeatureCollection") {
+      for (const f of d.features ?? []) walkGeometry(f.geometry);
+    } else if (d.type === "Feature") {
+      walkGeometry(d.geometry ?? {});
+    } else {
+      walkGeometry(d as { type?: string });
+    }
+    return total > 0 ? total : null;
+  } catch {
+    return null;
+  }
+}
+
+// Beat details card shown when a polygon is clicked.
 function beatPopupHtml(beat: ServiceabilityBeat, color: string): string {
-  const days = sortDeliveryDays(beat.deliveryDays).join(", ");
+  const dayChips = sortDeliveryDays(beat.deliveryDays)
+    .map(
+      (d) =>
+        `<span style="display:inline-block; padding:1px 7px; border-radius:999px; background:#eff6ff; border:1px solid #bfdbfe; color:#1d4ed8; font-size:10px; font-weight:600;">${esc(d)}</span>`,
+    )
+    .join(" ");
+  const area = polygonAreaKm2(beat.polygonData);
   return `
-    <div style="font-family: ui-sans-serif, system-ui, sans-serif; min-width: 180px;">
+    <div style="font-family: ui-sans-serif, system-ui, sans-serif; min-width: 200px; max-width: 260px;">
       <p style="margin:0; font-weight:700; font-size:13px; color:#111827; display:flex; align-items:center; gap:6px;">
-        <span style="width:10px; height:10px; border-radius:3px; background:${color}; display:inline-block;"></span>
+        <span style="width:10px; height:10px; border-radius:3px; background:${color}; display:inline-block; flex-shrink:0;"></span>
         ${esc(beat.beatName)}
       </p>
       <p style="margin:3px 0 0; font-size:11px; color:#6b7280;">${esc(beat.companyName)}</p>
-      <p style="margin:4px 0 0; font-size:11px; color:#374151;"><b>Days:</b> ${esc(days)}</p>
-      ${
-        beat.polygonFileName
-          ? `<p style="margin:2px 0 0; font-size:10px; color:#9ca3af; font-family:ui-monospace,monospace;">${esc(beat.polygonFileName)}</p>`
-          : ""
-      }
+      <div style="margin:7px 0 0; display:flex; flex-wrap:wrap; gap:3px;">${dayChips}</div>
+      <div style="margin:8px 0 0; padding-top:7px; border-top:1px solid #f3f4f6; font-size:11px; color:#374151; display:flex; flex-direction:column; gap:2px;">
+        ${
+          area != null
+            ? `<span><b>Coverage:</b> ≈ ${area < 10 ? area.toFixed(1) : Math.round(area)} km²</span>`
+            : ""
+        }
+        <span><b>Delivery days:</b> ${beat.deliveryDays.length}/week</span>
+        ${
+          beat.polygonFileName
+            ? `<span style="font-size:10px; color:#9ca3af; font-family:ui-monospace,monospace;">${esc(beat.polygonFileName)}</span>`
+            : ""
+        }
+      </div>
     </div>
   `;
 }
+
+// ─── Distributor warehouse marker ─────────────────────────────────
+
+export interface WarehousePoint {
+  lat: number;
+  lng: number;
+  /** Distributor (seller) display name. */
+  name: string;
+  businessName?: string;
+  address?: string;
+}
+
+// Dark rounded-square badge with a warehouse glyph — visually distinct
+// from the colored beat polygons so the operating base stands out.
+const WAREHOUSE_ICON = L.divIcon({
+  className: "qwipo-warehouse-marker",
+  html: `
+    <div style="
+      width: 34px; height: 34px;
+      background: #1e293b;
+      border: 3px solid #ffffff;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+      display: flex; align-items: center; justify-content: center;
+    ">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 8.35V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8.35A2 2 0 0 1 3.26 6.5l8-3.2a2 2 0 0 1 1.48 0l8 3.2A2 2 0 0 1 22 8.35Z"/>
+        <path d="M6 18h12"/><path d="M6 14h12"/><path d="M6 10h12"/>
+      </svg>
+    </div>
+  `,
+  iconSize: [34, 34],
+  iconAnchor: [17, 17],
+  popupAnchor: [0, -21],
+});
 
 // Imperatively refit the map when the target bounds change. The
 // boundsKey dependency (not the bounds object, which is rebuilt every
@@ -181,9 +293,15 @@ export interface ServiceabilityMapDialogProps {
   initialCompanyId?: string | null;
   /** Zoom straight to one beat's polygon (beat-chip entry point). */
   focusBeatId?: string | null;
+  /** Distributor's warehouse / operating base — shown as a pin. */
+  warehouse?: WarehousePoint | null;
 }
 
 const WEEKDAYS = DELIVERY_DAY_OPTIONS.filter((d) => d !== "Next Day");
+
+// Sentinel focus id for the warehouse pin (beat ids never collide —
+// they all start with "beat-").
+const WAREHOUSE_FOCUS_ID = "__warehouse__";
 
 export function ServiceabilityMapDialog({
   open,
@@ -191,6 +309,7 @@ export function ServiceabilityMapDialog({
   beats,
   initialCompanyId,
   focusBeatId,
+  warehouse,
 }: ServiceabilityMapDialogProps) {
   const [companyFilter, setCompanyFilter] = useState<string>("all");
   const [dayFilter, setDayFilter] = useState<DeliveryDay | "all">("all");
@@ -262,8 +381,16 @@ export function ServiceabilityMapDialog({
   const focusedBeat =
     (focusedId && drawn.find((b) => b.id === focusedId)) || null;
 
-  // Target bounds: the focused beat when set, else everything drawn.
+  // Target bounds: warehouse pin or focused beat when set, else
+  // everything drawn (warehouse included so the base never falls
+  // outside the initial view).
   const { bounds, boundsKey } = useMemo(() => {
+    if (focusedId === WAREHOUSE_FOCUS_ID && warehouse) {
+      return {
+        bounds: L.latLng(warehouse.lat, warehouse.lng).toBounds(2400),
+        boundsKey: `wh:${fitAllNonce}`,
+      };
+    }
     if (focusedBeat) {
       return {
         bounds: getGeoJsonBounds(focusedBeat.polygonData),
@@ -276,11 +403,23 @@ export function ServiceabilityMapDialog({
       if (!bb) continue;
       combined = combined ? combined.extend(bb) : bb;
     }
+    if (warehouse) {
+      const wh = L.latLng(warehouse.lat, warehouse.lng);
+      combined = combined ? combined.extend(wh) : wh.toBounds(2400);
+    }
     return {
       bounds: combined,
       boundsKey: `all:${companyFilter}:${dayFilter}:${drawn.length}:${fitAllNonce}`,
     };
-  }, [focusedBeat, drawn, companyFilter, dayFilter, fitAllNonce]);
+  }, [
+    focusedId,
+    focusedBeat,
+    drawn,
+    companyFilter,
+    dayFilter,
+    fitAllNonce,
+    warehouse,
+  ]);
 
   const toggleHidden = (beatId: string) => {
     setHiddenIds((prev) => {
@@ -428,6 +567,38 @@ export function ServiceabilityMapDialog({
         <div className="flex-1 flex min-h-0">
           {/* Legend */}
           <div className="w-72 border-r border-gray-200 bg-white overflow-y-auto flex-shrink-0">
+            {warehouse && (
+              <button
+                type="button"
+                onClick={() =>
+                  setFocusedId((prev) =>
+                    prev === WAREHOUSE_FOCUS_ID ? null : WAREHOUSE_FOCUS_ID,
+                  )
+                }
+                className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left border-b border-gray-100 transition-colors ${
+                  focusedId === WAREHOUSE_FOCUS_ID
+                    ? "bg-indigo-50"
+                    : "hover:bg-gray-50"
+                }`}
+                title={
+                  focusedId === WAREHOUSE_FOCUS_ID
+                    ? "Click to unfocus"
+                    : "Click to zoom to the warehouse"
+                }
+              >
+                <span className="flex items-center justify-center h-7 w-7 rounded-lg bg-slate-800 text-white shrink-0">
+                  <Warehouse className="h-4 w-4" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-xs font-semibold text-gray-900 truncate">
+                    {warehouse.businessName ?? warehouse.name}
+                  </span>
+                  <span className="block text-[10px] text-gray-500 truncate">
+                    Distributor warehouse · operating base
+                  </span>
+                </span>
+              </button>
+            )}
             {filtered.length === 0 ? (
               <div className="p-4 text-xs text-gray-500">
                 No beats match the current filters.
@@ -544,7 +715,7 @@ export function ServiceabilityMapDialog({
 
           {/* Map */}
           <div className="flex-1 relative bg-gray-100">
-            {withPolygon.length === 0 ? (
+            {withPolygon.length === 0 && !warehouse ? (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-center px-6 z-10">
                 <MapIcon className="h-8 w-8 text-gray-300" />
                 <p className="text-sm font-medium text-gray-600">
@@ -570,12 +741,74 @@ export function ServiceabilityMapDialog({
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
                 <FitBounds bounds={bounds} boundsKey={boundsKey} />
+                {warehouse && (
+                  <Marker
+                    position={[warehouse.lat, warehouse.lng]}
+                    icon={WAREHOUSE_ICON}
+                    zIndexOffset={1000}
+                  >
+                    <Popup minWidth={210} maxWidth={280}>
+                      <div
+                        style={{
+                          fontFamily:
+                            "ui-sans-serif, system-ui, sans-serif",
+                        }}
+                      >
+                        <p
+                          style={{
+                            margin: 0,
+                            fontWeight: 700,
+                            fontSize: 13,
+                            color: "#111827",
+                          }}
+                        >
+                          {warehouse.businessName ?? warehouse.name}
+                        </p>
+                        <p
+                          style={{
+                            margin: "3px 0 0",
+                            fontSize: 11,
+                            color: "#6b7280",
+                          }}
+                        >
+                          Distributor warehouse · {warehouse.name}
+                        </p>
+                        {warehouse.address && (
+                          <p
+                            style={{
+                              margin: "6px 0 0",
+                              fontSize: 11,
+                              color: "#374151",
+                              lineHeight: 1.4,
+                            }}
+                          >
+                            {warehouse.address}
+                          </p>
+                        )}
+                        <p
+                          style={{
+                            margin: "6px 0 0",
+                            fontSize: 10,
+                            color: "#9ca3af",
+                            fontFamily: "ui-monospace, monospace",
+                          }}
+                        >
+                          {warehouse.lat.toFixed(4)},{" "}
+                          {warehouse.lng.toFixed(4)}
+                        </p>
+                      </div>
+                    </Popup>
+                  </Marker>
+                )}
                 {drawn.map((beat) => {
                   const color = colorByBeatId.get(beat.id) ?? "#2563eb";
                   const isFocused = focusedId === beat.id;
                   return (
                     <GeoJSON
-                      key={`${beat.id}:${isFocused ? "f" : "n"}`}
+                      // Key stays focus-independent: react-leaflet
+                      // applies style changes in place, and a remount
+                      // here would destroy the popup as it opens.
+                      key={beat.id}
                       data={beat.polygonData as GeoJsonObject}
                       style={{
                         color,

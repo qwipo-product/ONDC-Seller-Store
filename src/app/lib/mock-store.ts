@@ -146,9 +146,10 @@ export interface Seller {
 }
 
 const REQUESTS_KEY = "qwipo.mock.requests";
-// Bumped to v5 — older v4 records were seeded before the sellerType field
-// existed; v5 forces a re-seed so Manage Seller shows the business type.
-const SELLERS_KEY = "qwipo.mock.sellers.v5";
+// Bumped to v6 — v5 records carried Secunderabad lat/long for seller-1
+// while every address field says Banjara Hills; v6 re-seeds so the
+// Serviceability Map warehouse pin lands where the address says.
+const SELLERS_KEY = "qwipo.mock.sellers.v6";
 
 // ---- Default factory helpers ----
 
@@ -225,8 +226,8 @@ const SEED_SELLERS: Seller[] = [
     city: "Hyderabad",
     pinCode: "500032",
     state: "Telangana",
-    latitude: 17.4399,
-    longitude: 78.4983,
+    latitude: 17.4156,
+    longitude: 78.4347,
     fullAddress: "Plot 12, Banjara Hills, near Jubilee Park",
     isActive: true,
     sellerType: "distributor",

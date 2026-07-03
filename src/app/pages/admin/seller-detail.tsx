@@ -753,7 +753,27 @@ export function AdminSellerDetail() {
                 Manage Seller view, so admins can configure delivery
                 zones for any seller from a single place. */}
             <TabsContent value="serviceability" className="p-6 mt-0">
-              <ServiceabilityManager />
+              <ServiceabilityManager
+                warehouse={
+                  seller.latitude != null && seller.longitude != null
+                    ? {
+                        lat: seller.latitude,
+                        lng: seller.longitude,
+                        name: seller.name,
+                        businessName: seller.businessName,
+                        address:
+                          [
+                            seller.fullAddress,
+                            seller.city,
+                            seller.state,
+                            seller.pinCode,
+                          ]
+                            .filter(Boolean)
+                            .join(", ") || undefined,
+                      }
+                    : undefined
+                }
+              />
             </TabsContent>
           </Tabs>
         </Card>
