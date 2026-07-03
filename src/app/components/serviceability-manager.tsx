@@ -32,7 +32,12 @@ import {
   ChevronRight,
   Building2,
   Route,
+  Map as MapIcon,
 } from "lucide-react";
+import {
+  ServiceabilityMapDialog,
+  PolygonPreviewMap,
+} from "./serviceability-map-view";
 import { toast } from "sonner";
 import { Badge } from "./ui/badge";
 import {
@@ -372,6 +377,19 @@ export function ServiceabilityManager() {
 
   const groups = useMemo(() => groupBeatsByCompany(beats), [beats]);
 
+  // ---- Map View dialog (GIS visualization of beat polygons) ----
+  // Three entry points: header button (all beats), company card
+  // (filtered to that company), beat chip map-pin (zoomed to that
+  // beat's polygon).
+  const [mapOpen, setMapOpen] = useState(false);
+  const [mapCompanyId, setMapCompanyId] = useState<string | null>(null);
+  const [mapFocusBeatId, setMapFocusBeatId] = useState<string | null>(null);
+  const openMap = (preset?: { companyId?: string; beatId?: string }) => {
+    setMapCompanyId(preset?.companyId ?? null);
+    setMapFocusBeatId(preset?.beatId ?? null);
+    setMapOpen(true);
+  };
+
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const toggleCollapsed = (companyId: string) =>
     setCollapsed((prev) => ({ ...prev, [companyId]: !prev[companyId] }));
@@ -669,6 +687,21 @@ export function ServiceabilityManager() {
               </Button>
             ))}
           <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5 h-8"
+            disabled={noBeats}
+            onClick={() => openMap()}
+            title={
+              noBeats
+                ? "Add delivery beats first to see them on the map"
+                : "View all beat polygons on a map"
+            }
+          >
+            <MapIcon className="h-3.5 w-3.5" />
+            Map view
+          </Button>
+          <Button
             className="gap-2"
             disabled={noCompanies}
             onClick={() => openAdd()}
@@ -753,6 +786,26 @@ export function ServiceabilityManager() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openMap({ companyId: g.companyId });
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            openMap({ companyId: g.companyId });
+                          }
+                        }}
+                        className="inline-flex items-center gap-1 h-8 px-2.5 rounded-md border border-gray-200 bg-white hover:bg-indigo-50 text-xs font-medium text-gray-700 cursor-pointer"
+                        title={`View ${g.companyName} beats on the map`}
+                      >
+                        <MapIcon className="h-3.5 w-3.5" />
+                        Map
+                      </span>
                       <span
                         role="button"
                         tabIndex={0}
@@ -843,15 +896,24 @@ export function ServiceabilityManager() {
                                   <span className="font-medium">
                                     {beat.beatName}
                                   </span>
-                                  {beat.polygonFileName && (
-                                    <MapPin className="h-3 w-3 text-emerald-600" />
-                                  )}
                                   {beat.deliveryDays.length > 1 && (
                                     <span className="ml-0.5 text-[10px] text-indigo-600 font-medium">
                                       ·{beat.deliveryDays.length}d
                                     </span>
                                   )}
                                 </button>
+                                {beat.polygonFileName && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      openMap({ beatId: beat.id })
+                                    }
+                                    className="inline-flex items-center justify-center h-5 w-5 rounded-full text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                                    title={`View ${beat.beatName} polygon on map`}
+                                  >
+                                    <MapPin className="h-3 w-3" />
+                                  </button>
+                                )}
                                 <button
                                   type="button"
                                   onClick={() => openEdit(beat.id)}
@@ -903,7 +965,7 @@ export function ServiceabilityManager() {
           if (!o) resetAdd();
         }}
       >
-        <DialogContent className="sm:max-w-xl">
+        <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <MapPin className="h-5 w-5 text-indigo-600" />
@@ -988,6 +1050,9 @@ export function ServiceabilityManager() {
             <div className="space-y-1.5">
               <Label className="text-sm">Polygon (GeoJSON, optional)</Label>
               <PolygonCell polygon={addPolygon} onChange={setAddPolygon} />
+              {addPolygon.valid && addPolygon.data != null && (
+                <PolygonPreviewMap data={addPolygon.data} />
+              )}
             </div>
           </div>
 
@@ -1011,7 +1076,7 @@ export function ServiceabilityManager() {
           if (!o) resetEdit();
         }}
       >
-        <DialogContent className="sm:max-w-xl">
+        <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Pencil className="h-5 w-5 text-indigo-600" />
@@ -1093,6 +1158,10 @@ export function ServiceabilityManager() {
             <div className="space-y-1.5">
               <Label className="text-sm">Polygon (GeoJSON, optional)</Label>
               <PolygonCell polygon={editPolygon} onChange={setEditPolygon} />
+              {editPolygon.data != null &&
+                (editPolygon.file === null || editPolygon.valid) && (
+                  <PolygonPreviewMap data={editPolygon.data} />
+                )}
             </div>
           </div>
 
@@ -1107,6 +1176,15 @@ export function ServiceabilityManager() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ---------- Map View — beat polygons on OSM ---------- */}
+      <ServiceabilityMapDialog
+        open={mapOpen}
+        onOpenChange={setMapOpen}
+        beats={beats}
+        initialCompanyId={mapCompanyId}
+        focusBeatId={mapFocusBeatId}
+      />
     </div>
   );
 }

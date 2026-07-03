@@ -93,7 +93,7 @@ const SEED: DemoCustomer[] = [
     // chips behind a single beat row. One beat per company is the
     // seller-side rule.
     serviceabilityOverrides: {
-      "co-itc": ["beat-itc-kphb1"],
+      "co-itc": ["beat-itc-kphb-1"],
     },
   },
   {
