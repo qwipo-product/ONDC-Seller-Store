@@ -33,6 +33,7 @@ import {
   Marker,
   Popup,
   useMap,
+  useMapEvents,
 } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -180,6 +181,142 @@ function beatPopupHtml(beat: ServiceabilityBeat, color: string): string {
       </div>
     </div>
   `;
+}
+
+// ─── Point-in-polygon (click inspection) ──────────────────────────
+// Ray casting against the outer ring(s). Holes are ignored — demo
+// zones don't carry any, and a false positive inside a hole is
+// harmless for an inspection popup.
+
+function pointInRing(
+  lng: number,
+  lat: number,
+  ring: [number, number][],
+): boolean {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i];
+    const [xj, yj] = ring[j];
+    const intersects =
+      yi > lat !== yj > lat &&
+      lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi;
+    if (intersects) inside = !inside;
+  }
+  return inside;
+}
+
+function geoJsonContainsPoint(
+  data: unknown,
+  lat: number,
+  lng: number,
+): boolean {
+  try {
+    let hit = false;
+    const walkGeometry = (geom: {
+      type?: string;
+      coordinates?: unknown;
+    }) => {
+      if (!geom || hit) return;
+      if (geom.type === "Polygon") {
+        hit = pointInRing(
+          lng,
+          lat,
+          (geom.coordinates as [number, number][][])[0],
+        );
+      } else if (geom.type === "MultiPolygon") {
+        for (const poly of geom.coordinates as [number, number][][][]) {
+          if (pointInRing(lng, lat, poly[0])) {
+            hit = true;
+            return;
+          }
+        }
+      }
+    };
+    const d = data as {
+      type?: string;
+      features?: { geometry: { type?: string } }[];
+      geometry?: { type?: string };
+    };
+    if (d.type === "FeatureCollection") {
+      for (const f of d.features ?? []) {
+        walkGeometry(f.geometry);
+        if (hit) break;
+      }
+    } else if (d.type === "Feature") {
+      walkGeometry(d.geometry ?? {});
+    } else {
+      walkGeometry(d as { type?: string });
+    }
+    return hit;
+  } catch {
+    return false;
+  }
+}
+
+// Combined card when the clicked point sits inside SEVERAL beats —
+// typically the same physical area served by multiple companies, or
+// two zones overlapping. Lists every company by name.
+function multiBeatPopupHtml(
+  matches: ServiceabilityBeat[],
+  colorOf: (beatId: string) => string,
+): string {
+  const rows = matches
+    .map((beat, i) => {
+      const days = sortDeliveryDays(beat.deliveryDays).join(", ");
+      return `
+        <div style="display:flex; gap:7px; align-items:flex-start; ${
+          i > 0 ? "margin-top:7px; padding-top:7px; border-top:1px solid #f3f4f6;" : ""
+        }">
+          <span style="width:10px; height:10px; border-radius:3px; background:${colorOf(beat.id)}; display:inline-block; flex-shrink:0; margin-top:2px;"></span>
+          <div style="min-width:0;">
+            <p style="margin:0; font-size:12px; color:#111827;">
+              <b>${esc(beat.companyName)}</b>
+            </p>
+            <p style="margin:1px 0 0; font-size:11px; color:#6b7280;">
+              ${esc(beat.beatName)} · ${esc(days)}
+            </p>
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+  return `
+    <div style="font-family: ui-sans-serif, system-ui, sans-serif; min-width: 210px; max-width: 270px;">
+      <p style="margin:0 0 8px; font-weight:700; font-size:12px; color:#111827;">
+        ${matches.length} companies serve this area
+      </p>
+      ${rows}
+    </div>
+  `;
+}
+
+// Map-level click handler: collect EVERY visible beat whose polygon
+// contains the clicked point and open one popup — a single-beat card
+// when only one matches, the multi-company list when several do.
+function ClickToInspect({
+  beats,
+  colorOf,
+}: {
+  beats: ServiceabilityBeat[];
+  colorOf: (beatId: string) => string;
+}) {
+  const map = useMapEvents({
+    click(e) {
+      const matches = beats.filter((b) =>
+        geoJsonContainsPoint(b.polygonData, e.latlng.lat, e.latlng.lng),
+      );
+      if (matches.length === 0) return;
+      const html =
+        matches.length === 1
+          ? beatPopupHtml(matches[0], colorOf(matches[0].id))
+          : multiBeatPopupHtml(matches, colorOf);
+      L.popup({ minWidth: 210, maxWidth: 300 })
+        .setLatLng(e.latlng)
+        .setContent(html)
+        .openOn(map);
+    },
+  });
+  return null;
 }
 
 // ─── Distributor warehouse marker ─────────────────────────────────
@@ -741,6 +878,10 @@ export function ServiceabilityMapDialog({
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
                 <FitBounds bounds={bounds} boundsKey={boundsKey} />
+                <ClickToInspect
+                  beats={drawn}
+                  colorOf={(id) => colorByBeatId.get(id) ?? "#2563eb"}
+                />
                 {warehouse && (
                   <Marker
                     position={[warehouse.lat, warehouse.lng]}
@@ -816,12 +957,6 @@ export function ServiceabilityMapDialog({
                         fillColor: color,
                         fillOpacity: isFocused ? 0.4 : 0.24,
                       }}
-                      onEachFeature={(_feature, layer) => {
-                        layer.bindPopup(beatPopupHtml(beat, color));
-                      }}
-                      eventHandlers={{
-                        click: () => setFocusedId(beat.id),
-                      }}
                     />
                   );
                 })}
@@ -831,7 +966,8 @@ export function ServiceabilityMapDialog({
             {withPolygon.length > 0 && (
               <div className="absolute bottom-2 left-2 z-[400] rounded-md bg-white/90 backdrop-blur px-2.5 py-1.5 text-[10px] text-gray-600 border border-gray-200 shadow-sm max-w-xs">
                 Overlapping shading = area covered by more than one beat.
-                Click a polygon for its beat details.
+                Click anywhere inside a zone to see every company serving
+                that spot.
               </div>
             )}
           </div>
