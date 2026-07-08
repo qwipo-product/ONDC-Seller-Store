@@ -32,6 +32,7 @@ import {
   Eye,
   Users,
   Sparkles,
+  MapPin,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
@@ -40,6 +41,7 @@ import {
   getDemoCustomers,
   setDemoCompanyStatus,
   subscribeToDemoCustomers,
+  getAddressCount,
   type CompanyLink as SharedCompanyLink,
   type DemoCustomer as SharedDemoCustomer,
 } from "../../lib/customers-demo-data";
@@ -421,6 +423,33 @@ export function CustomersDemo() {
                                 </Tooltip>
                               </TooltipProvider>
                             )}
+                            {/* Multi-address flag — the customer has more
+                                than one delivery location, each mapping
+                                to its own beats/days on the detail page. */}
+                            {(() => {
+                              const n = getAddressCount(c);
+                              if (n <= 1) return null;
+                              return (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="inline-flex cursor-help">
+                                        <Badge className="bg-green-50 text-green-700 border-green-200 gap-1 h-5 px-1.5 text-[10px]">
+                                          <MapPin className="h-3 w-3" />
+                                          {n} addresses
+                                        </Badge>
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="max-w-xs">
+                                      This customer has {n} delivery
+                                      addresses — each can be served by
+                                      different companies and delivery
+                                      days. Open the customer to see all.
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              );
+                            })()}
                           </div>
                         </td>
                         <td className="px-4 py-3">
@@ -721,8 +750,8 @@ export function CustomersDemo() {
               </div>
               <p className="text-[11px] text-gray-500 mt-2 px-1">
                 Status and Block / Unblock are tracked per company. To
-                see the beat name &amp; delivery day for each company,
-                open this customer&apos;s detail page.
+                see the beat name &amp; delivery day per address, open
+                this customer&apos;s detail page.
               </p>
             </div>
           )}
