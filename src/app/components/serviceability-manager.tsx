@@ -1132,9 +1132,10 @@ export function ServiceabilityManager({
                                   type="button"
                                   onClick={() => deleteBeat(beat.id)}
                                   className="inline-flex items-center justify-center h-5 w-5 rounded-full text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                                  title="Remove beat (all days)"
+                                  title="Delete beat (all days)"
+                                  aria-label="Delete beat"
                                 >
-                                  <X className="h-3 w-3" />
+                                  <Trash2 className="h-3 w-3" />
                                 </button>
                               </div>
                             ))}
