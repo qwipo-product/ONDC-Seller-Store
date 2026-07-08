@@ -297,6 +297,138 @@ function polygonHash(s: string): string {
   return (h >>> 0).toString(36);
 }
 
+// ---- Polygon overlap geometry ----
+//
+// Save-time guard for the Add/Edit beat dialogs: does a candidate
+// polygon geometrically overlap an existing beat's polygon? Outer
+// rings only ([lng, lat] pairs) — city-scale delivery zones don't
+// carry holes, and a false positive inside a hole is harmless here.
+//
+// Two zones "overlap" when any vertex of one falls inside the other,
+// or when any of their edges cross. A cheap bounding-box reject runs
+// first so the O(n·m) edge scan only fires on candidates that are
+// actually near each other.
+
+type Ring = [number, number][];
+
+/** Extract every outer ring from a GeoJSON Polygon/MultiPolygon/Feature(Collection). */
+export function polygonOuterRings(data: unknown): Ring[] {
+  const rings: Ring[] = [];
+  const walk = (geom: { type?: string; coordinates?: unknown } | undefined) => {
+    if (!geom) return;
+    if (geom.type === "Polygon") {
+      const outer = (geom.coordinates as Ring[])?.[0];
+      if (outer?.length) rings.push(outer);
+    } else if (geom.type === "MultiPolygon") {
+      for (const poly of (geom.coordinates as Ring[][]) ?? []) {
+        if (poly?.[0]?.length) rings.push(poly[0]);
+      }
+    }
+  };
+  const d = data as {
+    type?: string;
+    features?: { geometry?: { type?: string; coordinates?: unknown } }[];
+    geometry?: { type?: string; coordinates?: unknown };
+  };
+  if (!d || typeof d !== "object") return rings;
+  if (d.type === "FeatureCollection") {
+    for (const f of d.features ?? []) walk(f?.geometry);
+  } else if (d.type === "Feature") {
+    walk(d.geometry);
+  } else {
+    walk(d as { type?: string; coordinates?: unknown });
+  }
+  return rings;
+}
+
+interface BBox {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
+
+function ringBBox(ring: Ring): BBox {
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity;
+  for (const [x, y] of ring) {
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+    if (y < minY) minY = y;
+    if (y > maxY) maxY = y;
+  }
+  return { minX, minY, maxX, maxY };
+}
+
+function bboxDisjoint(a: BBox, b: BBox): boolean {
+  return a.maxX < b.minX || b.maxX < a.minX || a.maxY < b.minY || b.maxY < a.minY;
+}
+
+function pointInRing(x: number, y: number, ring: Ring): boolean {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i];
+    const [xj, yj] = ring[j];
+    const intersects =
+      yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
+    if (intersects) inside = !inside;
+  }
+  return inside;
+}
+
+function orient(
+  a: [number, number],
+  b: [number, number],
+  c: [number, number],
+): number {
+  const v = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+  return v > 0 ? 1 : v < 0 ? -1 : 0;
+}
+
+function segmentsCross(
+  p1: [number, number],
+  p2: [number, number],
+  p3: [number, number],
+  p4: [number, number],
+): boolean {
+  const d1 = orient(p3, p4, p1);
+  const d2 = orient(p3, p4, p2);
+  const d3 = orient(p1, p2, p3);
+  const d4 = orient(p1, p2, p4);
+  return d1 !== d2 && d3 !== d4;
+}
+
+function ringsOverlap(a: Ring, b: Ring): boolean {
+  if (bboxDisjoint(ringBBox(a), ringBBox(b))) return false;
+  for (const [x, y] of a) if (pointInRing(x, y, b)) return true;
+  for (const [x, y] of b) if (pointInRing(x, y, a)) return true;
+  for (let i = 0; i < a.length - 1; i++) {
+    for (let j = 0; j < b.length - 1; j++) {
+      if (segmentsCross(a[i], a[i + 1], b[j], b[j + 1])) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * True when two GeoJSON polygons share any area (or their boundaries
+ * cross). Used to block a new beat whose zone overlaps a DIFFERENT
+ * company's zone with a conflicting delivery-day set.
+ */
+export function polygonsOverlap(a: unknown, b: unknown): boolean {
+  if (a == null || b == null) return false;
+  const ringsA = polygonOuterRings(a);
+  const ringsB = polygonOuterRings(b);
+  for (const ra of ringsA) {
+    for (const rb of ringsB) {
+      if (ringsOverlap(ra, rb)) return true;
+    }
+  }
+  return false;
+}
+
 // ---- Lookup helpers ----
 
 function hashKey(s: string): number {

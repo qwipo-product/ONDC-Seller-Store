@@ -33,6 +33,9 @@ import {
   Building2,
   Route,
   Map as MapIcon,
+  Layers,
+  AlertTriangle,
+  Lock,
 } from "lucide-react";
 import {
   ServiceabilityMapDialog,
@@ -56,8 +59,11 @@ import {
   subscribeToServiceabilityBeats,
   makeServiceabilityBeatId,
   sortDeliveryDays,
+  getPolygonId,
+  polygonsOverlap,
   type ServiceabilityBeat,
 } from "../lib/serviceability-data";
+import { ErrorState } from "./error-state";
 
 // Calendar order for chip rows — Monday-first weekly grid.
 const DAY_ORDER: DeliveryDay[] = [
@@ -283,7 +289,7 @@ function PolygonCell({
           } text-gray-600`}
         >
           <Upload className="h-3.5 w-3.5" />
-          Polygon (optional)
+          Upload polygon
         </button>
       )}
     </div>
@@ -292,8 +298,9 @@ function PolygonCell({
 
 // Day picker — multi-select chip grid (checkbox-style). A beat can
 // serve one or many weekdays; click a day to toggle it. The Next-Day
-// express slot was retired from the UI on June 26, so the picker now
-// shows only the seven weekdays in a 4-column grid.
+// express slot was retired from the UI on June 26, and Sunday was
+// removed on July 8 (Sundays are non-delivery days per Qwipo ops), so
+// the picker now shows Monday → Saturday in a 4-column grid.
 function DayPicker({
   selected,
   onChange,
@@ -301,7 +308,9 @@ function DayPicker({
   selected: DeliveryDay[];
   onChange: (next: DeliveryDay[]) => void;
 }) {
-  const weekdays = DELIVERY_DAY_OPTIONS.filter((d) => d !== "Next Day");
+  const weekdays = DELIVERY_DAY_OPTIONS.filter(
+    (d) => d !== "Next Day" && d !== "Sunday",
+  );
   const selectedSet = new Set(selected);
   const isOn = (d: DeliveryDay) => selectedSet.has(d);
   const toggle = (d: DeliveryDay) => {
@@ -345,6 +354,90 @@ function DayPicker({
 }
 
 const daysKey = (days: DeliveryDay[]) => sortDeliveryDays(days).join("|");
+
+// Save-time conflict surfaced as a full error screen inside the
+// Add/Edit dialog. Two reasons, both boil down to "this area is
+// already served by another company on different days":
+//   • "overlap" — the uploaded polygon geometrically overlaps another
+//     company's zone that runs on a different day-set.
+//   • "days"    — a beat of the same name already exists under another
+//     company with a different day-set.
+interface BeatConflict {
+  scope: "add" | "edit";
+  reason: "overlap" | "days";
+  /** The existing beat that clashes. */
+  companyName: string;
+  beatName: string;
+  existingDays: string;
+  /** What the user just tried to save. */
+  yourBeatName: string;
+  yourDays: string;
+}
+
+function ConflictErrorView({
+  conflict,
+  onBack,
+}: {
+  conflict: BeatConflict;
+  onBack: () => void;
+}) {
+  const isOverlap = conflict.reason === "overlap";
+  return (
+    <div className="py-2">
+      <ErrorState
+        icon={isOverlap ? Layers : AlertTriangle}
+        tone="danger"
+        code={isOverlap ? "Zone overlap" : "Delivery-day clash"}
+        title={
+          isOverlap
+            ? "This zone overlaps another company"
+            : "Delivery days don't match"
+        }
+        description={
+          isOverlap
+            ? `The polygon you uploaded overlaps ${conflict.companyName}'s "${conflict.beatName}" zone, which delivers on a different set of days. Overlapping areas must share the same delivery days across companies.`
+            : `"${conflict.yourBeatName}" already exists for ${conflict.companyName} with different delivery days. The same beat must use the same day-set across every company that runs it.`
+        }
+        compact
+      />
+      <div className="mx-auto mt-1 max-w-md rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-900">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <p className="text-[10px] uppercase tracking-wider font-semibold text-red-500">
+              Already configured
+            </p>
+            <p className="mt-1 font-semibold text-red-900">
+              {conflict.companyName}
+            </p>
+            <p className="text-red-700">{conflict.beatName}</p>
+            <p className="mt-1 text-red-700">{conflict.existingDays}</p>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-wider font-semibold text-red-500">
+              Your beat
+            </p>
+            <p className="mt-1 font-semibold text-red-900">
+              {conflict.yourBeatName}
+            </p>
+            <p className="mt-1 text-red-700">{conflict.yourDays}</p>
+          </div>
+        </div>
+        <p className="mt-3 border-t border-red-200 pt-2 text-red-800">
+          Fix:{" "}
+          {isOverlap
+            ? "adjust the polygon so it doesn't overlap, or match the delivery days above."
+            : "pick the same delivery days shown above, or rename this beat."}
+        </p>
+      </div>
+      <div className="mt-4 flex justify-center">
+        <Button onClick={onBack} className="gap-2">
+          <ChevronRight className="h-4 w-4 rotate-180" />
+          Go back &amp; fix
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 export function ServiceabilityManager({
   warehouse,
@@ -406,6 +499,10 @@ export function ServiceabilityManager({
   };
   const expandAll = () => setCollapsed({});
 
+  // Save-time conflict → renders an error screen inside the active
+  // dialog (overlap / delivery-day clash). Cleared on "go back".
+  const [conflict, setConflict] = useState<BeatConflict | null>(null);
+
   // ---- Edit-single dialog (click a beat to edit one record) ----
   const [editOpen, setEditOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -415,6 +512,13 @@ export function ServiceabilityManager({
   const [editPolygon, setEditPolygon] = useState<PolygonDraft>(
     emptyPolygonDraft(),
   );
+  // Snapshot of the beat as opened — drives the "enable Save only
+  // after a change" rule for the Edit dialog.
+  const editOriginalRef = useRef<{
+    name: string;
+    days: string;
+    polyId: string;
+  } | null>(null);
 
   const resetEdit = () => {
     setEditingId(null);
@@ -422,21 +526,35 @@ export function ServiceabilityManager({
     setEditBeatName("");
     setEditDays([]);
     setEditPolygon(emptyPolygonDraft());
+    editOriginalRef.current = null;
+    setConflict(null);
   };
 
   const openEdit = (beatId: string) => {
     const beat = beats.find((b) => b.id === beatId);
     if (!beat) return;
+    const days = sortDeliveryDays(
+      beat.deliveryDays.filter((d) => d !== "Next Day"),
+    );
     setEditingId(beatId);
     setEditCompanyId(beat.companyId);
     setEditBeatName(beat.beatName);
-    setEditDays(sortDeliveryDays(beat.deliveryDays.filter((d) => d !== "Next Day")));
+    setEditDays(days);
     setEditPolygon({
       file: null,
       data: beat.polygonData ?? null,
       valid: beat.polygonFileName ? true : null,
       existingName: beat.polygonFileName,
     });
+    editOriginalRef.current = {
+      name: beat.beatName.trim().toLowerCase(),
+      days: daysKey(days),
+      polyId: getPolygonId({
+        polygonData: beat.polygonData,
+        polygonFileName: beat.polygonFileName,
+      }),
+    };
+    setConflict(null);
     setEditOpen(true);
   };
 
@@ -460,6 +578,15 @@ export function ServiceabilityManager({
       toast.error("Pick at least one delivery day.");
       return;
     }
+    // Polygon is mandatory (existing beats carry one; a replacement
+    // upload must parse cleanly).
+    const editPolygonData = editPolygon.file
+      ? editPolygon.data
+      : editPolygon.data ?? null;
+    if (editPolygonData == null || editPolygon.valid === false) {
+      toast.error("Upload a valid delivery-zone polygon to save.");
+      return;
+    }
 
     const nameCollision = beats.find(
       (b) =>
@@ -476,7 +603,8 @@ export function ServiceabilityManager({
 
     // Cross-company day-consistency check. A distributor runs one
     // delivery operation per area, so the day-set for a beat name
-    // must match across every company that uses it.
+    // must match across every company that uses it. Surfaced as an
+    // error screen (not a toast) so the clash is unmissable.
     const editKey = daysKey(editDays);
     const dayConflict = beats.find(
       (b) =>
@@ -485,11 +613,26 @@ export function ServiceabilityManager({
         b.deliveryDays.length > 0 &&
         daysKey(b.deliveryDays) !== editKey,
     );
-    if (dayConflict) {
-      const conflictDays = sortDeliveryDays(dayConflict.deliveryDays).join(", ");
-      toast.error(
-        `"${beatName}" already delivers on ${conflictDays} for ${dayConflict.companyName}. Match those days to keep the area consistent across companies.`,
-      );
+    // Geometry overlap with a DIFFERENT company running different days.
+    const overlapConflict = beats.find(
+      (b) =>
+        b.id !== editingId &&
+        b.companyId !== editCompanyId &&
+        b.polygonData != null &&
+        daysKey(b.deliveryDays) !== editKey &&
+        polygonsOverlap(editPolygonData, b.polygonData),
+    );
+    const clash = dayConflict ?? overlapConflict;
+    if (clash) {
+      setConflict({
+        scope: "edit",
+        reason: dayConflict ? "days" : "overlap",
+        companyName: clash.companyName,
+        beatName: clash.beatName,
+        existingDays: sortDeliveryDays(clash.deliveryDays).join(", "),
+        yourBeatName: beatName,
+        yourDays: sortDeliveryDays(editDays).join(", "),
+      });
       return;
     }
 
@@ -537,12 +680,14 @@ export function ServiceabilityManager({
     setAddBeatName("");
     setAddDays([]);
     setAddPolygon(emptyPolygonDraft());
+    setConflict(null);
   };
 
   const openAdd = (preset?: { companyId?: string; day?: DeliveryDay }) => {
     resetAdd();
     if (preset?.companyId) setAddCompanyId(preset.companyId);
     if (preset?.day) setAddDays([preset.day]);
+    setConflict(null);
     setAddOpen(true);
   };
 
@@ -565,8 +710,9 @@ export function ServiceabilityManager({
       toast.error("Pick at least one delivery day.");
       return;
     }
-    if (addPolygon.file && addPolygon.valid !== true) {
-      toast.error("Fix the polygon file before saving.");
+    // Polygon is now mandatory for every beat.
+    if (addPolygon.data == null || addPolygon.valid !== true) {
+      toast.error("Upload a valid delivery-zone polygon to save.");
       return;
     }
 
@@ -585,7 +731,9 @@ export function ServiceabilityManager({
 
     // Cross-company day-consistency. Distributors run one delivery
     // operation per area, so the day-set for a beat name must match
-    // across every company that uses it.
+    // across every company that uses it. A geometric overlap with a
+    // different company on different days is the same violation. Both
+    // are surfaced as an error screen.
     const addKey = daysKey(addDays);
     const dayConflict = beats.find(
       (b) =>
@@ -593,11 +741,24 @@ export function ServiceabilityManager({
         b.deliveryDays.length > 0 &&
         daysKey(b.deliveryDays) !== addKey,
     );
-    if (dayConflict) {
-      const conflictDays = sortDeliveryDays(dayConflict.deliveryDays).join(", ");
-      toast.error(
-        `"${beatName}" already delivers on ${conflictDays} for ${dayConflict.companyName}. Match those days to keep the area consistent across companies.`,
-      );
+    const overlapConflict = beats.find(
+      (b) =>
+        b.companyId !== addCompanyId &&
+        b.polygonData != null &&
+        daysKey(b.deliveryDays) !== addKey &&
+        polygonsOverlap(addPolygon.data, b.polygonData),
+    );
+    const clash = dayConflict ?? overlapConflict;
+    if (clash) {
+      setConflict({
+        scope: "add",
+        reason: dayConflict ? "days" : "overlap",
+        companyName: clash.companyName,
+        beatName: clash.beatName,
+        existingDays: sortDeliveryDays(clash.deliveryDays).join(", "),
+        yourBeatName: beatName,
+        yourDays: sortDeliveryDays(addDays).join(", "),
+      });
       return;
     }
 
@@ -608,7 +769,7 @@ export function ServiceabilityManager({
       beatName,
       deliveryDays: sortDeliveryDays(addDays),
       polygonFileName: addPolygon.file?.name,
-      polygonData: addPolygon.file ? addPolygon.data : undefined,
+      polygonData: addPolygon.data,
       createdAt: new Date().toISOString(),
     };
 
@@ -655,6 +816,45 @@ export function ServiceabilityManager({
       })),
     [adminCompanies],
   );
+
+  // ---- Save-button gating ----
+  // Save/Update stay disabled until every mandatory field is filled;
+  // Update additionally requires an actual change vs the opened beat.
+  const addCanSave =
+    !!addCompanyId &&
+    addBeatName.trim().length > 0 &&
+    addDays.length > 0 &&
+    addPolygon.valid === true &&
+    addPolygon.data != null;
+
+  const editCompanyName =
+    adminCompanies.find((c) => c.id === editCompanyId)?.name ?? "";
+
+  const editPolygonReady =
+    editPolygon.data != null &&
+    (editPolygon.file === null || editPolygon.valid === true);
+
+  const editDirty = (() => {
+    const orig = editOriginalRef.current;
+    if (!orig) return false;
+    const curPolyId = editPolygon.file
+      ? `new:${editPolygon.file.name}`
+      : getPolygonId({
+          polygonData: editPolygon.data,
+          polygonFileName: editPolygon.existingName,
+        });
+    return (
+      editBeatName.trim().toLowerCase() !== orig.name ||
+      daysKey(editDays) !== orig.days ||
+      curPolyId !== orig.polyId
+    );
+  })();
+
+  const editCanSave =
+    editBeatName.trim().length > 0 &&
+    editDays.length > 0 &&
+    editPolygonReady &&
+    editDirty;
 
   return (
     <div>
@@ -984,6 +1184,13 @@ export function ServiceabilityManager({
             </DialogDescription>
           </DialogHeader>
 
+          {conflict?.scope === "add" ? (
+            <ConflictErrorView
+              conflict={conflict}
+              onBack={() => setConflict(null)}
+            />
+          ) : (
+          <>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
               <Label>
@@ -1054,8 +1261,13 @@ export function ServiceabilityManager({
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-sm">Polygon (GeoJSON, optional)</Label>
+              <Label className="text-sm">
+                Polygon (GeoJSON) <span className="text-red-500">*</span>
+              </Label>
               <PolygonCell polygon={addPolygon} onChange={setAddPolygon} />
+              <p className="text-[11px] text-gray-500">
+                Required — upload the beat&apos;s delivery-zone polygon.
+              </p>
               {addPolygon.valid && addPolygon.data != null && (
                 <PolygonPreviewMap data={addPolygon.data} />
               )}
@@ -1066,11 +1278,13 @@ export function ServiceabilityManager({
             <Button variant="outline" onClick={() => setAddOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={saveAdd} className="gap-2">
+            <Button onClick={saveAdd} disabled={!addCanSave} className="gap-2">
               <Save className="h-4 w-4" />
               Save
             </Button>
           </DialogFooter>
+          </>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -1094,18 +1308,30 @@ export function ServiceabilityManager({
             </DialogDescription>
           </DialogHeader>
 
+          {conflict?.scope === "edit" ? (
+            <ConflictErrorView
+              conflict={conflict}
+              onBack={() => setConflict(null)}
+            />
+          ) : (
+          <>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label>
-                Company <span className="text-red-500">*</span>
-              </Label>
-              <CompanyComboBox
-                companies={companyOptions}
-                value={editCompanyId}
-                onChange={setEditCompanyId}
-                placeholder="Search company…"
-                showBrandCount={false}
-              />
+              <Label>Company</Label>
+              <div className="flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                <Building2 className="h-4 w-4 text-gray-400 shrink-0" />
+                <span className="font-medium truncate">
+                  {editCompanyName || "—"}
+                </span>
+                <span className="ml-auto inline-flex items-center gap-1 text-[11px] font-medium text-gray-500">
+                  <Lock className="h-3 w-3" />
+                  Locked
+                </span>
+              </div>
+              <p className="text-[11px] text-gray-500">
+                Company can&apos;t be changed after a beat is created. Create a
+                new beat to assign a different company.
+              </p>
             </div>
 
             <div className="space-y-1.5">
@@ -1162,8 +1388,14 @@ export function ServiceabilityManager({
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-sm">Polygon (GeoJSON, optional)</Label>
+              <Label className="text-sm">
+                Polygon (GeoJSON) <span className="text-red-500">*</span>
+              </Label>
               <PolygonCell polygon={editPolygon} onChange={setEditPolygon} />
+              <p className="text-[11px] text-gray-500">
+                Required — replace the polygon to update this beat&apos;s
+                delivery zone.
+              </p>
               {editPolygon.data != null &&
                 (editPolygon.file === null || editPolygon.valid) && (
                   <PolygonPreviewMap data={editPolygon.data} />
@@ -1175,11 +1407,17 @@ export function ServiceabilityManager({
             <Button variant="outline" onClick={() => setEditOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={saveEdit} className="gap-2">
+            <Button
+              onClick={saveEdit}
+              disabled={!editCanSave}
+              className="gap-2"
+            >
               <Save className="h-4 w-4" />
               Save changes
             </Button>
           </DialogFooter>
+          </>
+          )}
         </DialogContent>
       </Dialog>
 

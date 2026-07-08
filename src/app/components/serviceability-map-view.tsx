@@ -434,7 +434,9 @@ export interface ServiceabilityMapDialogProps {
   warehouse?: WarehousePoint | null;
 }
 
-const WEEKDAYS = DELIVERY_DAY_OPTIONS.filter((d) => d !== "Next Day");
+const WEEKDAYS = DELIVERY_DAY_OPTIONS.filter(
+  (d) => d !== "Next Day" && d !== "Sunday",
+);
 
 // Sentinel focus id for the warehouse pin (beat ids never collide —
 // they all start with "beat-").
