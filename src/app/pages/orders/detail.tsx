@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
-import { usePostHog } from "@posthog/react";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Label } from "../../components/ui/label";
@@ -310,7 +309,6 @@ const RICH_PRODUCTS_FOR_SEED_ORDER: OrderProduct[] = [
 export function OrderDetail() {
   const { orderId } = useParams();
   const navigate = useNavigate();
-  const posthog = usePostHog();
   // Resolve the order from the shared store by URL :orderId. If
   // the ID isn't in the store (e.g. the seller hand-typed a URL
   // for a non-existent order), fall back to the rich mock so the
@@ -452,7 +450,6 @@ export function OrderDetail() {
     // Write the new status back to the shared store so the list
     // page (and any other subscriber) sees the change.
     if (orderData.orderId) updateOrderStatus(orderData.orderId, "Confirmed");
-    posthog?.capture("order_confirmed", { order_id: orderData.orderId, order_value: orderData.orderValue, channel: orderData.channel });
     setIsConfirmModalOpen(false);
     toast.success("Order confirmed successfully!");
     setTimeout(() => {
@@ -476,7 +473,6 @@ export function OrderDetail() {
     if (orderData.orderId) {
       updateOrderStatus(orderData.orderId, "Cancelled", cancelReason, "Seller");
     }
-    posthog?.capture("order_cancelled", { order_id: orderData.orderId, reason: cancelReason });
     setIsCancelModalOpen(false);
     toast.error(`Order cancelled. Reason: ${cancelReason}`);
     setTimeout(() => {
@@ -495,7 +491,6 @@ export function OrderDetail() {
   const handleConfirmDelivered = () => {
     setOrderData((prev) => ({ ...prev, status: "Delivered" }));
     if (orderData.orderId) updateOrderStatus(orderData.orderId, "Delivered");
-    posthog?.capture("order_delivered", { order_id: orderData.orderId, order_value: orderData.orderValue });
     setIsDeliverModalOpen(false);
     toast.success("Order marked as delivered.");
     setTimeout(() => {
