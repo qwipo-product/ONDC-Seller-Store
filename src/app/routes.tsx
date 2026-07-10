@@ -1,5 +1,6 @@
 import { createBrowserRouter } from "react-router";
 import { RootLayout } from "./components/root-layout";
+import { RootErrorBoundary } from "./components/root-error-boundary";
 import { ProtectedRoute } from "./components/protected-route";
 import { Dashboard } from "./pages/dashboard";
 import { DashboardCompany } from "./pages/dashboard-company";
@@ -82,6 +83,7 @@ export const router = createBrowserRouter([
         <RootLayout />
       </ProtectedRoute>
     ),
+    ErrorBoundary: RootErrorBoundary,
     children: [
       { index: true, Component: AdminDashboard },
       // User Management (flat — was Active Sellers)
@@ -116,6 +118,7 @@ export const router = createBrowserRouter([
         <RootLayout />
       </ProtectedRoute>
     ),
+    ErrorBoundary: RootErrorBoundary,
     children: [
       { index: true, Component: Dashboard },
       // Per-company drill-down — opens from the company table on the

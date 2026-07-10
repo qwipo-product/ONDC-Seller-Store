@@ -50,6 +50,7 @@ import {
 import { AlertOctagon, Loader2 } from "lucide-react";
 import { RouteProgress } from "./ui/page-loader";
 import { ThemeToggle } from "./theme-toggle";
+import { usePostHog } from "@posthog/react";
 // External target the Logistics menu opens in a new tab. The Logistics
 // item is part of every seller's sidebar — it goes greyed-out for the
 // empty-mode seller persona (so reviewers see the inception-day state)
@@ -147,6 +148,7 @@ export function RootLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const posthog = usePostHog();
   const isAdmin = user?.role === "admin";
   // Theme-aware logo swap. We mount-guard with `themeReady` so the
   // first paint after hydration uses the persisted theme without a
@@ -182,6 +184,8 @@ export function RootLayout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleLogout = () => {
+    posthog?.capture("user_logged_out");
+    posthog?.reset();
     logout();
     navigate("/login");
   };
