@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
+import { usePostHog } from "@posthog/react";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent } from "../../components/ui/card";
 import {
@@ -144,6 +145,7 @@ const getIconColorClass = (color: string) => {
 
 export function CreateScheme() {
   const navigate = useNavigate();
+  const posthog = usePostHog();
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedScheme, setSelectedScheme] = useState<string | null>(null);
 
@@ -158,6 +160,8 @@ export function CreateScheme() {
     }
     if (currentStep < 3) {
       setCurrentStep(currentStep + 1);
+    } else {
+      posthog?.capture("offer_scheme_created", { scheme_type: selectedScheme });
     }
   };
 

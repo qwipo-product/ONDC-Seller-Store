@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
+import { usePostHog } from "@posthog/react";
 import { Card, CardContent } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
@@ -93,6 +94,7 @@ type TabType = "all" | "new" | "confirmed" | "delivered" | "cancelled";
 
 export function Orders() {
   const navigate = useNavigate();
+  const posthog = usePostHog();
   // Source of truth lives in lib/orders-data. We mirror it locally
   // and resubscribe so writes from the detail page propagate here.
   const [orders, setOrdersState] = useState<Order[]>(() =>
@@ -625,6 +627,7 @@ export function Orders() {
       ),
     );
     const skipped = allSelected.length - eligible.length;
+    posthog?.capture("orders_confirmed", { count: eligible.length, skipped });
     if (skipped > 0) {
       toast.success(
         `Confirmed ${eligible.length} order${eligible.length === 1 ? "" : "s"}. Skipped ${skipped} that deliver more than 1 day out.`,
@@ -650,6 +653,7 @@ export function Orders() {
       return;
     }
     updateOrderStatuses(selectedOrders, "Cancelled", cancelReason, "Seller");
+    posthog?.capture("orders_cancelled", { count: selectedOrders.length, reason: cancelReason });
     toast.success(
       `${selectedOrders.length} order(s) cancelled. Reason: ${cancelReason}`,
     );
@@ -695,6 +699,7 @@ export function Orders() {
           month: "short",
           timeZone: "UTC",
         });
+    posthog?.capture("delivery_date_updated", { count, new_delivery_date: newExpectedDeliveryDate });
     toast.success(
       `${count} order${count === 1 ? "" : "s"} rescheduled to ${friendly}.`,
       {
@@ -720,6 +725,7 @@ export function Orders() {
       )
     );
 
+    posthog?.capture("orders_delivered", { count: selectedOrders.length });
     toast.success(
       `${selectedOrders.length} order(s) marked as delivered!`
     );
@@ -940,6 +946,12 @@ export function Orders() {
     link.click();
     document.body.removeChild(link);
 
+    posthog?.capture("orders_exported", {
+      count: ordersToExport.length,
+      date_from: range.start,
+      date_to: range.end,
+      format: exportFormat,
+    });
     toast.success(
       `Successfully exported ${ordersToExport.length} order(s) from ${range.start} to ${range.end}`,
     );

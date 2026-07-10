@@ -10,10 +10,12 @@ import { useAuth } from "../../lib/auth-context";
 import { validateCredentials } from "../../lib/auth-credentials";
 import qwipoLogo from "../../../imports/Qwipo_Secondary_Logo_for_Light_BG@4x-8.png";
 import qwipoIcon from "../../../imports/Qwipo_Icon_Logo_for_Light_BG@4x-8.png";
+import { usePostHog } from "@posthog/react";
 
 export function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
+  const posthog = usePostHog();
   const [mobile, setMobile] = useState("");
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
@@ -34,6 +36,7 @@ export function Login() {
       setIsLoading(false);
       setOtpSent(true);
       toast.success("OTP sent to " + mobile);
+      posthog?.capture("otp_sent");
     }, 600);
   };
 
@@ -55,6 +58,8 @@ export function Login() {
       }
       setOtpError(null);
       login(user);
+      posthog?.identify(user.id, { role: user.role });
+      posthog?.capture("user_logged_in", { role: user.role });
       toast.success(`Welcome, ${user.name}!`);
       if (user.role === "admin") {
         navigate("/admin");
