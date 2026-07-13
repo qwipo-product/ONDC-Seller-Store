@@ -38,6 +38,8 @@ import {
   setOrderValueMin,
   getOrderValueMax,
   setOrderValueMax,
+  getOrderValueNonBeat,
+  setOrderValueNonBeat,
   getBeatCutoffTime,
   setBeatCutoffTime,
 } from "../../lib/order-settings-data";
@@ -51,15 +53,23 @@ export function OrderSettings() {
   // order's value when set. Both persist via order-settings-data.
   const [orderMin, setOrderMinInput] = useState(() => String(getOrderValueMin()));
   const [orderMax, setOrderMaxInput] = useState(() => String(getOrderValueMax()));
+  // Separate MOV floor for non-beat (off-route) orders.
+  const [orderNonBeat, setOrderNonBeatInput] = useState(() =>
+    String(getOrderValueNonBeat()),
+  );
   const [savedOrderMin, setSavedOrderMin] = useState(orderMin);
   const [savedOrderMax, setSavedOrderMax] = useState(orderMax);
+  const [savedOrderNonBeat, setSavedOrderNonBeat] = useState(orderNonBeat);
   const isOrderValueDirty =
-    orderMin !== savedOrderMin || orderMax !== savedOrderMax;
+    orderMin !== savedOrderMin ||
+    orderMax !== savedOrderMax ||
+    orderNonBeat !== savedOrderNonBeat;
   // Inline errors keyed by field — surfaces under the relevant input
   // instead of a toast.
   const [orderValueErrors, setOrderValueErrors] = useState<{
     min?: string;
     max?: string;
+    nonBeat?: string;
   }>({});
 
   // ---- Order Processing ----
@@ -101,7 +111,8 @@ export function OrderSettings() {
   const handleSaveOrderValue = () => {
     const min = parseFloat(orderMin);
     const max = orderMax.trim() === "" ? 0 : parseFloat(orderMax);
-    const errs: { min?: string; max?: string } = {};
+    const nonBeat = orderNonBeat.trim() === "" ? NaN : parseFloat(orderNonBeat);
+    const errs: { min?: string; max?: string; nonBeat?: string } = {};
     if (orderMin.trim() === "" || isNaN(min) || min < 0) {
       errs.min = "Enter a non-negative number";
     }
@@ -110,15 +121,20 @@ export function OrderSettings() {
     } else if (!errs.min && orderMax.trim() !== "" && max > 0 && max < min) {
       errs.max = "Maximum can't be below the minimum";
     }
-    if (errs.min || errs.max) {
+    if (orderNonBeat.trim() === "" || isNaN(nonBeat) || nonBeat < 0) {
+      errs.nonBeat = "Enter a non-negative number";
+    }
+    if (errs.min || errs.max || errs.nonBeat) {
       setOrderValueErrors(errs);
       return;
     }
     setOrderValueErrors({});
     setOrderValueMin(min);
     setOrderValueMax(max);
+    setOrderValueNonBeat(nonBeat);
     setSavedOrderMin(orderMin);
     setSavedOrderMax(orderMax);
+    setSavedOrderNonBeat(orderNonBeat);
     toast.success("Order value saved.");
   };
 
@@ -256,6 +272,36 @@ export function OrderSettings() {
                 ) : (
                   <p className="text-[11px] text-gray-500">
                     Optional cap per order.
+                  </p>
+                )}
+              </div>
+              {/* Non-Beat MOV — the minimum applied to off-route
+                  (non-beat) orders, kept distinct from the standard
+                  Minimum above. Full-width row of its own. */}
+              <div className="space-y-1 col-span-2">
+                <Label className="text-xs">Non-Beat MOV (₹)</Label>
+                <Input
+                  type="number"
+                  placeholder="5000"
+                  value={orderNonBeat}
+                  onChange={(e) => {
+                    setOrderNonBeatInput(e.target.value);
+                    if (orderValueErrors.nonBeat)
+                      setOrderValueErrors((prev) => ({
+                        ...prev,
+                        nonBeat: undefined,
+                      }));
+                  }}
+                  className="h-8 text-sm"
+                  aria-invalid={!!orderValueErrors.nonBeat}
+                />
+                {orderValueErrors.nonBeat ? (
+                  <p className="text-[11px] text-red-600">
+                    {orderValueErrors.nonBeat}
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-gray-500">
+                    Minimum order value for non-beat (off-route) orders.
                   </p>
                 )}
               </div>

@@ -4,7 +4,6 @@ import { Badge } from "../components/ui/badge";
 import {
   Store,
   ShoppingCart,
-  Truck,
   Wallet,
   ChevronRight,
   MessageCircle,
@@ -22,9 +21,8 @@ interface SettingCard {
 }
 
 // Order: active settings first (Store → Order → Communication), then
-// the Coming-Soon cards (Shipping, Payment) at the end so the seller
-// reaches what they can actually use without scanning past disabled
-// tiles.
+// the Coming-Soon card (Payment) at the end so the seller reaches what
+// they can actually use without scanning past disabled tiles.
 const settingsCards: SettingCard[] = [
   {
     id: "store",
@@ -52,15 +50,6 @@ const settingsCards: SettingCard[] = [
     path: "/settings/communication",
     iconBg: "bg-cyan-100",
     iconColor: "text-cyan-600",
-  },
-  {
-    id: "shipping",
-    title: "Shipping Settings",
-    description: "Configure delivery fee slabs",
-    icon: <Truck className="h-6 w-6" />,
-    path: "/settings/shipping",
-    iconBg: "bg-amber-100",
-    iconColor: "text-amber-600",
   },
   {
     id: "payment",

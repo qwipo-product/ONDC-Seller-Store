@@ -10,6 +10,7 @@
 const PROCESSING_TIME_KEY = "qwipo.orderSettings.processingTimeHours";
 const ORDER_MIN_KEY = "qwipo.orderSettings.orderMin";
 const ORDER_MAX_KEY = "qwipo.orderSettings.orderMax";
+const ORDER_NONBEAT_KEY = "qwipo.orderSettings.orderNonBeatMov";
 const BEAT_CUTOFF_TIME_KEY = "qwipo.orderSettings.beatCutoffTime";
 
 /** Default if the seller has never opened Order Settings. Matches the
@@ -21,6 +22,12 @@ const DEFAULT_PROCESSING_TIME_HOURS = "24";
  *  value of 0 means no cap. */
 const DEFAULT_ORDER_MIN = 2500;
 const DEFAULT_ORDER_MAX = 5000;
+
+/** Minimum Order Value floor applied specifically to non-beat
+ *  (off-route / ad-hoc) orders — those placed outside the seller's
+ *  regular beat schedule. Kept separate from the standard Minimum so
+ *  sellers can require a higher basket for off-route deliveries. */
+const DEFAULT_ORDER_NONBEAT = 5000;
 
 /** Cut-off time after which Beat orders for the next scheduled
  *  delivery cycle stop being accepted. Default agreed in the June
@@ -92,6 +99,18 @@ export function getOrderValueMax(): number {
 export function setOrderValueMax(value: number) {
   try {
     localStorage.setItem(ORDER_MAX_KEY, String(value));
+  } catch {
+    /* no-op */
+  }
+}
+
+export function getOrderValueNonBeat(): number {
+  return readNumber(ORDER_NONBEAT_KEY, DEFAULT_ORDER_NONBEAT);
+}
+
+export function setOrderValueNonBeat(value: number) {
+  try {
+    localStorage.setItem(ORDER_NONBEAT_KEY, String(value));
   } catch {
     /* no-op */
   }
