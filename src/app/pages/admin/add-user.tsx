@@ -39,9 +39,8 @@ export function AdminAddUser() {
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [businessName, setBusinessName] = useState("");
-  // Phase 1 only allows "distributor". Wholesaler is rendered as disabled
-  // so the operator can see it's coming, but defaults / persists as
-  // distributor.
+  // Seller type is a single choice — either "distributor" or
+  // "wholesaler", never both. Defaults to distributor.
   const [sellerType, setSellerType] = useState<"distributor" | "wholesaler">(
     "distributor",
   );
@@ -439,14 +438,12 @@ export function AdminAddUser() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="distributor">Distributor</SelectItem>
-                      <SelectItem value="wholesaler" disabled>
-                        Wholesaler (coming in Phase 2)
-                      </SelectItem>
+                      <SelectItem value="wholesaler">Wholesaler</SelectItem>
                     </SelectContent>
                   </Select>
                   <p className="text-[11px] text-gray-500">
-                    Phase 1 supports distributors only. Wholesaler is reserved
-                    for a later phase.
+                    Choose either Distributor or Wholesaler — a seller can be
+                    only one type.
                   </p>
                 </div>
                 {/* Structured address — PIN drives city/state lookup so the

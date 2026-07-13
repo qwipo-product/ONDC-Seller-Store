@@ -111,7 +111,8 @@ export interface CompanyBrandSelection {
   brandIds: string[];
 }
 
-/** Seller business type. Wholesaler is reserved for Phase 2. */
+/** Seller business type — a seller is either a distributor or a
+ *  wholesaler, never both. */
 export type SellerType = "distributor" | "wholesaler";
 
 export interface Seller {
