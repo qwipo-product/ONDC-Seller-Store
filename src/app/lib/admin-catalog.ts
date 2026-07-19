@@ -222,6 +222,22 @@ export const seedCompanies: Company[] = [
     ],
     categories: makeCompanyCategorySeed(),
   },
+  // Created for Prod MAHADEVA ENTERPRISES' beat upload (July 2026) —
+  // the day-wise polygons cover all three brands the distributor
+  // carries, per the "All Brands" GeoJSON files in
+  // serviceability-uploads/mahadev-enterprises/.
+  {
+    id: "co-mahadev-allbrands",
+    name: "Mahadev All Brands",
+    imageUrl: null,
+    isActive: true,
+    brands: [
+      { id: "br-mtr", name: "MTR", imageUrl: null },
+      { id: "br-eastern", name: "Eastern", imageUrl: null },
+      { id: "br-zinda", name: "Zinda", imageUrl: null },
+    ],
+    categories: makeCompanyCategorySeed(),
+  },
 ];
 
 /** Tiny in-memory store. In a real app this would live behind an API. */

@@ -441,9 +441,16 @@ function ConflictErrorView({
 
 export function ServiceabilityManager({
   warehouse,
+  seller,
 }: {
   /** Distributor's warehouse location — pinned on the Map View. */
   warehouse?: WarehousePoint | null;
+  /**
+   * The seller whose Serviceability is being managed. Stamped onto
+   * every beat created here so reports can resolve the owning seller
+   * (name + warehouse distance).
+   */
+  seller?: { id: string; name: string } | null;
 } = {}) {
   const [adminCompanies, setAdminCompanies] = useState<AdminCatalogCompany[]>(
     () => getAdminCatalogCompanies(),
@@ -766,6 +773,8 @@ export function ServiceabilityManager({
       id: makeServiceabilityBeatId(),
       companyId: addCompanyId,
       companyName: company.name,
+      sellerId: seller?.id,
+      sellerName: seller?.name,
       beatName,
       deliveryDays: sortDeliveryDays(addDays),
       polygonFileName: addPolygon.file?.name,

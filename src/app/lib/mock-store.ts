@@ -147,10 +147,10 @@ export interface Seller {
 }
 
 const REQUESTS_KEY = "qwipo.mock.requests";
-// Bumped to v6 — v5 records carried Secunderabad lat/long for seller-1
-// while every address field says Banjara Hills; v6 re-seeds so the
-// Serviceability Map warehouse pin lands where the address says.
-const SELLERS_KEY = "qwipo.mock.sellers.v6";
+// Bumped to v7 — the seed roster was replaced wholesale with the
+// "Prod" sellers replicated from the production-parallel test portal
+// (2026-07-19). v7 forces every browser to re-seed with the new list.
+const SELLERS_KEY = "qwipo.mock.sellers.v7";
 
 // ---- Default factory helpers ----
 
@@ -217,192 +217,346 @@ const SEED_REQUESTS: SellerRequest[] = [
   },
 ];
 
-const SEED_SELLERS: Seller[] = [
-  {
-    id: "seller-1", // matches demo login
-    name: "Rajesh Kumar",
-    email: "seller@qwipo.com",
-    phone: "9810000001",
-    businessName: "ABC Distributors",
-    city: "Hyderabad",
-    pinCode: "500032",
-    state: "Telangana",
-    latitude: 17.4156,
-    longitude: 78.4347,
-    fullAddress: "Plot 12, Banjara Hills, near Jubilee Park",
+// Prod seller roster — replicated 1:1 from the production-parallel
+// test portal (seller-portal.test.bms.qwipo.com) on 2026-07-19. Every
+// seller whose name carries the "Prod" marker was copied with its real
+// mobile, GST, address and warehouse lat/long so the local app mirrors
+// the production serviceability setup.
+//
+// Known source-data issues (copied faithfully unless noted):
+//   - LAKSHMI SAAI: the portal stores longitude = latitude
+//     (17.4862465 twice). Kept verbatim — fix it in the portal, then
+//     here.
+//   - MAHADEVA: the portal has lat/long SWAPPED (lat 78.41, lng 17.48).
+//     Un-swapped here so the warehouse pin lands in Hyderabad.
+
+function prodSeller(input: {
+  id: string;
+  name: string;
+  businessName: string;
+  phone: string;
+  city: string;
+  state: string;
+  pinCode: string;
+  latitude: number;
+  longitude: number;
+  fullAddress: string;
+  gstin: string;
+}): Seller {
+  return {
+    id: input.id,
+    name: input.name,
+    email: `prod-${input.phone}@qwipo.com`,
+    phone: input.phone,
+    businessName: input.businessName,
+    city: input.city,
+    pinCode: input.pinCode,
+    state: input.state,
+    latitude: input.latitude,
+    longitude: input.longitude,
+    fullAddress: input.fullAddress,
     isActive: true,
     sellerType: "distributor",
     kyc: {
-      pan: "ABCPK1234L",
-      aadhaar: "XXXX-XXXX-1234",
-      gstin: "36ABCPK1234L1Z9",
-      bankAcct: "XXXX-XXXX-7890",
-      businessAddress: "Plot 12, Banjara Hills, Hyderabad, Telangana 500034",
+      gstin: input.gstin,
+      businessAddress: input.fullAddress,
       status: "verified",
-      updatedAt: "2026-03-15T10:00:00Z",
+      updatedAt: "2026-07-17T00:00:00Z",
     },
-    connectors: {
-      bizom: {
-        status: "connected",
-        config: {
-          baseUrl: "https://api.bizom.com/v1",
-          authToken: "BZM-••••-••••-7890",
-          apiCreateSku: "/products/create",
-          apiGetAllSkus: "/products/list",
-          apiUpdateSku: "/products/update/{id}",
-          apiCreateOrder: "/orders/create",
-          apiGetOrderDetails: "/orders/{id}",
-          apiGetAllCustomers: "/customers/list",
-        },
-      },
-      ondc: {
-        status: "connected",
-        config: {
-          subscriberId: "abc-distributors.ondc.org",
-          uniqueKeyId: "KEY-abc-001",
-          privateKey: "••••••••••••••••",
-          apiEndpoint: "https://ondc-gw.qwipo.com/api/v1",
-          webhookUrl: "https://ondc-gw.qwipo.com/webhook/abc",
-          dataSyncTypes: ["SKU", "Orders", "Customers"],
-          syncFrequencyMinutes: 15,
-          maxRetries: 3,
-          autoRetry: true,
-          autoSyncEnabled: true,
-        },
-      },
-    },
-    permissions: { view: true, write: true, edit: true, update: true },
-    managedCompanies: ["itc", "hul", "nestle", "britannia", "parle"],
-    // Catalog companies/brands selected when this seller was created
-    companyBrandSelections: [
-      { companyId: "co-freedom", brandIds: [] }, // all brands of Gemini Edibles
-      { companyId: "co-itc", brandIds: ["br-aashirvaad", "br-sunfeast"] }, // 2 specific ITC brands
-    ],
-    approvedAt: "2026-02-10T08:00:00Z",
-  },
-  {
-    id: "seller-2",
-    name: "Sunita Rao",
-    email: "sunita@quickbazaar.in",
-    phone: "9810000002",
-    businessName: "QuickBazaar Wholesale",
-    city: "Pune",
-    pinCode: "411038",
-    state: "Maharashtra",
-    latitude: 18.5074,
-    longitude: 73.8077,
-    fullAddress: "Shop 45, Kothrud Industrial Area",
-    isActive: true,
-    sellerType: "distributor",
-    kyc: {
-      pan: "SUNPR5678M",
-      aadhaar: "XXXX-XXXX-5678",
-      gstin: "27SUNPR5678M1Z3",
-      businessAddress: "Shop 45, Kothrud, Pune, Maharashtra 411038",
-      status: "submitted",
-      updatedAt: "2026-03-28T14:00:00Z",
-    },
-    connectors: {
-      bizom: {
-        status: "connected",
-        config: {
-          baseUrl: "https://api.bizom.com/v1",
-          authToken: "BZM-••••-••••-4521",
-          apiCreateSku: "/products/create",
-          apiGetAllSkus: "/products/list",
-          apiUpdateSku: "/products/update/{id}",
-          apiCreateOrder: "/orders/create",
-          apiGetOrderDetails: "/orders/{id}",
-          apiGetAllCustomers: "/customers/list",
-        },
-      },
-      ondc: { status: "not_connected" },
-    },
-    permissions: { view: true, write: true, edit: false, update: false },
-    managedCompanies: ["amul", "britannia"],
-    approvedAt: "2026-03-01T10:30:00Z",
-  },
-  {
-    id: "seller-3",
-    name: "Vikram Shah",
-    email: "vikram@urbankirana.in",
-    phone: "9810000003",
-    businessName: "Urban Kirana Stores",
-    city: "Ahmedabad",
-    pinCode: "380009",
-    state: "Gujarat",
-    latitude: 23.0395,
-    longitude: 72.566,
-    fullAddress: "CG Road, Navrangpura",
-    isActive: true,
-    sellerType: "distributor",
-    kyc: { status: "not_started" },
     connectors: {
       bizom: { status: "not_connected" },
       ondc: { status: "not_connected" },
     },
-    permissions: { view: true, write: false, edit: false, update: false },
-    managedCompanies: [],
-    approvedAt: "2026-03-20T09:15:00Z",
-  },
-  {
-    id: "seller-4",
-    name: "Meena Iyer",
-    email: "meena@coastgrocers.in",
-    phone: "9810000004",
-    businessName: "Coast Grocers Ltd",
-    city: "Chennai",
-    pinCode: "600001",
-    state: "Tamil Nadu",
-    latitude: 13.0827,
-    longitude: 80.2707,
-    fullAddress: "22 Marina Road",
-    isActive: true,
-    sellerType: "distributor",
-    kyc: {
-      pan: "MEEIR9012P",
-      aadhaar: "XXXX-XXXX-9012",
-      gstin: "33MEEIR9012P1Z5",
-      bankAcct: "XXXX-XXXX-3344",
-      businessAddress: "22 Marina Road, Chennai, Tamil Nadu 600001",
-      status: "verified",
-      updatedAt: "2026-03-25T12:00:00Z",
-    },
-    connectors: {
-      bizom: {
-        status: "connected",
-        config: {
-          baseUrl: "https://api.bizom.com/v1",
-          authToken: "BZM-••••-••••-9921",
-          apiCreateSku: "/products/create",
-          apiGetAllSkus: "/products/list",
-          apiUpdateSku: "/products/update/{id}",
-          apiCreateOrder: "/orders/create",
-          apiGetOrderDetails: "/orders/{id}",
-          apiGetAllCustomers: "/customers/list",
-        },
-      },
-      ondc: {
-        status: "connected",
-        config: {
-          subscriberId: "coast-grocers.ondc.org",
-          uniqueKeyId: "KEY-coast-001",
-          privateKey: "••••••••••••••••",
-          apiEndpoint: "https://ondc-gw.qwipo.com/api/v1",
-          webhookUrl: "https://ondc-gw.qwipo.com/webhook/coast",
-          dataSyncTypes: ["SKU", "Orders"],
-          syncFrequencyMinutes: 30,
-          maxRetries: 3,
-          autoRetry: true,
-          autoSyncEnabled: true,
-        },
-      },
-    },
     permissions: { view: true, write: true, edit: true, update: true },
-    managedCompanies: ["itc", "dabur", "colgate", "marico"],
-    approvedAt: "2026-02-22T11:00:00Z",
-  },
+    managedCompanies: [],
+    companyBrandSelections: [],
+    approvedAt: "2026-07-17T00:00:00Z",
+  };
+}
+
+const SEED_SELLERS: Seller[] = [
+  prodSeller({
+    id: "seller-prod-shalvi",
+    name: "Prod Shalvi Mumbai Seller",
+    businessName: "Shalvi Mumbai Seller Prod",
+    phone: "7700000200",
+    city: "Mumbai North West",
+    state: "Maharashtra",
+    pinCode: "400092",
+    latitude: 19.22448,
+    longitude: 72.84594,
+    fullAddress:
+      "Wamanrao Pai Garden, TPS Rd, Rameshwar Darshan CHS, Babhai Naka, Borivali West",
+    gstin: "37AAACX1706A1ZW",
+  }),
+  prodSeller({
+    id: "seller-prod-ss-ent",
+    name: "SS Enterprises prod",
+    businessName: "prod SS Enterprises",
+    phone: "9999999919",
+    city: "Secunderabad",
+    state: "Telangana",
+    pinCode: "500037",
+    latitude: 17.501496,
+    longitude: 78.430619,
+    fullAddress:
+      "36-88/4, Devamma Basthi, Near Swathi Vidhya Nikethan, Jagathgiri Gutta, Hyderabad, Medchal Malkajgiri, Telangana, 500037",
+    gstin: "36ARQPP4829B1ZJ",
+  }),
+  prodSeller({
+    id: "seller-prod-ss-dist",
+    name: "SS DISTRIBUTORS prod",
+    businessName: "prod SS DISTRIBUTORS",
+    phone: "9999999918",
+    city: "Secunderabad",
+    state: "Telangana",
+    pinCode: "500037",
+    latitude: 17.501496,
+    longitude: 78.430621,
+    fullAddress:
+      "H.No. 36-88/4, Road Number 3, Devamma Basthi, Near Swathi Vidhyanikethan, Quthbullapur, Jagathgirigutta, Hyderabad, Medchal Malkajgiri, Telangana, 500037",
+    gstin: "36AFSFS1308E1ZY",
+  }),
+  prodSeller({
+    id: "seller-prod-jai-ganesh",
+    name: "Prod JAI GANESH AGENCIES",
+    businessName: "JAI GANESH AGENCIES Prod",
+    phone: "7700000100",
+    city: "Secunderabad",
+    state: "Telangana",
+    pinCode: "500062",
+    latitude: 17.474239,
+    longitude: 78.547992,
+    fullAddress: "H.NO 30-265/8/83/1, Geetha nagar, road no 2, AS Rao Nagar",
+    gstin: "36BBTPK2286H1Z6",
+  }),
+  prodSeller({
+    id: "seller-prod-rm-traders",
+    name: "RM Traders prod",
+    businessName: "prod RM Traders",
+    phone: "9999999917",
+    city: "Secunderabad",
+    state: "Telangana",
+    pinCode: "500072",
+    latitude: 17.486168,
+    longitude: 78.397041,
+    fullAddress: "MIG-736/A, Opp. 724, KPHB, Kukatpally, Hyderabad - 500072",
+    gstin: "36AFTPC7788R1Z5",
+  }),
+  prodSeller({
+    id: "seller-prod-sai-krishna",
+    name: "SHRI SAI KRISHNA TRADERS prod",
+    businessName: "prod SHRI SAI KRISHNA TRADERS",
+    phone: "9999999916",
+    city: "Secunderabad",
+    state: "Telangana",
+    pinCode: "500072",
+    latitude: 17.496161,
+    longitude: 78.41861,
+    fullAddress:
+      "4-35-284, PLOT NO 87,88,105,106 & 107, BALKRISHNA NAGAR, NEAR INDIAN GAS GODOWN, Kukatpally, Hyderabad, Medchal Malkajgiri, Telangana, 500072",
+    gstin: "36AEEPC4773N1Z7",
+  }),
+  prodSeller({
+    id: "seller-prod-dhhana-laxme",
+    name: "Prod DHHANA LAXME ENTERPRISES",
+    businessName: "DHHANA LAXME ENTERPRISES Prod",
+    phone: "7700000088",
+    city: "Hyderabad City",
+    state: "Telangana",
+    pinCode: "500038",
+    latitude: 17.445655,
+    longitude: 78.445282,
+    fullAddress: "7-1-621/542, PLOT NO 216A, BK GUDA, SR NAGAR",
+    gstin: "36AFPPV0738N1ZM",
+  }),
+  prodSeller({
+    id: "seller-prod-sri-sarda",
+    name: "SRI SARDA ENTERPRISES prod",
+    businessName: "prod SRI SARDA ENTERPRISES",
+    phone: "9999999915",
+    city: "Hyderabad City",
+    state: "Telangana",
+    pinCode: "500018",
+    latitude: 17.464923,
+    longitude: 78.421141,
+    fullAddress:
+      "GROUND FLOOR, 12-7-20/52, FATIMA WAREHOUSING COMPLEX, Railway Goods Shed Road, IND Swift Ltd, Moosapet, Hyderabad, Medchal Malkajgiri, Telangana, 500018",
+    gstin: "36DDQPA6260J1ZA",
+  }),
+  prodSeller({
+    id: "seller-prod-jsv",
+    name: "Prod J S V MARKETING",
+    businessName: "J S V MARKETING Prod",
+    phone: "7700000077",
+    city: "Hyderabad City",
+    state: "Telangana",
+    pinCode: "500018",
+    latitude: 17.451225,
+    longitude: 78.448068,
+    fullAddress: "7-2-590, SRT 369",
+    gstin: "36AMZPP2684A1ZL",
+  }),
+  prodSeller({
+    id: "seller-prod-yln",
+    name: "Prod YLN AGENCIES",
+    businessName: "YLN AGENCIES Prod",
+    phone: "7700000066",
+    city: "Hyderabad South East",
+    state: "Telangana",
+    pinCode: "500074",
+    latitude: 17.338726,
+    longitude: 78.55168,
+    fullAddress:
+      "7-4-26, Biramalguda, Saroor Nagar Mandal, Hyderabad, Rangareddy, Telangana, 500074",
+    gstin: "36AABFY9700C1ZB",
+  }),
+  prodSeller({
+    id: "seller-prod-venkateshwara",
+    name: "VENKATESHWARA AGENCIES prod",
+    businessName: "prod VENKATESHWARA AGENCIES",
+    phone: "9999999914",
+    city: "Secunderabad",
+    state: "Telangana",
+    pinCode: "500072",
+    latitude: 17.4907605,
+    longitude: 78.40817,
+    fullAddress:
+      "HOUSE NO 5-5, BAGHAMEERI, KUKATPALLY VILLAGE, Medchal - Malkajgiri, Telangana, 500072",
+    gstin: "36AOQPA0800E2ZI",
+  }),
+  prodSeller({
+    id: "seller-prod-s-r",
+    name: "S R ENTERPRISES prod",
+    businessName: "prod S R ENTERPRISES",
+    phone: "9999999913",
+    city: "Secunderabad",
+    state: "Telangana",
+    pinCode: "500037",
+    latitude: 17.49925,
+    longitude: 78.431143,
+    fullAddress:
+      "H.NO-36-280, Jagathgiri Gutta, Medchal Malkajgiri, Hyderabad, Telangana",
+    gstin: "36DCZPA0374M1Z2",
+  }),
+  prodSeller({
+    id: "seller-prod-chaswi",
+    name: "Prod CHASWI MARKETING SOLUTIONS",
+    businessName: "CHASWI MARKETING SOLUTIONS Prod",
+    phone: "7700000055",
+    city: "Secunderabad",
+    state: "Telangana",
+    pinCode: "500050",
+    latitude: 17.4866371,
+    longitude: 78.32127,
+    fullAddress:
+      "HUDAFACE-2, 6-94/249, NEAR TO PJR STADIUM, CHANDANAGAR, Ranga Reddy, Telangana, 500050",
+    gstin: "36ANXPV7185M1ZK",
+  }),
+  prodSeller({
+    id: "seller-prod-internal-catalog",
+    name: "Internal Catalog Seller prod",
+    businessName: "prod Internal Catalog Seller",
+    phone: "9999999912",
+    city: "Hyderabad City",
+    state: "Telangana",
+    pinCode: "500081",
+    latitude: 17.448294,
+    longitude: 78.391487,
+    fullAddress: "Flat No. 404, Aakash Enclave",
+    gstin: "36AAACX1705A1ZY",
+  }),
+  prodSeller({
+    id: "seller-prod-sahasra",
+    name: "Prod SAHASRA ENTERPRISES",
+    businessName: "SAHASRA ENTERPRISES Prod",
+    phone: "7700000044",
+    city: "Secunderabad",
+    state: "Telangana",
+    pinCode: "500072",
+    latitude: 17.505048,
+    longitude: 78.414073,
+    fullAddress:
+      "H. No. 432-1135-A164, Phase-2, Allwyn Colony, Kukatpally, Hyderabad, Medchal Malkajgiri, Telangana - 500072",
+    gstin: "36AVFPG1187N1Z9",
+  }),
+  // Portal stores longitude = latitude for this seller (both
+  // 17.4862465) — copied verbatim; distance/map for this seller will
+  // be wrong until it's corrected at the source.
+  prodSeller({
+    id: "seller-prod-lakshmi-saai",
+    name: "Prod LAKSHMI SAAI ENTERPRISES",
+    businessName: "LAKSHMI SAAI ENTERPRISES Prod",
+    phone: "7700000033",
+    city: "Secunderabad",
+    state: "Telangana",
+    pinCode: "500054",
+    latitude: 17.4862465,
+    longitude: 17.4862465,
+    fullAddress:
+      "7 100/28, RAMAKRISHNA NAGAR, CHINTAL, Medchal - Malkajgiri, Telangana, 500054",
+    gstin: "36AWYPV1343D1Z4",
+  }),
+  prodSeller({
+    id: "seller-prod-vinodh",
+    name: "Prod VINODH ENTERPRISES",
+    businessName: "VINODH ENTERPRISES Prod",
+    phone: "7700000022",
+    city: "Secunderabad",
+    state: "Telangana",
+    pinCode: "500055",
+    latitude: 17.509018,
+    longitude: 78.32085,
+    fullAddress:
+      "HUDA COLONY, 13-81/1, MIG 459, CHANDANAGAR, HYDERABAD, Ranga Reddy, Telangana, 500055",
+    gstin: "36AJFPV0935P1ZK",
+  }),
+  prodSeller({
+    id: "seller-prod-dev",
+    name: "Prod DEV AGENCIES",
+    businessName: "DEV AGENCIES Pros",
+    phone: "7700000011",
+    city: "Hyderabad City",
+    state: "Telangana",
+    pinCode: "500019",
+    latitude: 17.5033618,
+    longitude: 78.3070492,
+    fullAddress:
+      "H.No. 3-33/19, Venkata Reddy Colony, Taranagar, Serilingampally, Hyderabad, Ranga Reddy, Telangana - 500019",
+    gstin: "36AKVPP3365L1ZA",
+  }),
+  prodSeller({
+    id: "seller-prod-sri-sairam",
+    name: "Prod Sri Sairam Enterprises",
+    businessName: "Sri Sairam Enterprises Prod",
+    phone: "6600000002",
+    city: "Secunderabad",
+    state: "Telangana",
+    pinCode: "500055",
+    latitude: 17.488862,
+    longitude: 78.412379,
+    fullAddress:
+      "SHOP NO 5, SWASTIK RESIDENCY, BAGH AMEER, KUKATPALLY, HYDERABAD, Medchal - Malkajgiri, Telangana",
+    gstin: "36AHBPD2014R1ZH",
+  }),
+  // Portal has lat/long swapped for MAHADEVA (lat 78.419938,
+  // lng 17.483253) — un-swapped here so the pin lands in KPHB.
+  prodSeller({
+    id: "seller-prod-mahadeva",
+    name: "Prod MAHADEVA ENTERPRISES",
+    businessName: "MAHADEVA ENTERPRISES Prod",
+    phone: "6600000001",
+    city: "Secunderabad",
+    state: "Telangana",
+    pinCode: "500072",
+    latitude: 17.483253,
+    longitude: 78.419938,
+    fullAddress:
+      "GROUND FLOOR, MIG 835, 1ST & II P, Kukatpally Main Road, KPHB Colony, Hyderabad, Medchal Malkajgiri, Telangana, 500072",
+    gstin: "36AAYPD6568L1ZT",
+  }),
 ];
+
 
 // ---- Internal helpers ----
 

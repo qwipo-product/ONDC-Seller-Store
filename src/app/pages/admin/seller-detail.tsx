@@ -754,6 +754,7 @@ export function AdminSellerDetail() {
                 zones for any seller from a single place. */}
             <TabsContent value="serviceability" className="p-6 mt-0">
               <ServiceabilityManager
+                seller={{ id: seller.id, name: seller.name }}
                 warehouse={
                   seller.latitude != null && seller.longitude != null
                     ? {

@@ -19,11 +19,20 @@
 // every UI surface (admin Serviceability page, customer detail).
 
 import type { DeliveryDay } from "./customers-data";
+import { UPLOADED_SEED_BEATS } from "./uploaded-beats-seed";
 
 export interface ServiceabilityBeat {
   id: string;
   companyId: string;
   companyName: string;
+  /**
+   * The seller (distributor) whose Serviceability tab created this
+   * beat. Drives the Seller Name + distance columns in the admin
+   * Beat Serviceability Report. Optional because legacy records
+   * predate the field.
+   */
+  sellerId?: string;
+  sellerName?: string;
   beatName: string;
   /**
    * Delivery days this beat serves. Always at least one entry.
@@ -41,188 +50,12 @@ export type ServiceabilityBit = ServiceabilityBeat;
 
 // ---- Seed ----
 //
-// One polished demo dataset: Rajesh Kumar's distributorship in
-// Hyderabad. All four catalog companies run beats here, every beat
-// carries a polygon, and every company covers Monday → Saturday
-// (Sundays are non-delivery days per Qwipo ops). Zone geometry is
-// keyed by beat name and SHARED across companies — "Jubilee Hills"
-// is the same physical area no matter which company serves it, which
-// also keeps the cross-company day-consistency guard satisfied.
+// Seeded ONLY from the business team's uploaded GeoJSON files (see
+// serviceability-uploads/ at the repo root and uploaded-beats-seed.ts).
+// No demo beats — sellers without an upload have empty serviceability
+// until their polygons arrive.
 
-function seedFrom(s: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-}
-
-/**
- * Build an organic-looking GeoJSON zone around a lat/lng centre —
- * seed-only stand-in for real uploaded polygons. Vertices sit on a
- * jittered ring (deterministic per zone name) so areas read as
- * hand-drawn delivery zones rather than uniform hexagons.
- */
-function zonePolygon(
-  name: string,
-  lat: number,
-  lng: number,
-  radiusKm: number,
-) {
-  let seed = seedFrom(name);
-  const rand = () => {
-    seed = (Math.imul(seed, 1103515245) + 12345) >>> 0;
-    return seed / 4294967296;
-  };
-  const latR = radiusKm / 110.574;
-  const lngR = radiusKm / (111.32 * Math.cos((lat * Math.PI) / 180));
-  const n = 11 + Math.floor(rand() * 4);
-  const ring: [number, number][] = [];
-  for (let i = 0; i < n; i++) {
-    const a = (2 * Math.PI * i) / n + (rand() - 0.5) * (Math.PI / n);
-    const r = 0.7 + rand() * 0.55;
-    ring.push([
-      Number((lng + lngR * r * Math.cos(a)).toFixed(6)),
-      Number((lat + latR * r * Math.sin(a)).toFixed(6)),
-    ]);
-  }
-  ring.push([ring[0][0], ring[0][1]]);
-  return {
-    type: "FeatureCollection" as const,
-    features: [
-      {
-        type: "Feature" as const,
-        properties: { name },
-        geometry: { type: "Polygon" as const, coordinates: [ring] },
-      },
-    ],
-  };
-}
-
-// Hyderabad delivery zones — real neighbourhood centres. `days` is
-// the city-wide schedule for the area: every company serving a zone
-// uses the same day-set (the day-consistency rule).
-const HYD_ZONES: Record<
-  string,
-  { lat: number; lng: number; r: number; days: DeliveryDay[] }
-> = {
-  "KPHB 1": { lat: 17.4948, lng: 78.3996, r: 1.3, days: ["Monday", "Tuesday"] },
-  "KPHB 2": { lat: 17.4849, lng: 78.4116, r: 1.2, days: ["Monday"] },
-  Miyapur: { lat: 17.5169, lng: 78.3762, r: 1.6, days: ["Monday"] },
-  Kompally: { lat: 17.5453, lng: 78.4855, r: 1.6, days: ["Monday"] },
-  "Jubilee Hills": { lat: 17.4326, lng: 78.4071, r: 1.4, days: ["Tuesday"] },
-  "Banjara Hills": { lat: 17.4156, lng: 78.4347, r: 1.4, days: ["Tuesday"] },
-  "SR Nagar": { lat: 17.4442, lng: 78.4419, r: 1.0, days: ["Wednesday"] },
-  Ameerpet: { lat: 17.4374, lng: 78.4487, r: 1.0, days: ["Wednesday"] },
-  Begumpet: { lat: 17.4447, lng: 78.4691, r: 1.2, days: ["Wednesday"] },
-  Madhapur: { lat: 17.4483, lng: 78.3915, r: 1.2, days: ["Thursday"] },
-  Gachibowli: { lat: 17.4401, lng: 78.3489, r: 1.5, days: ["Thursday"] },
-  "HITEC City": { lat: 17.4435, lng: 78.3772, r: 1.1, days: ["Thursday"] },
-  Kondapur: { lat: 17.4622, lng: 78.3568, r: 1.4, days: ["Friday"] },
-  Mehdipatnam: { lat: 17.3949, lng: 78.4344, r: 1.3, days: ["Friday"] },
-  Abids: { lat: 17.3911, lng: 78.4735, r: 1.2, days: ["Friday"] },
-  Secunderabad: { lat: 17.4399, lng: 78.4983, r: 1.6, days: ["Saturday"] },
-  Dilsukhnagar: { lat: 17.3688, lng: 78.5247, r: 1.4, days: ["Saturday"] },
-  Uppal: { lat: 17.4056, lng: 78.5591, r: 1.5, days: ["Saturday"] },
-  Charminar: { lat: 17.3616, lng: 78.4747, r: 1.3, days: ["Saturday"] },
-};
-
-const zoneSlug = (name: string) =>
-  name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-
-function companyBeats(
-  companyId: string,
-  companyName: string,
-  slug: string,
-  zoneNames: (keyof typeof HYD_ZONES)[],
-  createdAt: string,
-): ServiceabilityBeat[] {
-  return zoneNames.map((zoneName) => {
-    const z = HYD_ZONES[zoneName];
-    return {
-      id: `beat-${slug}-${zoneSlug(zoneName)}`,
-      companyId,
-      companyName,
-      beatName: zoneName,
-      deliveryDays: [...z.days],
-      polygonFileName: `${slug}-${zoneSlug(zoneName)}.geojson`,
-      polygonData: zonePolygon(zoneName, z.lat, z.lng, z.r),
-      createdAt,
-    };
-  });
-}
-
-// Company rosters — every company covers Monday → Saturday.
-const SEED_BEATS: ServiceabilityBeat[] = [
-  // ITC — flagship roster, 13 beats across the whole city.
-  ...companyBeats(
-    "co-itc",
-    "ITC",
-    "itc",
-    [
-      "KPHB 1",
-      "KPHB 2",
-      "Miyapur",
-      "Jubilee Hills",
-      "Banjara Hills",
-      "SR Nagar",
-      "Ameerpet",
-      "Madhapur",
-      "Gachibowli",
-      "Kondapur",
-      "Abids",
-      "Secunderabad",
-      "Uppal",
-    ],
-    "2026-04-08T09:00:00Z",
-  ),
-  // Adani Wilmar — 6 beats, one per delivery day.
-  ...companyBeats(
-    "co-adani",
-    "Adani Wilmar Ltd",
-    "adani",
-    [
-      "KPHB 1",
-      "Jubilee Hills",
-      "Begumpet",
-      "HITEC City",
-      "Mehdipatnam",
-      "Dilsukhnagar",
-    ],
-    "2026-04-11T09:00:00Z",
-  ),
-  // Gemini Edibles & Fats — 6 beats, one per delivery day.
-  ...companyBeats(
-    "co-freedom",
-    "Gemini Edibles & Fats India",
-    "gemini",
-    [
-      "Kompally",
-      "Banjara Hills",
-      "SR Nagar",
-      "Madhapur",
-      "Abids",
-      "Secunderabad",
-    ],
-    "2026-04-10T09:00:00Z",
-  ),
-  // Sri Krupa Industries — 6 beats, one per delivery day.
-  ...companyBeats(
-    "co-srikrupa",
-    "Sri Krupa Industries",
-    "srikrupa",
-    [
-      "KPHB 2",
-      "Jubilee Hills",
-      "Ameerpet",
-      "Gachibowli",
-      "Kondapur",
-      "Charminar",
-    ],
-    "2026-04-09T09:00:00Z",
-  ),
-];
+const SEED_BEATS: ServiceabilityBeat[] = UPLOADED_SEED_BEATS;
 
 // ---- In-memory store + subscribe API ----
 
@@ -427,6 +260,61 @@ export function polygonsOverlap(a: unknown, b: unknown): boolean {
     }
   }
   return false;
+}
+
+/**
+ * Great-circle distance between two lat/lng points in kilometres
+ * (haversine). Used for the customer ↔ seller distance column in the
+ * Beat Serviceability Report.
+ */
+export function haversineKm(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number,
+): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const R = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+/**
+ * True when a lat/lng point falls inside any outer ring of a GeoJSON
+ * polygon. The production-grade counterpart to the demo hash picker —
+ * used by the admin Customer Database to resolve which beats actually
+ * cover an uploaded customer location.
+ */
+export function polygonContainsPoint(
+  data: unknown,
+  lat: number,
+  lng: number,
+): boolean {
+  for (const ring of polygonOuterRings(data)) {
+    if (pointInRing(lng, lat, ring)) return true;
+  }
+  return false;
+}
+
+/**
+ * Every beat (across ALL companies) whose polygon contains the given
+ * point. A customer inside two companies' zones gets both beats back —
+ * callers group by company for display.
+ */
+export function findBeatsContainingPoint(
+  lat: number,
+  lng: number,
+): ServiceabilityBeat[] {
+  return _beats
+    .filter(
+      (b) =>
+        b.polygonData != null && polygonContainsPoint(b.polygonData, lat, lng),
+    )
+    .sort(beatDisplaySort);
 }
 
 // ---- Lookup helpers ----

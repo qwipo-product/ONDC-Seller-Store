@@ -32,15 +32,17 @@ export const DEMO_CREDENTIALS: Record<string, CredentialRecord> = {
       dataMode: "empty",
     },
   },
+  // Maps to the replicated Prod roster — RM Traders carries real
+  // Lion Dates beats, so the seller-side demo has serviceability data.
   "9900000002": {
     otp: "1234",
     user: {
-      id: "seller-1",
-      name: "Rajesh Kumar",
-      email: "seller@qwipo.com",
+      id: "seller-prod-rm-traders",
+      name: "RM Traders prod",
+      email: "prod-9999999917@qwipo.com",
       role: "seller",
-      businessName: "ABC Distributors",
-      avatarInitials: "RK",
+      businessName: "prod RM Traders",
+      avatarInitials: "RM",
       dataMode: "demo",
     },
   },
