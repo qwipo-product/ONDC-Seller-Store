@@ -1,0 +1,30 @@
+{
+  "skuCode": "e1ad280e-18bc-4d77-8b60-5bf1de797b97",
+  "skuName": "Ajay 121 - Compact Thoothbrush, 12 Pcs",
+  "brand": "Ajay",
+  "query": "Ajay 121 - Compact Thoothbrush product",
+  "fetchedAt": "2026-05-26T07:32:36.731Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "https://5.imimg.com/data5/SELLER/Default/2023/12/367973649/GH/WG/UM/39084474/sunscreen-lotion-1000x1000.png",
+      "page": "https://www.indiamart.com/proddetail/ajay-compact-flexo-toothbrush-2852349747388.html",
+      "desc": "Ajay Compact Flexo Toothbrush at ₹ 16/piece | Plastic Toothbrushes in ..."
+    },
+    {
+      "image": "http://www.ajaycare.in/wp-content/uploads/2020/04/ARTWORK-COMPACT-FLEXO-BRUSH-NEW-DESIGN-FRONT-2-scaled-1.png",
+      "page": "http://www.ajaycare.in/main_product/ajay-compact-flexo/",
+      "desc": "Ajay Care Products – Oral Care Products, Toothbrush Products"
+    },
+    {
+      "image": "https://m.media-amazon.com/images/I/81cq0kNAFDL._SL1500_.jpg",
+      "page": "https://www.amazon.in/Ajay-Compact-Junior-Manual-Toothbrush/dp/B01N6LYABM",
+      "desc": "Ajay Compact Flexo Junior Manual Toothbrush (Pack of 10) : Amazon.in ..."
+    },
+    {
+      "image": "https://lookaside.fbsbx.com/lookaside/crawler/media/?media_id=100057534126487",
+      "page": "https://www.facebook.com/people/AJAY-Toothbrush/100057534126487/",
+      "desc": "AJAY Toothbrush"
+    }
+  ]
+}

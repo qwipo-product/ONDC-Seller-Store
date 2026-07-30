@@ -1,0 +1,30 @@
+{
+  "skuCode": "192f4b02-14a1-45a5-9ff8-b57624357a49",
+  "skuName": "Ajay Shaving Brush, Pack of 1",
+  "brand": "Ajay",
+  "query": "Ajay Shaving Brush product",
+  "fetchedAt": "2026-05-26T07:32:40.929Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "http://www.ajaycare.in/wp-content/uploads/2020/09/Quest-Shaving-Brush-Front.png",
+      "page": "http://www.ajaycare.in/products/",
+      "desc": "Best Ultra Soft Bristle Toothbrush Manufacturers&amp; Supplier in India"
+    },
+    {
+      "image": "http://rukmini1.flixcart.com/image/300/300/xif0q/shaving-brush/j/k/g/quest-premium-shaving-brush-2-ajay-original-imah5yh5bnbzjczs.jpeg",
+      "page": "https://www.flipkart.com/ajay-nylon-shaving-brush/p/itmc8140ffd3ed50",
+      "desc": "AJAY Quest Premium Shaving Brush Price in India - Buy AJAY Quest ..."
+    },
+    {
+      "image": "https://5.imimg.com/data5/SELLER/Default/2026/1/573618597/TJ/HI/MM/40160033/ajay-premium-shaving-brush-1000x1000.jpeg",
+      "page": "https://www.indiamart.com/proddetail/ajay-premium-shaving-brush-2858400904697.html",
+      "desc": "Ajay Premium Shaving Brush at ₹ 38/piece | शेविंग ब्रश in New Delhi ..."
+    },
+    {
+      "image": "http://www.bombayshavingcompany.com/cdn/shop/products/Brush_Black_WM.jpg?v=1718794249",
+      "page": "https://www.bombayshavingcompany.com/products/shaving-brush-rosewood-for-men",
+      "desc": "Buy Shaving Brush Online | Bombay Shaving Company"
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-// Admin → Generate Report
+﻿// Admin → Generate Report
 // -----------------------------------------------------------------
 // Filter-first report builder. The earlier version rendered the whole
 // exploded (customer × beat) table inline — with real production
@@ -38,9 +38,13 @@ import {
 import { toast } from "sonner";
 import { EmptyState } from "../../components/empty-state";
 import {
-  buildReportRows,
+  buildReportRowsAsync,
+  buildSummaryReportRows,
+  EXCEL_RAW_ROW_LIMIT,
+  type ReportRow,
+  downloadCombinedReportXlsx,
   downloadReportCsv,
-  downloadReportXlsx,
+  downloadSummaryReportCsv,
   getCustomers,
   subscribeToCustomers,
 } from "../../lib/customer-database";
@@ -77,19 +81,18 @@ export function AdminServiceabilityReport() {
   const [dayFilter, setDayFilter] = useState<string[]>([]);
   const [companyFilter, setCompanyFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  // "summary" collapses to one row per (customer, seller, delivery-day
+  // set); "detailed" keeps one row per company beat.
+  const [reportFormat, setReportFormat] = useState<"summary" | "detailed">(
+    "summary",
+  );
 
-  // ---- Sellers that actually own beats (the only ones a report row
-  // can reference) + their region metadata ----
+  // ---- Every distributor, with region metadata. Sellers without any
+  // delivery beats contribute no rows, but stay visible in the picker
+  // (0 beats) so the roster reads complete against production. ----
   const relevantSellers = useMemo(() => {
     void beatsVersion;
-    const ids = new Set(
-      getServiceabilityBeats()
-        .map((b) => b.sellerId)
-        .filter(Boolean),
-    );
-    return getSellers()
-      .filter((s) => ids.has(s.id))
-      .sort((a, b) => a.name.localeCompare(b.name));
+    return [...getSellers()].sort((a, b) => a.name.localeCompare(b.name));
   }, [beatsVersion]);
 
   const beatCountBySeller = useMemo(() => {
@@ -179,9 +182,33 @@ export function AdminServiceabilityReport() {
   }, [beatsVersion]);
 
   // ---- Row building + filtering ----
-  const allRows = useMemo(() => {
+  //
+  // The exploded (customer × beat) table is built OFF the render path,
+  // in chunks — a production roster explodes into a few hundred
+  // thousand rows, and building that synchronously inside a useMemo
+  // froze the page on navigation. While it runs the page shows live
+  // progress; repeat visits hit the module-level cache and resolve
+  // instantly.
+  const [allRows, setAllRows] = useState<ReportRow[]>([]);
+  const [buildProgress, setBuildProgress] = useState<{
+    done: number;
+    total: number;
+  } | null>(null);
+
+  useEffect(() => {
     void beatsVersion;
-    return buildReportRows(customers);
+    let cancelled = false;
+    setBuildProgress({ done: 0, total: customers.length });
+    void buildReportRowsAsync(customers, (done, total) => {
+      if (!cancelled) setBuildProgress({ done, total });
+    }).then((rows) => {
+      if (cancelled) return;
+      setAllRows(rows);
+      setBuildProgress(null);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [customers, beatsVersion]);
 
   // Any region/seller narrowing excludes rows that carry no seller
@@ -216,6 +243,10 @@ export function AdminServiceabilityReport() {
     selectedSellers,
   ]);
 
+  const summaryRows = useMemo(() => buildSummaryReportRows(rows), [rows]);
+  const downloadCount =
+    reportFormat === "summary" ? summaryRows.length : rows.length;
+
   const stats = useMemo(() => {
     const customerKey = (r: (typeof allRows)[number]) =>
       `${r.customerId}|${r.mobile}|${r.lat}|${r.lng}`;
@@ -249,24 +280,48 @@ export function AdminServiceabilityReport() {
     return parts.length > 0 ? `_${parts.join("_")}` : "";
   };
 
+  const baseFilename = () =>
+    `beat-serviceability-${reportFormat === "summary" ? "summary" : "report"}${filenameHint()}_${stamp()}`;
+
   const exportCsv = () => {
-    downloadReportCsv(
-      rows,
-      `beat-serviceability-report${filenameHint()}_${stamp()}.csv`,
+    if (reportFormat === "summary") {
+      downloadSummaryReportCsv(summaryRows, `${baseFilename()}.csv`);
+    } else {
+      downloadReportCsv(rows, `${baseFilename()}.csv`);
+    }
+    toast.success(
+      `Downloaded ${downloadCount.toLocaleString("en-IN")} rows as CSV`,
     );
-    toast.success(`Downloaded ${rows.length.toLocaleString("en-IN")} rows as CSV`);
   };
 
+  // Excel ships BOTH views — a "Summary" tab plus the "Raw Data" tab
+  // it was built from — UNLESS the raw data is too large to build
+  // in-browser (ExcelJS holds every cell in memory; past the limit it
+  // crashes the tab). Then the workbook is summary-only and the raw
+  // detail is available as a Detailed CSV, which has no such ceiling.
   const exportXlsx = async () => {
     setIsExporting(true);
     try {
-      await downloadReportXlsx(
+      const includeRaw = rows.length <= EXCEL_RAW_ROW_LIMIT;
+      await downloadCombinedReportXlsx(
+        summaryRows,
         rows,
         `beat-serviceability-report${filenameHint()}_${stamp()}.xlsx`,
+        { includeRaw },
       );
-      toast.success(
-        `Downloaded ${rows.length.toLocaleString("en-IN")} rows as Excel`,
-      );
+      if (includeRaw) {
+        toast.success(
+          `Downloaded Excel with ${summaryRows.length.toLocaleString("en-IN")} summary rows + ${rows.length.toLocaleString("en-IN")} raw rows`,
+        );
+      } else {
+        toast.success(
+          `Downloaded Excel with ${summaryRows.length.toLocaleString("en-IN")} summary rows`,
+        );
+        toast.info(
+          `Raw Data tab skipped — ${rows.length.toLocaleString("en-IN")} rows is too large for an in-browser Excel build. Switch the format to "Detailed" and use Download CSV for the full row-level data, or narrow the filters.`,
+          { duration: 10000 },
+        );
+      }
     } finally {
       setIsExporting(false);
     }
@@ -313,7 +368,36 @@ export function AdminServiceabilityReport() {
         )}
       </div>
 
-      {customers.length === 0 ? (
+      {customers.length > 0 && buildProgress ? (
+        <Card>
+          <CardContent className="p-12 flex flex-col items-center gap-4">
+            <Loader2 className="h-8 w-8 text-blue-500 animate-spin" />
+            <div className="text-center">
+              <p className="text-sm font-medium text-gray-900">
+                Matching customers against beat polygons…
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                {buildProgress.done.toLocaleString("en-IN")} of{" "}
+                {buildProgress.total.toLocaleString("en-IN")} customers
+              </p>
+            </div>
+            <div className="w-64 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-blue-500 rounded-full transition-all"
+                style={{
+                  width: `${
+                    buildProgress.total === 0
+                      ? 0
+                      : Math.round(
+                          (buildProgress.done / buildProgress.total) * 100,
+                        )
+                  }%`,
+                }}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      ) : customers.length === 0 ? (
         <Card>
           <CardContent className="p-0">
             <EmptyState
@@ -381,7 +465,7 @@ export function AdminServiceabilityReport() {
                 </div>
                 <div>
                   <p className="text-2xl font-semibold text-gray-900">
-                    {stats.rows.toLocaleString("en-IN")}
+                    {downloadCount.toLocaleString("en-IN")}
                   </p>
                   <p className="text-xs text-gray-500">Rows in Download</p>
                 </div>
@@ -473,7 +557,7 @@ export function AdminServiceabilityReport() {
                     <div className="max-h-52 overflow-y-auto divide-y divide-gray-50">
                       {visibleSellers.length === 0 ? (
                         <p className="p-4 text-sm text-gray-500 text-center">
-                          No sellers with delivery beats
+                          No sellers
                           {sellerSearch ? ` match "${sellerSearch}"` : " in this region"}
                           .
                         </p>
@@ -579,43 +663,83 @@ export function AdminServiceabilityReport() {
                     </Select>
                   </div>
                 </div>
+
+                {/* 5 — Report format */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <FileSpreadsheet className="h-4 w-4 text-gray-500" />
+                    <h3 className="text-sm font-semibold text-gray-900">
+                      5. Report Format
+                    </h3>
+                    <span className="text-xs text-gray-500">
+                      — applies to CSV; Excel always includes both tabs
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant={reportFormat === "summary" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setReportFormat("summary")}
+                    >
+                      Summary — one row per customer
+                    </Button>
+                    <Button
+                      variant={reportFormat === "detailed" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setReportFormat("detailed")}
+                    >
+                      Detailed — one row per company beat
+                    </Button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    {reportFormat === "summary"
+                      ? "Rows sharing the same customer, seller and delivery days collapse into one (companies are counted). A customer only gets extra rows when part of their supply arrives on a different day-set."
+                      : "Every (customer × company beat) match is its own row — the full data the summary is built from."}{" "}
+                    {rows.length <= EXCEL_RAW_ROW_LIMIT
+                      ? "The Excel download carries a Summary tab and a Raw Data tab in one workbook."
+                      : `With ${rows.length.toLocaleString("en-IN")} raw rows the Excel download is summary-only (the raw tab would exceed what the browser can build) — use the Detailed CSV for full row-level data.`}
+                  </p>
+                </div>
               </div>
 
               {/* Download bar */}
               <div className="px-5 py-4 border-t border-gray-100 bg-gray-50/60 flex flex-wrap items-center gap-3">
                 <p className="text-sm text-gray-700">
                   <span className="font-semibold">
-                    {stats.rows.toLocaleString("en-IN")}
+                    {downloadCount.toLocaleString("en-IN")}
                   </span>{" "}
-                  rows across{" "}
+                  {reportFormat === "summary" ? "summary rows" : "rows"} across{" "}
                   <span className="font-semibold">
                     {stats.selectedCustomers.toLocaleString("en-IN")}
                   </span>{" "}
                   customers match the filters
                   <span className="text-gray-500">
                     {" "}
-                    (of {stats.totalRows.toLocaleString("en-IN")} total)
+                    (from {stats.rows.toLocaleString("en-IN")} beat matches, of{" "}
+                    {stats.totalRows.toLocaleString("en-IN")} total)
                   </span>
                 </p>
                 <div className="flex items-center gap-2 ml-auto">
                   <Button
                     variant="outline"
                     onClick={exportCsv}
-                    disabled={rows.length === 0}
+                    disabled={downloadCount === 0}
                   >
                     <Download className="h-4 w-4 mr-2" />
                     Download CSV
                   </Button>
                   <Button
                     onClick={() => void exportXlsx()}
-                    disabled={rows.length === 0 || isExporting}
+                    disabled={downloadCount === 0 || isExporting}
                   >
                     {isExporting ? (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     ) : (
                       <FileSpreadsheet className="h-4 w-4 mr-2" />
                     )}
-                    Download Excel
+                    {rows.length <= EXCEL_RAW_ROW_LIMIT
+                      ? "Download Excel (Summary + Raw)"
+                      : "Download Excel (Summary only)"}
                   </Button>
                 </div>
               </div>

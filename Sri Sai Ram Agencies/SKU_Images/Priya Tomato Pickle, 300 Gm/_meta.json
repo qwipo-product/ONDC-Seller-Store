@@ -1,0 +1,30 @@
+{
+  "skuCode": "8f5881a7-eb59-4448-8da6-b93ae89bce06",
+  "skuName": "Priya Tomato Pickle, 300 Gm",
+  "brand": "Priya",
+  "query": "Priya Tomato Pickle, 300 Gm product",
+  "fetchedAt": "2026-05-26T07:37:22.188Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "http://apniroots.com/cdn/shop/products/priya-tomato-pickle-300gm-apniroots-grocery-1.jpg?v=1734165413",
+      "page": "https://apniroots.com/products/priya-tomato-pickle-300gm",
+      "desc": "PRIYA - TOMATO PICKLE - 300GM by at apniroots Indian Grocery Store ..."
+    },
+    {
+      "image": "https://lzd-img-global.slatic.net/g/p/fc196341dfe15aa9bb7a7016706c9c8c.jpg_720x720q80.jpg",
+      "page": "https://www.lazada.co.id/products/priya-tomato-pickle-300-gm-i5054734867.html",
+      "desc": "PRIYA TOMATO PICKLE 300 GM | Lazada Indonesia"
+    },
+    {
+      "image": "https://baqala.qa/wp-content/uploads/2022/04/Priya-Pickle-Tomato-300gm.jpg",
+      "page": "https://baqala.qa/product/priya-pickle-tomato-300gm/",
+      "desc": "Priya Pickle Tomato 300gm - Baqala"
+    },
+    {
+      "image": "http://dailycart.com/cdn/shop/products/priya-tomato-pickle-without-garlic-300g.jpg?v=1640281684",
+      "page": "https://dailycart.com/products/priya-tomato-pickle-without-garlic-300-g",
+      "desc": "Priya Tomato Pickle Without Garlic, 300 g"
+    }
+  ]
+}

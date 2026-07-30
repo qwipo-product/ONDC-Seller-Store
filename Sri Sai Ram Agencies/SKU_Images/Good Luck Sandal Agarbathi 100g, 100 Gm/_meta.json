@@ -1,0 +1,30 @@
+{
+  "skuCode": "65f51764-ef42-42ff-a7aa-d5a66962dbf9",
+  "skuName": "Good Luck Sandal Agarbathi 100g, 100 Gm",
+  "brand": "Good Luck",
+  "query": "Good Luck Sandal Agarbathi 100g, 100 Gm product",
+  "fetchedAt": "2026-05-26T07:40:43.265Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "https://cycle.in/cdn/shop/products/GoodLuck-Javadhu-Incense-Sticks.jpg?v=1723886982&amp;width=1080",
+      "page": "https://cycle.in/collections/good-luck",
+      "desc": "Shop Our Good Luck Agarbatti Online At Best Price | Cycle.in"
+    },
+    {
+      "image": "https://sugandhlok.com/cdn/shop/products/SugandhLok-PremiereCollection-DeluxeSandal-4.jpg?v=1673346378",
+      "page": "https://sugandhlok.com/products/deluxe-sandal-agarbathi",
+      "desc": "Buy Deluxe Sandal Premiere Agarbatti - Sugandh Lok"
+    },
+    {
+      "image": "https://m.media-amazon.com/images/I/7140OtiTDkL._AC_.jpg",
+      "page": "https://www.amazon.in/Mysore-Sandal-Agarbathies-Pack-Box/dp/B015XSO0L8",
+      "desc": "Mysore Sandal Agarbathies (Pack Of 6 Box) : Amazon.in: Home &amp; Kitchen"
+    },
+    {
+      "image": "https://5.imimg.com/data5/SELLER/Default/2025/9/545273982/HZ/ZH/OJ/71509386/patanjali-sandal-wood-devine-agarbatti-1000x1000.png",
+      "page": "https://www.indiamart.com/proddetail/patanjali-100-gm-sandal-wood-devine-agarbatti-2857532958133.html",
+      "desc": "Patanjali 100 gm Sandal Wood Devine Agarbatti at ₹ 75/pack | Sandalwood ..."
+    }
+  ]
+}

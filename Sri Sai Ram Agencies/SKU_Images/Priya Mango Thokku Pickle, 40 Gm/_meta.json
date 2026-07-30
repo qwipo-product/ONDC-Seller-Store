@@ -1,0 +1,30 @@
+{
+  "skuCode": "bcf40caf-cfa1-48bb-a39f-5c1cb7be432e",
+  "skuName": "Priya Mango Thokku Pickle, 40 Gm",
+  "brand": "Priya",
+  "query": "Priya Mango Thokku Pickle, 40 Gm product",
+  "fetchedAt": "2026-05-26T07:35:55.497Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "https://www.mystore.in/s/62ea2c599d1398fa16dbae0a/67b35b06599518a53f6150cf/8904246911071_1.jpg",
+      "page": "https://www.mystore.in/en/product/priya-pickle-mango-thokku-with-garlic-40-g-pouch",
+      "desc": "Priya Pickle - Mango Thokku With Garlic, 40 G Pouch"
+    },
+    {
+      "image": "https://tajstores.co.uk/wp-content/uploads/2022/03/DSC_0016-scaled.jpg",
+      "page": "https://tajstores.co.uk/product/priya-mango-thokku-pickle/",
+      "desc": "PRIYA MANGO THOKKU PICKLE – Taj Stores"
+    },
+    {
+      "image": "https://m.media-amazon.com/images/I/41lYXLg30qL.jpg",
+      "page": "https://www.amazon.in/Priya-Pickle-Mango-Thokku-Garlic/dp/B0B59JS1Z5",
+      "desc": "Priya Pickle Mango Thokku with Garlic 40 Gm(Pack of 1) : Amazon.in ..."
+    },
+    {
+      "image": "http://priyafoods.com/cdn/shop/products/MangoThokkupicklewg500g_1200x1200.jpg?v=1686736409",
+      "page": "https://priyafoods.com/products/mango-thokku-pickle-with-garlic",
+      "desc": "Mango thokku | Buy Mango Thokku Pickle online"
+    }
+  ]
+}

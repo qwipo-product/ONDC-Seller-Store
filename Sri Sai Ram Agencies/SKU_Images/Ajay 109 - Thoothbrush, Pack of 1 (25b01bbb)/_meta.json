@@ -1,0 +1,31 @@
+{
+  "skuCode": "25b01bbb-51cc-401c-baed-f0d6331bcb46",
+  "skuName": "Ajay 109 - Thoothbrush, Pack of 1",
+  "brand": "Cycle",
+  "correctedBrand": "Ajay",
+  "query": "Ajay 109 - Thoothbrush product",
+  "refetchedAt": "2026-05-26T07:48:03.220Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "https://live.staticflickr.com/6173/6182885316_72885728a7_b.jpg",
+      "page": "https://www.flickr.com/photos/melling2293/6182885316",
+      "desc": "Colorado Rockies: Primary Logo 2.0 | PMell2293 | Flickr"
+    },
+    {
+      "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/31/Colorado_Rockies_logo.svg/851px-Colorado_Rockies_logo.svg.png",
+      "page": "https://en.wikipedia.org/wiki/File:Colorado_Rockies_logo.svg",
+      "desc": "File:Colorado Rockies logo.svg - Wikipedia"
+    },
+    {
+      "image": "https://c1.staticflickr.com/1/27/68192313_93efc767c1_b.jpg",
+      "page": "https://www.flickr.com/photos/kenlund/68192313",
+      "desc": "Water Fountains, Rockies Home Run, Coors Field, Denver, Co… | Flickr"
+    },
+    {
+      "image": "http://3.bp.blogspot.com/-5OOqBwhYinY/UffKNH1JojI/AAAAAAAAfc0/xiaJR7LQJ70/s1600/josh-outman-colorado-rockies-495x330.jpg",
+      "page": "http://www.fenwaynation.com/2013/07/",
+      "desc": "FenwayNation—Red Sox, Mookie, J.D., Bogaerts, Sale, JBJ—Founded 1/27 ..."
+    }
+  ]
+}

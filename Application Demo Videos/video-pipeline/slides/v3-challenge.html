@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden;
+    font-family: 'Segoe UI', 'Nirmala UI', sans-serif;
+    background: linear-gradient(135deg, #eff6ff 0%, #ffffff 45%, #faf5ff 100%);
+    color: #111827; padding: 70px 150px;
+  }
+  .brand { font-size: 28px; font-weight: 700; color: #4f46e5; margin-bottom: 16px; }
+  h1 { font-size: 56px; font-weight: 800; margin-bottom: 10px; }
+  .sub { font-size: 27px; color: #6b7280; margin-bottom: 40px; }
+  .layout { display: grid; grid-template-columns: 1.15fr 1fr; gap: 48px; align-items: start; }
+  .schedule { background: white; border: 1px solid #e5e7eb; border-radius: 20px; padding: 28px 32px; box-shadow: 0 2px 10px rgba(0,0,0,0.06); }
+  .schedule h3 { font-size: 26px; font-weight: 700; margin-bottom: 18px; display:flex; align-items:center; gap:10px; }
+  .row { display: grid; grid-template-columns: 150px 1fr; gap: 14px; align-items: center; padding: 11px 0; border-bottom: 1px dashed #e5e7eb; }
+  .row:last-child { border-bottom: none; }
+  .day { font-size: 22px; font-weight: 700; color: #1d4ed8; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 8px 0; text-align: center; }
+  .area { font-size: 23px; color: #374151; }
+  .area b { color: #111827; }
+  .pains { display: flex; flex-direction: column; gap: 18px; }
+  .pain { display: flex; gap: 16px; align-items: flex-start; background: #fff7ed; border: 1px solid #fed7aa; border-radius: 16px; padding: 20px 24px; }
+  .pain .ic { font-size: 30px; }
+  .pain .t { font-size: 25px; font-weight: 700; margin-bottom: 4px; }
+  .pain .d { font-size: 21px; color: #6b7280; line-height: 1.4; }
+</style>
+</head>
+<body>
+  <div class="brand">Qwipo | Seller Store &mdash; Serviceability</div>
+  <h1>Distributor की असली दुनिया 🚚</h1>
+  <p class="sub">हर distributor रोज़ पूरे शहर में नहीं जाता &mdash; वो हफ़्ते को इलाकों में बाँटता है। इसी को कहते हैं <b>Beat</b>।</p>
+  <div class="layout">
+    <div class="schedule">
+      <h3>🗓️ Sharma Agencies का weekly beat plan (example)</h3>
+      <div class="row"><div class="day">सोमवार</div><div class="area"><b>KPHB Colony</b> &mdash; 120 दुकानें</div></div>
+      <div class="row"><div class="day">मंगलवार</div><div class="area"><b>Miyapur</b> &mdash; 85 दुकानें</div></div>
+      <div class="row"><div class="day">बुधवार</div><div class="area"><b>Kukatpally</b> &mdash; 140 दुकानें</div></div>
+      <div class="row"><div class="day">गुरुवार</div><div class="area"><b>Bachupally</b> &mdash; 90 दुकानें</div></div>
+      <div class="row"><div class="day">शुक्रवार</div><div class="area"><b>Moosapet + Balanagar</b> &mdash; 110 दुकानें</div></div>
+      <div class="row"><div class="day">शनिवार</div><div class="area"><b>Nizampet</b> &mdash; 75 दुकानें</div></div>
+    </div>
+    <div class="pains">
+      <div class="pain"><div class="ic">❓</div><div><div class="t">Customer को पता नहीं</div><div class="d">दुकानदार को नहीं पता कि उसका distributor उसके इलाके में कब आता है</div></div></div>
+      <div class="pain"><div class="ic">📞</div><div><div class="t">Phone पर orders, याद पर भरोसा</div><div class="d">Order आज आया, गाड़ी उस इलाके में परसों जाएगी &mdash; confusion और गलतियाँ</div></div></div>
+      <div class="pain"><div class="ic">🚛</div><div><div class="t">आधी भरी गाड़ी, बिखरे orders</div><div class="d">बिना beat plan के delivery महँगी &mdash; एक ही दिन में चार कोनों के orders</div></div></div>
+    </div>
+  </div>
+</body>
+</html>

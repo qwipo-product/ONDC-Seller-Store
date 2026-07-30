@@ -8,6 +8,8 @@
  *    seller works with)
  */
 
+import { PROD_REPLICA_COMPANIES } from "./prod-replica-companies-seed";
+
 // Pre-baked category cover images. Vite turns these into hashed URLs at
 // build time so the admin sees real artwork on the Category Master page
 // without anyone having to upload them. All 37 ONDC eB2B categories ship
@@ -176,11 +178,15 @@ export function makeCompanyCategorySeed(): AdminCategory[] {
   return ONDC_CATEGORY_NAMES.map((name) => ({ name, imageUrl: null }));
 }
 
-// Seed companies — match the brands appearing on the seller-side SKU list.
+// Seed companies — the first entries match the brands appearing on the
+// seller-side SKU list (ids referenced elsewhere, so they keep their old
+// ids but carry the exact production company names). The production
+// company catalog captured on 2026-07-24 is appended from the generated
+// prod-replica-companies-seed.ts module below.
 export const seedCompanies: Company[] = [
   {
     id: "co-adani",
-    name: "Adani Wilmar Ltd",
+    name: "Adani Wilmar Limited",
     imageUrl: null,
     isActive: true,
     brands: [
@@ -191,7 +197,7 @@ export const seedCompanies: Company[] = [
   },
   {
     id: "co-freedom",
-    name: "Gemini Edibles & Fats India",
+    name: "Gemini Edibles & Fats India Private Limited",
     imageUrl: null,
     isActive: true,
     brands: [
@@ -200,17 +206,19 @@ export const seedCompanies: Company[] = [
     ],
     categories: makeCompanyCategorySeed(),
   },
+  // Demo-only company (not in the production catalog) — kept for SKU
+  // references but hidden from new assignments.
   {
     id: "co-srikrupa",
     name: "Sri Krupa Industries",
     imageUrl: null,
-    isActive: true,
+    isActive: false,
     brands: [{ id: "br-srikrupa", name: "Sri Krupa", imageUrl: null }],
     categories: makeCompanyCategorySeed(),
   },
   {
     id: "co-itc",
-    name: "ITC",
+    name: "ITC Limited",
     imageUrl: null,
     isActive: true,
     brands: [
@@ -222,15 +230,14 @@ export const seedCompanies: Company[] = [
     ],
     categories: makeCompanyCategorySeed(),
   },
-  // Created for Prod MAHADEVA ENTERPRISES' beat upload (July 2026) —
-  // the day-wise polygons cover all three brands the distributor
-  // carries, per the "All Brands" GeoJSON files in
-  // serviceability-uploads/mahadev-enterprises/.
+  // Demo-only stand-in from the July 2026 Mahadev beat upload. The
+  // production replica now carries the real companies (Karkhana Zinda
+  // Tilismath LLP, Orkla India) — kept for old references but hidden.
   {
     id: "co-mahadev-allbrands",
     name: "Mahadev All Brands",
     imageUrl: null,
-    isActive: true,
+    isActive: false,
     brands: [
       { id: "br-mtr", name: "MTR", imageUrl: null },
       { id: "br-eastern", name: "Eastern", imageUrl: null },
@@ -238,6 +245,18 @@ export const seedCompanies: Company[] = [
     ],
     categories: makeCompanyCategorySeed(),
   },
+  // Production company catalog (2026-07-24) — every company referenced
+  // by a replicated production delivery beat.
+  ...PROD_REPLICA_COMPANIES.map(
+    (c): Company => ({
+      id: c.id,
+      name: c.name,
+      imageUrl: null,
+      isActive: true,
+      brands: [],
+      categories: makeCompanyCategorySeed(),
+    }),
+  ),
 ];
 
 /** Tiny in-memory store. In a real app this would live behind an API. */

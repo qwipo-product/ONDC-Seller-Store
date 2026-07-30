@@ -1,0 +1,30 @@
+{
+  "skuCode": "a18f5880-a0ed-45d6-b2d9-12830d4909b7",
+  "skuName": "Priya Delite Ginger Garlic Paste, 1 Kg",
+  "brand": "Priya",
+  "query": "Priya Delite Ginger Garlic Paste, 1 Kg product",
+  "fetchedAt": "2026-05-26T07:33:40.984Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "http://dailycart.com/cdn/shop/products/priya-ginger-garlic-paste-1kg.jpg?v=1640281601",
+      "page": "https://dailycart.com/products/priya-ginger-garlic-paste-1-kg",
+      "desc": "Priya Ginger Garlic Paste, 1 kg"
+    },
+    {
+      "image": "https://priyafoods.com/cdn/shop/products/GGP_1kg_front.jpg?v=1686738017",
+      "page": "https://priyafoods.com/products/ginger-garlic-paste",
+      "desc": "Buy Ginger &amp; Garlic Paste - Adrak Lahsun Paste at Priya Foods"
+    },
+    {
+      "image": "https://desicart.co.uk/cdn/shop/products/priyagingergarlicpaste1kgdesicart.jpg?v=1671708627&amp;width=1200",
+      "page": "https://desicart.co.uk/products/priya-ginger-garlic-paste-1kg",
+      "desc": "PRIYA GINGER GARLIC PASTE 1KG"
+    },
+    {
+      "image": "https://www.jamoona.com/cdn/shop/files/Priya-1kg-Ingwer-Knoblauch-Paste-9040979.png?v=1767056681&amp;width=750",
+      "page": "https://www.jamoona.com/en-nl/products/priya-1kg-paste-ginger-garlic",
+      "desc": "Priya - 1kg Paste Ginger Garlic – Jamoona"
+    }
+  ]
+}

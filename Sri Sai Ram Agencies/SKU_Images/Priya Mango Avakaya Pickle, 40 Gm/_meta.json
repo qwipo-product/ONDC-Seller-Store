@@ -1,0 +1,30 @@
+{
+  "skuCode": "f845fd90-8d90-44d9-bb59-a0f2adf36f5d",
+  "skuName": "Priya Mango Avakaya Pickle, 40 Gm",
+  "brand": "Priya",
+  "query": "Priya Mango Avakaya Pickle, 40 Gm product",
+  "fetchedAt": "2026-05-26T07:35:40.436Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "https://www.manaadi.com/wp-content/uploads/2023/11/Priya-Avakaya-Mango-Pickle.webp",
+      "page": "https://www.manaadi.com/shop/priya-avakaya-mango-pickle/",
+      "desc": "Priya Avakaya Mango Pickle - Manaadi"
+    },
+    {
+      "image": "https://thespicecentre.com/wp-content/uploads/2021/03/98.jpg",
+      "page": "https://thespicecentre.com/product/priya-mango-pickle-avakaya/",
+      "desc": "Priya Mango Pickle Avakaya – Spice Centre"
+    },
+    {
+      "image": "https://cdn.shopify.com/s/files/1/0270/7157/8246/products/6750552785030_0_1024x1024.jpeg?v=1658574631",
+      "page": "https://www.kugans.com/products/priya-mango-pickle-avakaya",
+      "desc": "Priya Mango Pickle Avakaya–Kugans.com"
+    },
+    {
+      "image": "https://cdn.grofers.com/cdn-cgi/image/f=auto,fit=scale-down,q=85,metadata=none,w=480,h=480/app/images/products/sliding_image/33891a.jpg",
+      "page": "https://blinkit.com/prn/priya-mango-avakaya-pickle-without-garlic/prid/33891",
+      "desc": "Priya Mango Avakaya Pickle (Without Garlic) Price - Buy Online at ₹65 ..."
+    }
+  ]
+}

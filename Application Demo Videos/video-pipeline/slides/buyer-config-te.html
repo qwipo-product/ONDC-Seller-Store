@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden;
+    font-family: 'Segoe UI', 'Nirmala UI', 'Gautami', sans-serif;
+    background: linear-gradient(135deg, #eff6ff 0%, #ffffff 45%, #faf5ff 100%);
+    color: #111827; padding: 80px 160px;
+  }
+  .brand { font-size: 28px; font-weight: 700; color: #4f46e5; margin-bottom: 16px; }
+  h1 { font-size: 56px; font-weight: 800; margin-bottom: 14px; }
+  .sub { font-size: 28px; color: #6b7280; margin-bottom: 44px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .card { background: white; border: 1px solid #e5e7eb; border-radius: 16px; padding: 26px 30px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); display: flex; gap: 18px; align-items: flex-start; }
+  .ic { font-size: 36px; }
+  .t { font-size: 27px; font-weight: 700; margin-bottom: 6px; }
+  .d { font-size: 22px; color: #6b7280; line-height: 1.5; }
+  .d b { color: #4f46e5; }
+  .note { margin-top: 28px; background: #eef2ff; border: 2px solid #c7d2fe; border-radius: 16px; padding: 20px 28px; font-size: 24px; color: #3730a3; line-height: 1.5; }
+</style>
+</head>
+<body>
+  <div class="brand">Qwipo | Buyer App &mdash; SalesBeat</div>
+  <h1>Tomorrow Delivery &mdash; పూర్తిగా configurable ⚙️</h1>
+  <p class="sub">ప్రతి seller తన strategy ప్రకారం delivery rules తానే set చేసుకుంటాడు</p>
+  <div class="grid">
+    <div class="card"><div class="ic">🗓️</div><div><div class="t">Beat Day MOV</div><div class="d">Regular beat delivery కి minimum order value &mdash; ఉదాహరణకి <b>₹500</b></div></div></div>
+    <div class="card"><div class="ic">⚡</div><div><div class="t">Tomorrow MOV</div><div class="d">Next-day express delivery కి ఎక్కువ MOV &mdash; ఉదాహరణకి <b>₹2,500</b></div></div></div>
+    <div class="card"><div class="ic">🎚️</div><div><div class="t">Tomorrow On / Off</div><div class="d">Seller కావాలంటే Tomorrow delivery <b>పూర్తిగా off</b> చేసుకోవచ్చు</div></div></div>
+    <div class="card"><div class="ic">🎁</div><div><div class="t">Free Tomorrow Delivery</div><div class="d">Promotional campaigns కోసం <b>MOV లేకుండా</b> లేదా free next-day offer</div></div></div>
+  </div>
+  <div class="note">💡 ప్రతి seller కి తన సొంత independent settings &mdash; ఒకే app లో ప్రతి distributor తన వేరే strategy నడుపుకోవచ్చు</div>
+</body>
+</html>

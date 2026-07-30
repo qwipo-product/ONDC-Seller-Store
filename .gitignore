@@ -6,3 +6,10 @@ dist
 .env.*
 !.env.example
 .vercel
+
+# local-only: internal worktrees, nested repo copy, QA render artifacts, logs
+.claude/worktrees/
+Seller-Store/
+.deck-qa/
+server.log
+server.log.err

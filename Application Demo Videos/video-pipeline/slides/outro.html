@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden;
+    font-family: 'Segoe UI', 'Nirmala UI', sans-serif;
+    background: linear-gradient(135deg, #2563eb 0%, #4f46e5 50%, #7e22ce 100%);
+    color: white; position: relative;
+    display: flex; flex-direction: column; justify-content: center; padding: 0 160px;
+  }
+  .blob1 { position: absolute; top: 90px; left: 60px; width: 480px; height: 480px; background: rgba(255,255,255,0.08); border-radius: 50%; filter: blur(80px); }
+  .blob2 { position: absolute; bottom: 60px; right: 80px; width: 560px; height: 560px; background: rgba(192,132,252,0.25); border-radius: 50%; filter: blur(90px); }
+  .brand { font-size: 40px; font-weight: 700; margin-bottom: 40px; }
+  .brand span { color: #bfdbfe; font-weight: 400; }
+  h1 { font-size: 78px; font-weight: 800; margin-bottom: 40px; }
+  .recap { display: flex; flex-direction: column; gap: 18px; margin-bottom: 56px; }
+  .step { display: flex; align-items: center; gap: 18px; font-size: 32px; color: #eff6ff; }
+  .tick { width: 44px; height: 44px; border-radius: 50%; background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0; }
+  .next { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.3); border-radius: 16px; padding: 24px 32px; width: fit-content; }
+  .next .label { font-size: 24px; color: #bfdbfe; margin-bottom: 8px; }
+  .next .title { font-size: 34px; font-weight: 700; }
+</style>
+</head>
+<body>
+  <div class="blob1"></div><div class="blob2"></div>
+  <div class="brand">Qwipo <span>| Seller Store</span></div>
+  <h1>बधाई हो! Seller तैयार है 🎉</h1>
+  <div class="recap">
+    <div class="step"><div class="tick">✓</div>Sellers page &rarr; Add Seller</div>
+    <div class="step"><div class="tick">✓</div>Seller Information &mdash; नाम, mobile, business, पता</div>
+    <div class="step"><div class="tick">✓</div>Companies &amp; Brands &mdash; distributorship के हिसाब से</div>
+    <div class="step"><div class="tick">✓</div>Add Seller &rarr; Seller list में live</div>
+  </div>
+  <div class="next">
+    <div class="label">अगला video</div>
+    <div class="title">Video 2: Company Tagging &mdash; Companies &amp; Brands जोड़ना</div>
+  </div>
+</body>
+</html>

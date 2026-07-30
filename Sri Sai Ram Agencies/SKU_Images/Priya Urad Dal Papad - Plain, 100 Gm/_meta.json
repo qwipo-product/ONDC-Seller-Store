@@ -1,0 +1,30 @@
+{
+  "skuCode": "12c50016-4627-4be5-9b2f-4cee47a22ce3",
+  "skuName": "Priya Urad Dal Papad - Plain, 100 Gm",
+  "brand": "Priya",
+  "query": "Priya Urad Dal Papad - Plain, 100 Gm pickle product",
+  "fetchedAt": "2026-05-26T07:37:43.617Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "http://priyafoods.com/cdn/shop/products/Uraddalpapadimage1_1200x1200.jpg?v=1654082832",
+      "page": "https://priyafoods.com/products/priya-urad-dal-papad-plain-100g",
+      "desc": "Papad | Buy Urad Dal Papad Online | Priya Foods"
+    },
+    {
+      "image": "https://www.bigbasket.com/media/uploads/p/l/20005170_1-priya-papad-plain.jpg",
+      "page": "https://www.bigbasket.com/pd/20005170/priya-papad-plain-100-g/",
+      "desc": "Buy Priya Papad - Plain Online at Best Price of Rs null - bigbasket"
+    },
+    {
+      "image": "https://2.wlimg.com/product_images/bc-full/2023/8/610272/d8179453-2-1693386066_1438415_1895121.jpg",
+      "page": "https://www.tazapapadudyog.com/priya-papad.htm",
+      "desc": "Priya Papad"
+    },
+    {
+      "image": "https://tathastubasket.com/wp-content/uploads/2024/02/Urad-Dal-Papad-2.jpg",
+      "page": "https://tathastubasket.com/product/urad-dal-papad-200gm/",
+      "desc": "Urad Dal Papad 200gm - Tathastu | Buy Online Spices"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "skuCode": "5418c38c-c035-4a01-b150-7f9022ecbc95",
+  "skuName": "Ajay 101 - Hard Thoothbrush , 50 Pcs",
+  "brand": "Flute",
+  "correctedBrand": "Ajay",
+  "query": "Ajay 101 - Hard Thoothbrush product",
+  "refetchedAt": "2026-05-26T07:47:20.065Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "https://m.media-amazon.com/images/I/71vI7mUNEaL._AC_SY450_.jpg",
+      "page": "https://www.amazon.com/WinCraft-Francisco-49ers-Forever-Faithful/dp/B0CZPPLS7Q",
+      "desc": "Amazon.com : San Francisco 49ers Forever Faithful Large 3x5 Flag ..."
+    },
+    {
+      "image": "https://ae01.alicdn.com/kf/HTB1pbi3LXXXXXcaaXXXq6xXFXXX1/San-Francisco-font-b-49ers-b-font-forever-font-b-faithful-b-font-flag-3ftx5ft-100D.jpg",
+      "page": "https://boxden.com/showthread.php?t=2450840",
+      "desc": "49er Faithful Intro Presser W/ LORD Lynch &amp; Kyle Shanahan @ 1PM PST"
+    },
+    {
+      "image": "https://i.pinimg.com/736x/c2/3a/b6/c23ab65a8d9c646f3d1445282996a28a.jpg",
+      "page": "https://www.pinterest.com/pin/niner-faithful-forever--116319602850268576/",
+      "desc": "NINER FAITHFUL FOREVER | San Francisco 49ers Football"
+    },
+    {
+      "image": "https://i.ebayimg.com/images/g/vAsAAOSw1ZJelMBm/s-l1200.webp",
+      "page": "https://ar.inspiredpencil.com/pictures-2023/49ers-faithful-flag",
+      "desc": "49ers Faithful Flag"
+    }
+  ]
+}

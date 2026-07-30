@@ -1,0 +1,30 @@
+{
+  "skuCode": "41a24eda-9e51-4f8f-87fa-350a11e7c088",
+  "skuName": "Priya Gongura Pickle, 300 Gm",
+  "brand": "Priya",
+  "query": "Priya Gongura Pickle, 300 Gm product",
+  "fetchedAt": "2026-05-26T07:34:57.300Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "http://clickathome.com.au/cdn/shop/files/Priya_Gongura_Pickle_With_Garlic_300Gm.webp?v=1754522398",
+      "page": "https://clickathome.com.au/products/priya-gongura-pickle-300g",
+      "desc": "Priya Gongura Pickle 300g – Click@Home"
+    },
+    {
+      "image": "https://www.bombayspices.ca/wp-content/uploads/2019/03/PRIYA-GONGURA-1.jpg",
+      "page": "https://www.bombayspices.ca/product/priya-gongura-pickle-300g/",
+      "desc": "PRIYA GONGURA PICKLE 300G – Bombay Spices"
+    },
+    {
+      "image": "https://sevenemirates.online/uploads/media/2023/Priya-Pickle-300Gm-Gongura.jpg",
+      "page": "https://sevenemirates.online/products/details/priya-pickle-300gm-gongura",
+      "desc": "Priya Pickle 300Gm-Gongura | Seven Emirates Supermarket LLC"
+    },
+    {
+      "image": "https://down-id.img.susercontent.com/file/id-11134201-7r98u-lx9jhsjom4do85",
+      "page": "https://shopee.co.id/PRIYA-GONGURA-PICKLE-300-GM-i.1124295216.27754416933",
+      "desc": "Jual PRIYA GONGURA PICKLE 300 GM | Shopee Indonesia"
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+[
+  {
+    "frame": "01-intro.png",
+    "text": "नमस्ते! Qwipo Seller Store training series के दूसरे video में आपका स्वागत है। पिछले video में हमने सीखा नया seller बनाना। आज हम तीन चीज़ें सीखेंगे — master catalog में नई company और उसके brands बनाना, उस company को seller से tag करना, और आखिर में ONDC connector जोड़ना। ये तीनों मिलकर seller का catalog तैयार करती हैं। चलिए, शुरू करते हैं!"
+  },
+  {
+    "frame": "02-companies-page.png",
+    "text": "Left menu में Companies and Brands page पर click कीजिए। यहाँ master catalog की सारी companies दिखती हैं — जैसे Adani Wilmar, Gemini, ITC — और हर company के नीचे उसके brands। यही master list है — जो company यहाँ होगी, वही आगे किसी seller से tag हो पाएगी। नई company जोड़ने के लिए, ऊपर right corner में Add Company button पर click कीजिए।"
+  },
+  {
+    "frame": "03-add-company-empty.png",
+    "text": "Add Company dialog में तीन हिस्से हैं — company का logo, company का नाम, और नीचे दो tabs — Brands और Categories। एक ज़रूरी बात — company का नाम एक बार save होने के बाद बदला नहीं जा सकता, इसलिए सही legal नाम ही डालिए। और कम से कम एक brand ज़रूरी है।"
+  },
+  {
+    "frame": "04-add-company-filled.png",
+    "text": "चलिए एक नई company बनाते हैं — Parle Products। Company Name में नाम लिखिए। फिर Brands section में पहला brand — Parle-G। और brands जोड़ने के लिए Add brand पर click कीजिए — हमने Krackjack और Monaco भी जोड़ दिए। हर brand के साथ उसका logo भी upload कर सकते हैं, जिससे app में brand पहचानना आसान हो जाता है।"
+  },
+  {
+    "frame": "05-categories-tab.png",
+    "text": "अब Categories tab देखिए — यहाँ ONDC की सैंतीस categories पहले से मौजूद हैं। हर नई company के साथ ये अपने आप जुड़ जाती हैं — आपको बस हर category की cover image upload करनी होती है, जो ONDC marketplace पर दिखती है। अभी के लिए इसे default रहने देते हैं।"
+  },
+  {
+    "frame": "06-company-created.png",
+    "text": "और Add Company पर click करते ही — company बन गई! देखिए, Parle Products अब master catalog में दिख रही है — Parle-G, Krackjack और Monaco तीनों brands के साथ। अब इसे किसी भी seller से tag किया जा सकता है।"
+  },
+  {
+    "frame": "07-seller-catalog-tab.png",
+    "text": "अब आती है company tagging। Sellers page से उस seller को खोलिए जिससे company जोड़नी है — हमने Mahadeva Enterprises चुना, Secunderabad का एक distributor। Seller detail में Companies and Brands tab पर click कीजिए — यहाँ दिखता है कि seller के पास अभी कौन-कौन सी companies हैं। नई company tag करने के लिए Add Company पर click कीजिए।"
+  },
+  {
+    "frame": "08-link-company-dialog.png",
+    "text": "Link a Company dialog में company चुनिए — हमने Parle Products select की। नीचे Use all brands का switch on है — यानी seller को Parle के सारे brands मिलेंगे, और आगे जो भी नया brand जुड़ेगा, वो भी अपने आप। सिर्फ़ कुछ brands देने हों, तो switch off करके चुन लीजिए। और ध्यान रहे — company एक बार link होने के बाद unlink नहीं होती, इसलिए सोच-समझकर tag कीजिए।"
+  },
+  {
+    "frame": "09-company-linked.png",
+    "text": "Link Company पर click करते ही — हो गया! देखिए, green message आ गया — Linked Parle Products to seller। अब Mahadeva Enterprises अपने catalog में Parle के products list कर सकता है।"
+  },
+  {
+    "frame": "10-connector-tab.png",
+    "text": "अब आखिरी काम — connector। Connector tab पर click कीजिए। Connector यानी बाहर की system से seller का जुड़ाव — जैसे ONDC marketplace। अभी कोई connector configure नहीं है, तो Add Connector button पर click कीजिए।"
+  },
+  {
+    "frame": "11-connector-chooser.png",
+    "text": "यहाँ दो options मिलते हैं। पहला — ONDC, यानी Open Network for Digital Commerce — इससे seller का catalog ONDC network पर publish होता है और buyer orders सीधे यहाँ route होते हैं। दूसरा — Qwipo Logistics, delivery planning और tracking के लिए। DMS connectors — जैसे Bizom और Tally — Phase 2 में आएँगे। चलिए, ONDC पर click करते हैं।"
+  },
+  {
+    "frame": "12-ondc-config.png",
+    "text": "ONDC connect करना बहुत ही आसान है — बस दो चीज़ें चाहिए: Seller ID और API Key, जो ONDC registration के समय मिल जाती हैं। इन्हें डालिए, और Connect पर click कर दीजिए। बस — ना कोई लंबा form, ना कोई technical setup।"
+  },
+  {
+    "frame": "13-connectors-done.png",
+    "text": "और देखिए — दोनों connectors Connected हो गए! ONDC भी, और Qwipo Logistics भी — जो तो सिर्फ़ एक click में connect हो जाता है, कोई field भरने की ज़रूरत ही नहीं। अब ये seller ONDC network पर बेचने के लिए पूरी तरह तैयार है।"
+  },
+  {
+    "frame": "14-outro.png",
+    "text": "तो आज का recap — Companies and Brands page पर नई company और brands बनाए, seller detail से company tag की, और ONDC plus Qwipo Logistics connectors जोड़े। अगला video इस series का सबसे important video है — Serviceability, यानी delivery beats — कौन-सा इलाका, किस दिन। उसे ज़रूर देखिए। धन्यवाद!"
+  }
+]

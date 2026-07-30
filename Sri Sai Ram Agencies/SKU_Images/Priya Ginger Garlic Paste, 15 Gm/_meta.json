@@ -1,0 +1,30 @@
+{
+  "skuCode": "c0dd2522-1f1b-4dcc-bc4b-8d7e006fa590",
+  "skuName": "Priya Ginger Garlic Paste, 15 Gm",
+  "brand": "Priya",
+  "query": "Priya Ginger Garlic Paste, 15 Gm product",
+  "fetchedAt": "2026-05-26T07:34:38.929Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "https://cdn.shopify.com/s/files/1/0587/5410/5495/products/6.jpg?v=1671611706",
+      "page": "https://priyafoods.com/products/ginger-garlic-paste",
+      "desc": ""
+    },
+    {
+      "image": "https://tajstores.co.uk/wp-content/uploads/2023/03/DSC_0014-929x1536.jpg",
+      "page": "https://tajstores.co.uk/product/priya-ginger-garlic-paste/",
+      "desc": ""
+    },
+    {
+      "image": "http://dailycart.com/cdn/shop/products/priya-ginger-garlic-paste-1kg_2adb2e10-e2cf-4157-bbc1-38bbe56007f8.jpg?v=1665342293",
+      "page": "https://dailycart.com/products/priya-ginger-garlic-paste-500-gm",
+      "desc": ""
+    },
+    {
+      "image": "https://hiramart.net/cdn/shop/products/PriyaGingerGarlicPasteen_700x700.jpg?v=1678880694",
+      "page": "https://hiramart.net/products/priya-ginger-garlic-paste",
+      "desc": ""
+    }
+  ]
+}

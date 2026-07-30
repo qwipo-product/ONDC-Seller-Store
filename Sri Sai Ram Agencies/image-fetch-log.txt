@@ -1,0 +1,201 @@
+[2026-05-26T07:31:07.259Z] === Starting batch: 5 SKUs (index 1..5) ===
+[2026-05-26T07:31:09.546Z] [1/197] OK Ajay 101 - Hard Thoothbrush , 50 Pcs — saved 4/4 | query: Ajay 101 - Hard Thoothbrush product
+[2026-05-26T07:31:11.271Z] [2/197] OK Ajay 101 - Medium Hard Thoothbrush , 50 Pcs — saved 4/4 | query: Ajay 101 - Medium Hard Thoothbrush product
+[2026-05-26T07:31:13.561Z] [3/197] OK Ajay 101 - Medium Quest Thoothbrush, 12 Pcs — saved 4/4 | query: Ajay 101 - Medium Quest Thoothbrush product
+[2026-05-26T07:31:17.470Z] [4/197] OK Ajay 101 - Soft Thoothbrush, 50 Pcs — saved 4/4 | query: Ajay 101 - Soft Thoothbrush product
+[2026-05-26T07:31:20.479Z] [5/197] OK Ajay 101 - Soft Quest Thoothbrush, 12 Pcs — saved 4/4 | query: Ajay 101 - Soft Quest Thoothbrush product
+[2026-05-26T07:31:21.186Z] === Batch done: ok=5 skip=0 err=0 ===
+[2026-05-26T07:32:12.448Z] === Starting batch: 192 SKUs (index 6..197) ===
+[2026-05-26T07:32:15.491Z] [6/197] OK Ajay 103 - Junior Complete Thoothbrush, 12 Pcs — saved 4/4 | query: Ajay 103 - Junior Complete Thoothbrush product
+[2026-05-26T07:32:18.098Z] [7/197] OK Ajay 104 - Comfort Thoothbrush, 12 Pcs — saved 4/4 | query: Ajay 104 - Comfort Thoothbrush product
+[2026-05-26T07:32:20.916Z] [8/197] OK Ajay 107 - Complete Thoothbrush, 12 Pcs — saved 4/4 | query: Ajay 107 - Complete Thoothbrush product
+[2026-05-26T07:32:25.029Z] [9/197] OK Ajay 108 - Thoothbrush, 12 Pcs — saved 4/4 | query: Ajay 108 - Thoothbrush product
+[2026-05-26T07:32:28.096Z] [10/197] OK Ajay 109 - Sensitive Plus Thoothbrush, 32 Pcs — saved 4/4 | query: Ajay 109 - Sensitive Plus Thoothbrush product
+[2026-05-26T07:32:30.521Z] [11/197] OK Ajay 109 - Sensitive Plus Thoothbrush, 7 Pcs — saved 4/4 | query: Ajay 109 - Sensitive Plus Thoothbrush product
+[2026-05-26T07:32:34.003Z] [12/197] OK Ajay 110 - Prime Thoothbrush, 9 Pcs — saved 4/4 | query: Ajay 110 - Prime Thoothbrush product
+[2026-05-26T07:32:36.732Z] [13/197] OK Ajay 121 - Compact Thoothbrush, 12 Pcs — saved 4/4 | query: Ajay 121 - Compact Thoothbrush product
+[2026-05-26T07:32:40.931Z] [14/197] OK Ajay Shaving Brush, Pack of 1 — saved 4/4 | query: Ajay Shaving Brush product
+[2026-05-26T07:32:43.114Z] [15/197] OK Ajay 101 - Medium Quest Thoothbrush 3+1 Offer, Pack of 1 — saved 4/4 | query: Ajay 101 - Medium Quest Thoothbrush product
+[2026-05-26T07:32:45.772Z] [16/197] OK Ajay 101 - Soft Quest Thoothbrush 3+1 Offer, Pack of 1 — saved 4/4 | query: Ajay 101 - Soft Quest Thoothbrush product
+[2026-05-26T07:32:48.715Z] [17/197] OK Ajay 109 - Thoothbrush, Pack of 1 — saved 4/4 | query: Ajay 109 - Thoothbrush product
+[2026-05-26T07:32:58.644Z] [18/197] OK Priya Amla Pickle, 300 Gm — saved 4/4 | query: Priya Amla Pickle, 300 Gm product
+[2026-05-26T07:33:05.537Z] [19/197] OK Priya Biryani Masala Paste, 90 Gm — saved 4/4 | query: Priya Biryani Masala Paste, 90 Gm product
+[2026-05-26T07:33:10.556Z] [20/197] OK Priya Biryani Masala Powder , 8 Gm — saved 4/4 | query: Priya Biryani Masala Powder , 8 Gm product
+[2026-05-26T07:33:14.095Z] [21/197] OK Priya Chicken Masala Powder, 8 Gm — saved 4/4 | query: Priya Chicken Masala Powder, 8 Gm product
+[2026-05-26T07:33:16.356Z] [22/197] OK Priya Premium Chilli Powder, 12 Gm — saved 4/4 | query: Priya Premium Chilli Powder, 12 Gm product
+[2026-05-26T07:33:19.743Z] [23/197] OK Priya Premium Chilli Powder, 100 Gm — saved 4/4 | query: Priya Premium Chilli Powder, 100 Gm product
+[2026-05-26T07:33:24.349Z] [24/197] OK Priya Premium Chilli Powder, 200 Gm — saved 4/4 | query: Priya Premium Chilli Powder, 200 Gm product
+[2026-05-26T07:33:27.002Z] [25/197] OK Priya Premium Chilli Powder, 50 Gm — saved 4/4 | query: Priya Premium Chilli Powder, 50 Gm product
+[2026-05-26T07:33:29.460Z] [26/197] OK Priya Premium Chilli Powder, 500 Gm — saved 4/4 | query: Priya Premium Chilli Powder, 500 Gm product
+[2026-05-26T07:33:34.308Z] [27/197] OK Priya Cut Mango Pickle, 300 Gm — saved 4/4 | query: Priya Cut Mango Pickle, 300 Gm product
+[2026-05-26T07:33:40.985Z] [28/197] OK Priya Delite Ginger Garlic Paste, 1 Kg — saved 4/4 | query: Priya Delite Ginger Garlic Paste, 1 Kg product
+[2026-05-26T07:33:43.657Z] [29/197] OK Priya Delite Ginger Garlic Paste, 500 Gm — saved 4/4 | query: Priya Delite Ginger Garlic Paste, 500 Gm product
+[2026-05-26T07:33:46.278Z] [30/197] OK Priya Coriander Powder, 15 Gm — saved 4/4 | query: Priya Coriander Powder, 15 Gm product
+[2026-05-26T07:33:49.808Z] [31/197] OK Priya Coriander Powder, 100 Gm — saved 4/4 | query: Priya Coriander Powder, 100 Gm product
+[2026-05-26T07:33:52.831Z] [32/197] OK Priya Coriander Powder, 500 Gm — saved 4/4 | query: Priya Coriander Powder, 500 Gm product
+[2026-05-26T07:33:57.875Z] [33/197] OK Priya Egg Masala, 8 Gm — saved 4/4 | query: Priya Egg Masala, 8 Gm product
+[2026-05-26T07:34:02.784Z] [34/197] OK Priya Fish - Fry Masala, 8 Gm — saved 4/4 | query: Priya Fish - Fry Masala, 8 Gm product
+[2026-05-26T07:34:06.342Z] [35/197] OK Priya Catla Fish Masala, 8 Gm — saved 4/4 | query: Priya Catla Fish Masala, 8 Gm product
+[2026-05-26T07:34:10.679Z] [36/197] OK Priya Garam Masala, 8 Gm — saved 4/4 | query: Priya Garam Masala, 8 Gm product
+[2026-05-26T07:34:17.332Z] [37/197] OK Priya Garlic Pickle (Lahsun Ka Aachar), 300 Gm — saved 4/4 | query: Priya Garlic Pickle (Lahsun Ka Aachar), 300 Gm product
+[2026-05-26T07:34:23.415Z] [38/197] OK Priya Ginger Garlic Paste, 300 Gm — saved 4/4 | query: Priya Ginger Garlic Paste, 300 Gm product
+[2026-05-26T07:34:26.670Z] [39/197] OK Priya Ginger Garlic Paste, 200 Gm — saved 4/4 | query: Priya Ginger Garlic Paste, 200 Gm product
+[2026-05-26T07:34:31.173Z] [40/197] OK Priya Ginger Garlic Paste , 100 Gm — saved 4/4 | query: Priya Ginger Garlic Paste , 100 Gm product
+[2026-05-26T07:34:34.984Z] [41/197] OK Priya Ginger Garlic Paste, 30 Gm — saved 4/4 | query: Priya Ginger Garlic Paste, 30 Gm product
+[2026-05-26T07:34:38.930Z] [42/197] OK Priya Ginger Garlic Paste, 15 Gm — saved 4/4 | query: Priya Ginger Garlic Paste, 15 Gm product
+[2026-05-26T07:34:42.948Z] [43/197] OK Priya Ginger Pickle, 300 Gm — saved 4/4 | query: Priya Ginger Pickle, 300 Gm product
+[2026-05-26T07:34:50.481Z] [44/197] OK Priya Ginger Pickle, 40 Gm — saved 4/4 | query: Priya Ginger Pickle, 40 Gm product
+[2026-05-26T07:34:57.301Z] [45/197] OK Priya Gongura Pickle, 300 Gm — saved 4/4 | query: Priya Gongura Pickle, 300 Gm product
+[2026-05-26T07:35:00.086Z] [46/197] OK Priya Gongura Pickle, 40 Gm — saved 4/4 | query: Priya Gongura Pickle, 40 Gm product
+[2026-05-26T07:35:07.608Z] [47/197] OK Priya Green Tamarind Pickle Without Garlic, 300 Gm — saved 4/4 | query: Priya Green Tamarind Pickle Without Garlic, 300 Gm product
+[2026-05-26T07:35:12.145Z] [48/197] OK Priya Instant Gulab Jamun Mix , 175 Gm — saved 4/4 | query: Priya Instant Gulab Jamun Mix , 175 Gm pickle product
+[2026-05-26T07:35:18.788Z] [49/197] OK Priya Hyderabadi Chicken Biryani Masala, 8 Gm — saved 4/4 | query: Priya Hyderabadi Chicken Biryani Masala, 8 Gm product
+[2026-05-26T07:35:22.074Z] [50/197] OK Priya Papad Jeera Appalam, 100 Gm — saved 4/4 | query: Priya Papad Jeera Appalam, 100 Gm pickle product
+[2026-05-26T07:35:26.813Z] [51/197] OK Priya Lime Pickle in Lime Juice, 300 Gm — saved 4/4 | query: Priya Lime Pickle in Lime Juice, 300 Gm product
+[2026-05-26T07:35:32.757Z] [52/197] OK Priya Lime Pickle in Lime Juice, 40 Gm — saved 4/4 | query: Priya Lime Pickle in Lime Juice, 40 Gm product
+[2026-05-26T07:35:36.171Z] [53/197] OK Priya Mango Avakaya Pickle, 300 Gm — saved 4/4 | query: Priya Mango Avakaya Pickle, 300 Gm product
+[2026-05-26T07:35:40.437Z] [54/197] OK Priya Mango Avakaya Pickle, 40 Gm — saved 4/4 | query: Priya Mango Avakaya Pickle, 40 Gm product
+[2026-05-26T07:35:45.446Z] [55/197] OK Priya Mango Avakaya Pickle, 1 Kg — saved 4/4 | query: Priya Mango Avakaya Pickle, 1 Kg product
+[2026-05-26T07:35:50.248Z] [56/197] OK Priya Mango Thokku Pickle, 300 Gm — saved 4/4 | query: Priya Mango Thokku Pickle, 300 Gm product
+[2026-05-26T07:35:55.498Z] [57/197] OK Priya Mango Thokku Pickle, 40 Gm — saved 4/4 | query: Priya Mango Thokku Pickle, 40 Gm product
+[2026-05-26T07:35:59.085Z] [58/197] OK Priya Papad Masala Appalam, 100 Gm — saved 4/4 | query: Priya Papad Masala Appalam, 100 Gm product
+[2026-05-26T07:36:01.329Z] [59/197] OK Priya Meat Masala, 8 Gm — saved 4/4 | query: Priya Meat Masala, 8 Gm product
+[2026-05-26T07:36:07.267Z] [60/197] OK Priya Mixed Vegetable Pickle, 300 Gm — saved 4/4 | query: Priya Mixed Vegetable Pickle, 300 Gm product
+[2026-05-26T07:36:11.018Z] [61/197] OK Priya Mixed Vegetable Pickle, 40 Gm — saved 4/4 | query: Priya Mixed Vegetable Pickle, 40 Gm product
+[2026-05-26T07:36:14.758Z] [62/197] OK Priya Non Veg Curry Masala Paste, 25 Gm — saved 4/4 | query: Priya Non Veg Curry Masala Paste, 25 Gm product
+[2026-05-26T07:36:25.537Z] [63/197] OK Priya Non Veg Curry Masala Paste, 90 Gm — saved 4/4 | query: Priya Non Veg Curry Masala Paste, 90 Gm product
+[2026-05-26T07:36:28.188Z] [64/197] OK Ramya Mango Avkaya Pickle, 1 Kg — saved 4/4 | query: Priya Ramya Mango Avkaya Pickle, 1 Kg product
+[2026-05-26T07:36:31.148Z] [65/197] OK Ramya Mango Avkaya Pickle, 500 Gm — saved 4/4 | query: Priya Ramya Mango Avkaya Pickle, 500 Gm product
+[2026-05-26T07:36:34.575Z] [66/197] OK Ramya Tomato Pickle, 1 Kg — saved 4/4 | query: Priya Ramya Tomato Pickle, 1 Kg product
+[2026-05-26T07:36:37.723Z] [67/197] OK Ramya Tomato Pickle, 500 Gm — saved 4/4 | query: Priya Ramya Tomato Pickle, 500 Gm product
+[2026-05-26T07:36:41.350Z] [68/197] OK Priya Premium Rasam Powder, 8 Gm — saved 4/4 | query: Priya Premium Rasam Powder, 8 Gm product
+[2026-05-26T07:36:45.734Z] [69/197] OK Priya Red Chilli Pickle, 300 Gm — saved 4/4 | query: Priya Red Chilli Pickle, 300 Gm product
+[2026-05-26T07:36:53.052Z] [70/197] OK Priya Red Chilli Pickle, 40 Gm — saved 4/4 | query: Priya Red Chilli Pickle, 40 Gm product
+[2026-05-26T07:37:05.654Z] [71/197] OK Priya Premium Sambar Powder, 8 Gm — saved 4/4 | query: Priya Premium Sambar Powder, 8 Gm product
+[2026-05-26T07:37:08.998Z] [72/197] OK Priya Tamarind Paste, 100 Gm — saved 4/4 | query: Priya Tamarind Paste, 100 Gm product
+[2026-05-26T07:37:16.358Z] [73/197] OK Priya Tomato Pickle, 40 Gm — saved 4/4 | query: Priya Tomato Pickle, 40 Gm product
+[2026-05-26T07:37:22.190Z] [74/197] OK Priya Tomato Pickle, 300 Gm — saved 4/4 | query: Priya Tomato Pickle, 300 Gm product
+[2026-05-26T07:37:25.604Z] [75/197] OK Priya Turmeric (Haldi) Powder, 20 Gm — saved 4/4 | query: Priya Turmeric (Haldi) Powder, 20 Gm product
+[2026-05-26T07:37:32.455Z] [76/197] OK Priya Turmeric (Haldi) Powder, 100 Gm — saved 4/4 | query: Priya Turmeric (Haldi) Powder, 100 Gm product
+[2026-05-26T07:37:35.195Z] [77/197] OK Priya Turmeric (Haldi) Powder, 50 Gm — saved 4/4 | query: Priya Turmeric (Haldi) Powder, 50 Gm product
+[2026-05-26T07:37:37.108Z] [78/197] OK Priya Turmeric (Haldi) Powder, 200 Gm — saved 4/4 | query: Priya Turmeric (Haldi) Powder, 200 Gm product
+[2026-05-26T07:37:39.126Z] [79/197] OK Priya Turmeric (Haldi) Powder, 500 Gm — saved 4/4 | query: Priya Turmeric (Haldi) Powder, 500 Gm product
+[2026-05-26T07:37:43.619Z] [80/197] OK Priya Urad Dal Papad - Plain, 100 Gm — saved 4/4 | query: Priya Urad Dal Papad - Plain, 100 Gm pickle product
+[2026-05-26T07:37:46.152Z] [81/197] OK Grb Buffelo Ghee, 500 Ml — saved 4/4 | query: Grb Buffelo Ghee, 500 Ml product
+[2026-05-26T07:37:55.409Z] [82/197] OK Grb Buffelo Ghee, 1 L — saved 4/4 | query: Grb Buffelo Ghee, 1 L product
+[2026-05-26T07:37:57.891Z] [83/197] OK Grb Buffelo Ghee, 1 L (d6ee9fd9) — saved 4/4 | query: Grb Buffelo Ghee, 1 L product
+[2026-05-26T07:38:02.335Z] [84/197] OK Grb Buffelo Ghee, 10 Ml — saved 4/4 | query: Grb Buffelo Ghee, 10 Ml product
+[2026-05-26T07:38:05.911Z] [85/197] OK Grb Buffelo Ghee, 100 Ml — saved 4/4 | query: Grb Buffelo Ghee, 100 Ml product
+[2026-05-26T07:38:08.730Z] [86/197] OK Grb Buffelo Ghee, 20 Ml — saved 4/4 | query: Grb Buffelo Ghee, 20 Ml product
+[2026-05-26T07:38:12.549Z] [87/197] OK Grb Buffelo Ghee, 200 Ml — saved 4/4 | query: Grb Buffelo Ghee, 200 Ml product
+[2026-05-26T07:38:14.539Z] [88/197] OK Grb Buffelo Ghee, 50 Ml — saved 4/4 | query: Grb Buffelo Ghee, 50 Ml product
+[2026-05-26T07:38:15.989Z] [89/197] OK Grb Buffelo Ghee, 500 Ml (aa7dead4) — saved 4/4 | query: Grb Buffelo Ghee, 500 Ml product
+[2026-05-26T07:38:17.493Z] [90/197] OK Grb Buffelo Ghee, 500 Ml (8e7bf8cd) — saved 4/4 | query: Grb Buffelo Ghee, 500 Ml product
+[2026-05-26T07:38:21.039Z] [91/197] OK Grb Cow Ghee, 1 L — saved 4/4 | query: Grb Cow Ghee, 1 L product
+[2026-05-26T07:38:28.223Z] [92/197] OK Grb Cow Ghee, 10 Ml — saved 4/4 | query: Grb Cow Ghee, 10 Ml product
+[2026-05-26T07:38:30.435Z] [93/197] OK Grb Cow Ghee, 100 Ml — saved 4/4 | query: Grb Cow Ghee, 100 Ml product
+[2026-05-26T07:38:38.440Z] [94/197] OK Grb Cow Ghee, 20 Ml — saved 4/4 | query: Grb Cow Ghee, 20 Ml product
+[2026-05-26T07:38:45.815Z] [95/197] OK Grb Cow Ghee, 200 Ml — saved 4/4 | query: Grb Cow Ghee, 200 Ml product
+[2026-05-26T07:38:50.507Z] [96/197] OK Grb Cow Ghee, 50 Ml — saved 4/4 | query: Grb Cow Ghee, 50 Ml product
+[2026-05-26T07:38:53.283Z] [97/197] OK Grb Cow Ghee, 500 Ml — saved 4/4 | query: Grb Cow Ghee, 500 Ml product
+[2026-05-26T07:38:56.940Z] [98/197] OK Cycle Karpure Citrus Camphor , 60 Gm — saved 4/4 | query: Cycle Karpure Citrus Camphor , 60 Gm agarbathi product
+[2026-05-26T07:39:00.631Z] [99/197] OK Cycle Karpure Oudh Camphor, 60 Gm — saved 4/4 | query: Cycle Karpure Oudh Camphor, 60 Gm agarbathi product
+[2026-05-26T07:39:03.890Z] [100/197] OK Cycle Om Shanthi Camphor, 12 Gm — saved 4/4 | query: Cycle Om Shanthi Camphor, 12 Gm agarbathi product
+[2026-05-26T07:39:05.360Z] [101/197] OK Cycle Om Shanthi Camphor, 12 Gm (428ef380) — saved 4/4 | query: Cycle Om Shanthi Camphor, 12 Gm agarbathi product
+[2026-05-26T07:39:07.844Z] [102/197] OK Cycle Om Shanthi Camphor, 50 Gm — saved 4/4 | query: Cycle Om Shanthi Camphor, 50 Gm agarbathi product
+[2026-05-26T07:39:10.628Z] [103/197] OK Cycle Om Shanthi Camphor, 52 Gm — saved 4/4 | query: Cycle Om Shanthi Camphor, 52 Gm agarbathi product
+[2026-05-26T07:39:14.255Z] [104/197] OK Om Shanthi Pure Cotton Wicks (Mogra Watt), 50 Pcs — saved 4/4 | query: Om Shanthi Pure Cotton Wicks (Mogra Watt) agarbathi product
+[2026-05-26T07:39:16.427Z] [105/197] OK Om Shanthi Pure Cotton Wicks (Samai Watt), 60 Pcs — saved 4/4 | query: Om Shanthi Pure Cotton Wicks (Samai Watt) agarbathi product
+[2026-05-26T07:39:20.208Z] [106/197] OK Cycle Sambrani, 14 Pcs — saved 4/4 | query: Cycle Sambrani product
+[2026-05-26T07:39:25.609Z] [107/197] OK Eco Premium Agarbathi, 175 Gm — saved 4/4 | query: Flute Eco Premium Agarbathi, 175 Gm product
+[2026-05-26T07:39:31.045Z] [108/197] OK Good Luck Premium Cone, 100 Gm — saved 4/4 | query: Good Luck Premium Cone, 100 Gm agarbathi product
+[2026-05-26T07:39:35.484Z] [109/197] OK Good Luck Kewda Agarbathi, 100 Gm — saved 4/4 | query: Good Luck Kewda Agarbathi, 100 Gm product
+[2026-05-26T07:39:42.252Z] [110/197] OK Good Luck Lavender Dhoop, 100 Gm — saved 4/4 | query: Good Luck Lavender Dhoop, 100 Gm product
+[2026-05-26T07:39:47.346Z] [111/197] OK Good Luck Lavender – Calming Premium Incense Sticks for Relaxation, 100 Gm — saved 4/4 | query: Good Luck Lavender – Calming Premium Incense Sticks for Relaxation, 100 Gm product
+[2026-05-26T07:39:50.542Z] [112/197] OK Good Luck Mogra Cone, 100 Gm — saved 4/4 | query: Good Luck Mogra Cone, 100 Gm agarbathi product
+[2026-05-26T07:39:53.213Z] [113/197] OK Good Luck Mogra Dhoop, 100 Gm — saved 4/4 | query: Good Luck Mogra Dhoop, 100 Gm product
+[2026-05-26T07:39:56.037Z] [114/197] OK Good Luck Mogra Agarbathi, 220 Gm — saved 4/4 | query: Good Luck Mogra Agarbathi, 220 Gm product
+[2026-05-26T07:39:57.839Z] [115/197] OK Good Luck Mogra Agarbathi, 100 Gm — saved 4/4 | query: Good Luck Mogra Agarbathi, 100 Gm product
+[2026-05-26T07:40:03.555Z] [116/197] OK Good Luck Musk – Warm & Earthy Premium Incense Sticks, 220 Gm — saved 4/4 | query: Good Luck Musk – Warm & Earthy Premium Incense Sticks, 220 Gm product
+[2026-05-26T07:40:06.410Z] [117/197] OK Good Luck Musk – Warm & Earthy Premium Incense Sticks, 100 Gm — saved 4/4 | query: Good Luck Musk – Warm & Earthy Premium Incense Sticks, 100 Gm product
+[2026-05-26T07:40:10.170Z] [118/197] OK GoodLuck Rose Cone 100g, 100 Gm — saved 4/4 | query: Good Luck GoodLuck Rose Cone 100g, 100 Gm agarbathi product
+[2026-05-26T07:40:12.912Z] [119/197] OK GoodLuck Rose Dhoop 100g, 100 Gm — saved 4/4 | query: Good Luck GoodLuck Rose Dhoop 100g, 100 Gm product
+[2026-05-26T07:40:18.424Z] [120/197] OK GoodLuck Rose Agarbathi 220g, 220 Gm — saved 4/4 | query: Good Luck GoodLuck Rose Agarbathi 220g, 220 Gm product
+[2026-05-26T07:40:20.003Z] [121/197] OK GoodLuck Rose Agarbathi 100g, 100 Gm — saved 4/4 | query: Good Luck GoodLuck Rose Agarbathi 100g, 100 Gm product
+[2026-05-26T07:40:23.616Z] [122/197] OK Good Luck Sandal Agarbathi 220g, 220 Gm — saved 4/4 | query: Good Luck Sandal Agarbathi 220g, 220 Gm product
+[2026-05-26T07:40:29.357Z] [123/197] OK Good Luck Shivuli Agarbathi 100g, 100 Gm — saved 4/4 | query: Good Luck Shivuli Agarbathi 100g, 100 Gm product
+[2026-05-26T07:40:32.921Z] [124/197] OK Good Luck Lavender Agarbathi 220g, 220 Gm — saved 4/4 | query: Good Luck Lavender Agarbathi 220g, 220 Gm product
+[2026-05-26T07:40:37.142Z] [125/197] OK Good Luck Pineapple Agarbathi 220g, 220 Gm — saved 4/4 | query: Good Luck Pineapple Agarbathi 220g, 220 Gm product
+[2026-05-26T07:40:40.599Z] [126/197] OK Good Luck Pineapple Agarbathi 100g, 100 Gm — saved 4/4 | query: Good Luck Pineapple Agarbathi 100g, 100 Gm product
+[2026-05-26T07:40:43.266Z] [127/197] OK Good Luck Sandal Agarbathi 100g, 100 Gm — saved 4/4 | query: Good Luck Sandal Agarbathi 100g, 100 Gm product
+[2026-05-26T07:40:49.377Z] [128/197] OK Lia Chandanam Agarbathi, 100 Gm — saved 4/4 | query: Lia Chandanam Agarbathi, 100 Gm product
+[2026-05-26T07:40:52.728Z] [129/197] OK Lia Darling Flower Agarbathi, 100 Gm — saved 4/4 | query: Lia Darling Flower Agarbathi, 100 Gm product
+[2026-05-26T07:40:57.857Z] [130/197] OK Lia Jas Agarbathi, 100 Gm — saved 4/4 | query: Lia Jas Agarbathi, 100 Gm product
+[2026-05-26T07:41:03.260Z] [131/197] OK Lia Lavenderz Agarbathi, 100 Gm — saved 4/4 | query: Lia Lavenderz Agarbathi, 100 Gm product
+[2026-05-26T07:41:05.898Z] [132/197] OK Lia Prime Rose Agarbathi, 100 Gm — saved 4/4 | query: Lia Prime Rose Agarbathi, 100 Gm product
+[2026-05-26T07:41:10.500Z] [133/197] OK Lia Rain Forest Agarbathi, 100 Gm — saved 4/4 | query: Lia Rain Forest Agarbathi, 100 Gm product
+[2026-05-26T07:41:13.835Z] [134/197] OK Lia Rainbow Agarbathi, 100 Gm — saved 4/4 | query: Lia Rainbow Agarbathi, 100 Gm product
+[2026-05-26T07:41:15.809Z] [135/197] OK Lia Sacred Grove Agarbathi, 100 Gm — saved 4/4 | query: Lia Sacred Grove Agarbathi, 100 Gm product
+[2026-05-26T07:41:19.847Z] [136/197] OK Medini Premium Judwa Cup Sambrani , 35 Pcs — saved 4/4 | query: Medini Premium Judwa Cup Sambrani product
+[2026-05-26T07:41:23.594Z] [137/197] OK Naivedya Cup Sambrani, 72 Pcs — saved 4/4 | query: Naivedya Cup Sambrani product
+[2026-05-26T07:41:26.850Z] [138/197] OK Naivedya Jambo Cup Sambrani, 3 Pcs — saved 4/4 | query: Naivedya Jambo Cup Sambrani product
+[2026-05-26T07:41:28.280Z] [139/197] OK Naivedya Cup Sambrani, 8 Pcs — saved 4/4 | query: Naivedya Cup Sambrani product
+[2026-05-26T07:41:29.556Z] [140/197] OK Naivedya Cup Sambrani, 12 Pcs — saved 4/4 | query: Naivedya Cup Sambrani product
+[2026-05-26T07:41:32.235Z] [141/197] OK Naivedya Cup Sambrani, 12 Pcs (b3561b33) — saved 4/4 | query: Naivedya Cup Sambrani product
+[2026-05-26T07:41:36.874Z] [142/197] OK Om Shanthi Navin Shining Powder 200g, 200 Gm — saved 4/4 | query: Om Shanthi Navin Shining Powder 200g, 200 Gm agarbathi product
+[2026-05-26T07:41:39.191Z] [143/197] OK Om Shanthi Navin Shining Powder 50g, 50 Gm — saved 4/4 | query: Om Shanthi Navin Shining Powder 50g, 50 Gm agarbathi product
+[2026-05-26T07:41:41.116Z] [144/197] OK Om Shanthi Pure Puja Til Oil 900ml, 900 Ml — saved 4/4 | query: Om Shanthi Pure Puja Til Oil 900ml, 900 Ml agarbathi product
+[2026-05-26T07:41:45.160Z] [145/197] OK Om Shanthi Jasmine Pure Puja Oil 1ltr, 1 L — saved 4/4 | query: Om Shanthi Jasmine Pure Puja Oil 1ltr, 1 L agarbathi product
+[2026-05-26T07:41:48.231Z] [146/197] OK Parijatha Puja Oil - Sampoorna Dhyan ltr, 1 L — saved 4/4 | query: Om Shanthi Parijatha Puja Oil - Sampoorna Dhyan ltr, 1 L agarbathi product
+[2026-05-26T07:41:52.560Z] [147/197] OK Om Shanthi Jasmine Pure Puja Oil 500ml, 500 Ml — saved 4/4 | query: Om Shanthi Jasmine Pure Puja Oil 500ml, 500 Ml agarbathi product
+[2026-05-26T07:41:58.061Z] [148/197] OK Parijatha Puja Oil - Sampoorna Dhyan 500ml, 500 Ml — saved 4/4 | query: Om Shanthi Parijatha Puja Oil - Sampoorna Dhyan 500ml, 500 Ml agarbathi product
+[2026-05-26T07:42:01.233Z] [149/197] OK Om Shanthi Pure Puja Til Oil 500ml, 500 Ml — saved 4/4 | query: Om Shanthi Pure Puja Til Oil 500ml, 500 Ml agarbathi product
+[2026-05-26T07:42:04.142Z] [150/197] OK Om Shanthi Pure Dhuno 75g, 75 Gm — saved 4/4 | query: Om Shanthi Pure Dhuno 75g, 75 Gm agarbathi product
+[2026-05-26T07:42:08.867Z] [151/197] OK Rhythm Amber Agarbathi, 45 Gm — saved 4/4 | query: Rhythm Amber Agarbathi, 45 Gm product
+[2026-05-26T07:42:12.588Z] [152/197] OK Rhythm Sandal Agarbathi, 97 Gm — saved 4/4 | query: Rhythm Sandal Agarbathi, 97 Gm product
+[2026-05-26T07:42:14.925Z] [153/197] OK Rhythm Saroja Agarbathi, 97 Gm — saved 4/4 | query: Rhythm Saroja Agarbathi, 97 Gm product
+[2026-05-26T07:42:16.588Z] [154/197] OK Rhythm Amber Agarbathi, 54 Gm — saved 4/4 | query: Rhythm Amber Agarbathi, 54 Gm product
+[2026-05-26T07:42:18.410Z] [155/197] OK Rhythm Sandal Agarbathi, 54 Gm — saved 4/4 | query: Rhythm Sandal Agarbathi, 54 Gm product
+[2026-05-26T07:42:22.003Z] [156/197] OK Sandalum Cones , 8 Pcs — saved 4/4 | query: Cycle Sandalum Cones agarbathi product
+[2026-05-26T07:42:24.932Z] [157/197] OK Sugandha Mallika Agarbathi, 12 Gm — saved 4/4 | query: Cycle Sugandha Mallika Agarbathi, 12 Gm product
+[2026-05-26T07:42:27.967Z] [158/197] OK Sugandha Mallika Agarbathi, 250 Gm — saved 4/4 | query: Cycle Sugandha Mallika Agarbathi, 250 Gm product
+[2026-05-26T07:42:29.947Z] [159/197] OK Sugandha Mallika Agarbathi, 95 Gm — saved 4/4 | query: Cycle Sugandha Mallika Agarbathi, 95 Gm product
+[2026-05-26T07:42:31.449Z] [160/197] OK Sugandha Mallika Agarbathi, 26 Gm — saved 4/4 | query: Cycle Sugandha Mallika Agarbathi, 26 Gm product
+[2026-05-26T07:42:35.636Z] [161/197] OK Three in One Agarbatti 50g, 50 Gm — saved 4/4 | query: Cycle Three in One Agarbatti 50g, 50 Gm agarbathi product
+[2026-05-26T07:42:42.568Z] [162/197] OK Three in One Agarbathi, 9 Pcs — saved 4/4 | query: Cycle Three in One Agarbathi product
+[2026-05-26T07:42:44.830Z] [163/197] OK Three in One Agarbathi, 202 Gm — saved 4/4 | query: Cycle Three in One Agarbathi, 202 Gm product
+[2026-05-26T07:42:47.815Z] [164/197] OK Three in One Agarbathi, 27 Gm — saved 4/4 | query: Cycle Three in One Agarbathi, 27 Gm product
+[2026-05-26T07:42:50.015Z] [165/197] OK Three in One Agarbathi, 5 Gm — saved 4/4 | query: Cycle Three in One Agarbathi, 5 Gm product
+[2026-05-26T07:42:54.725Z] [166/197] OK Three in One Agarbathi, 88 Pcs — saved 4/4 | query: Cycle Three in One Agarbathi product
+[2026-05-26T07:42:59.288Z] [167/197] OK Om Shanthi Turmeric Powder, 20 Gm — saved 4/4 | query: Cycle Om Shanthi Turmeric Powder, 20 Gm agarbathi product
+[2026-05-26T07:43:03.623Z] [168/197] OK Vasu Loban Sambrani , 10 Pcs — saved 4/4 | query: Cycle Vasu Loban Sambrani product
+[2026-05-26T07:43:07.187Z] [169/197] OK Om Shanthi Pure Vibhuti 40g, 40 Gm — saved 4/4 | query: Cycle Om Shanthi Pure Vibhuti 40g, 40 Gm agarbathi product
+[2026-05-26T07:43:10.687Z] [170/197] OK Woods Premium Natural Agarbathi, 40 Gm — saved 4/4 | query: Cycle Woods Premium Natural Agarbathi, 40 Gm product
+[2026-05-26T07:43:14.081Z] [171/197] OK Woods Premium Natural Agarbathi, 14 Gm — saved 4/4 | query: Cycle Woods Premium Natural Agarbathi, 14 Gm product
+[2026-05-26T07:43:16.087Z] [172/197] OK Om Shanthi Pure Kumkum, 25 Gm — saved 4/4 | query: Om Shanthi Pure Kumkum, 25 Gm agarbathi product
+[2026-05-26T07:43:17.930Z] [173/197] OK Om Shanthi Pure Kumkum, 40 Gm — saved 4/4 | query: Om Shanthi Pure Kumkum, 40 Gm agarbathi product
+[2026-05-26T07:43:21.494Z] [174/197] OK Om Shanthi Pure Kumkum (Red), 35 Gm — saved 4/4 | query: Om Shanthi Pure Kumkum (Red), 35 Gm agarbathi product
+[2026-05-26T07:43:24.632Z] [175/197] OK Lia Car Gel Seashore, 45 Gm — saved 4/4 | query: Lia Car Gel Seashore, 45 Gm agarbathi product
+[2026-05-26T07:43:28.953Z] [176/197] OK Cycle Dhoop Guggal, 100 Gm — saved 4/4 | query: Cycle Dhoop Guggal, 100 Gm product
+[2026-05-26T07:43:34.095Z] [177/197] OK Cycle dhoop Rose, 100 Gm — saved 4/4 | query: Cycle dhoop Rose, 100 Gm product
+[2026-05-26T07:43:40.062Z] [178/197] OK Flute Assorted Agarbathi, 10 Gm — saved 4/4 | query: Flute Assorted Agarbathi, 10 Gm product
+[2026-05-26T07:43:42.157Z] [179/197] OK Ajay 101 - Hard Thoothbrush , 50 Pcs (5418c38c) — saved 4/4 | query: Flute Ajay 101 - Hard Thoothbrush agarbathi product
+[2026-05-26T07:43:45.824Z] [180/197] OK Ajay 101 - Medium Hard Thoothbrush , 50 Pcs (cb4aa20b) — saved 4/4 | query: cycle Ajay 101 - Medium Hard Thoothbrush agarbathi product
+[2026-05-26T07:43:48.637Z] [181/197] OK Ajay 101 - Medium Quest Thoothbrush, 12 Pcs (76858801) — saved 4/4 | query: Good Luck Ajay 101 - Medium Quest Thoothbrush agarbathi product
+[2026-05-26T07:43:53.636Z] [182/197] OK Ajay 101 - Soft Thoothbrush, 50 Pcs (8264835e) — saved 4/4 | query: Lia Ajay 101 - Soft Thoothbrush agarbathi product
+[2026-05-26T07:43:55.298Z] [183/197] OK Ajay 101 - Soft Quest Thoothbrush, 12 Pcs (a2406b4b) — saved 4/4 | query: Lia Ajay 101 - Soft Quest Thoothbrush agarbathi product
+[2026-05-26T07:43:58.458Z] [184/197] OK Ajay 103 - Junior Complete Thoothbrush, 12 Pcs (452f259b) — saved 4/4 | query: Lia Ajay 103 - Junior Complete Thoothbrush agarbathi product
+[2026-05-26T07:44:00.136Z] [185/197] OK Ajay 104 - Comfort Thoothbrush, 12 Pcs (ac8460a6) — saved 4/4 | query: Lia Ajay 104 - Comfort Thoothbrush agarbathi product
+[2026-05-26T07:44:03.357Z] [186/197] OK Ajay 107 - Complete Thoothbrush, 12 Pcs (8c13f7c2) — saved 4/4 | query: cycle Ajay 107 - Complete Thoothbrush agarbathi product
+[2026-05-26T07:44:08.663Z] [187/197] OK Ajay 108 - Thoothbrush, 12 Pcs (e6da2c38) — saved 4/4 | query: cycle Ajay 108 - Thoothbrush agarbathi product
+[2026-05-26T07:44:12.000Z] [188/197] OK Ajay 109 - Sensitive Plus Thoothbrush, 32 Pcs (bdd08120) — saved 4/4 | query: cycle Ajay 109 - Sensitive Plus Thoothbrush agarbathi product
+[2026-05-26T07:44:14.552Z] [189/197] OK Ajay 109 - Sensitive Plus Thoothbrush, 7 Pcs (d71c906f) — saved 4/4 | query: cycle Ajay 109 - Sensitive Plus Thoothbrush agarbathi product
+[2026-05-26T07:44:17.289Z] [190/197] OK Ajay 110 - Prime Thoothbrush, 9 Pcs (12880d41) — saved 4/4 | query: cycle Ajay 110 - Prime Thoothbrush agarbathi product
+[2026-05-26T07:44:22.826Z] [191/197] OK Ajay 121 - Compact Thoothbrush, 12 Pcs (aad05b03) — saved 4/4 | query: cycle Ajay 121 - Compact Thoothbrush agarbathi product
+[2026-05-26T07:44:27.546Z] [192/197] OK Ajay Shaving Brush, Pack of 1 (46225661) — saved 4/4 | query: cycle Ajay Shaving Brush agarbathi product
+[2026-05-26T07:44:30.652Z] [193/197] OK Ajay 101 - Medium Quest Thoothbrush 3+1 Offer, Pack of 1 (a704e388) — saved 4/4 | query: cycle Ajay 101 - Medium Quest Thoothbrush agarbathi product
+[2026-05-26T07:44:33.690Z] [194/197] OK Ajay 101 - Soft Quest Thoothbrush 3+1 Offer, Pack of 1 (fdf91bf7) — saved 4/4 | query: Cycle Ajay 101 - Soft Quest Thoothbrush agarbathi product
+[2026-05-26T07:44:35.573Z] [195/197] OK Ajay 109 - Thoothbrush, Pack of 1 (25b01bbb) — saved 4/4 | query: Cycle Ajay 109 - Thoothbrush agarbathi product
+[2026-05-26T07:44:38.368Z] [196/197] OK Priya Amla Pickle, 300 Gm (6620a487) — saved 4/4 | query: Cycle Priya Amla Pickle, 300 Gm agarbathi product
+[2026-05-26T07:44:41.462Z] [197/197] OK Priya Biryani Masala Paste, 90 Gm (eb1e59fc) — saved 4/4 | query: Om Shanthi Priya Biryani Masala Paste, 90 Gm agarbathi product
+[2026-05-26T07:44:42.171Z] === Batch done: ok=192 skip=0 err=0 ===

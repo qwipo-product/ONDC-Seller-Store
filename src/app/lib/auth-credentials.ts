@@ -32,16 +32,17 @@ export const DEMO_CREDENTIALS: Record<string, CredentialRecord> = {
       dataMode: "empty",
     },
   },
-  // Maps to the replicated Prod roster — RM Traders carries real
-  // Lion Dates beats, so the seller-side demo has serviceability data.
+  // Maps to the replicated production roster — RM Traders (Chintha Raja
+  // Mouli) carries real Lion Dates + Sri Gantasala beats, so the
+  // seller-side demo has serviceability data.
   "9900000002": {
     otp: "1234",
     user: {
       id: "seller-prod-rm-traders",
-      name: "RM Traders prod",
-      email: "prod-9999999917@qwipo.com",
+      name: "Chintha Raja Mouli",
+      email: "prod-9246172889@qwipo.com",
       role: "seller",
-      businessName: "prod RM Traders",
+      businessName: "RM Traders",
       avatarInitials: "RM",
       dataMode: "demo",
     },

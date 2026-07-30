@@ -1,0 +1,30 @@
+{
+  "skuCode": "c95fd8aa-c6c8-4293-babf-f7a58c67433d",
+  "skuName": "Priya Egg Masala, 8 Gm",
+  "brand": "Priya",
+  "query": "Priya Egg Masala, 8 Gm product",
+  "fetchedAt": "2026-05-26T07:33:57.874Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "https://cdn.justgotochef.com/uploads/qPVt5huPg4Q8a86mcPEpJXLvFxmkqTcNNOBYvsMm.png",
+      "page": "https://www.justgotochef.com/products/priya-egg-masala-pack",
+      "desc": "Priya Egg Masala Pack - GoToChef"
+    },
+    {
+      "image": "https://priyapalada.com/wp-content/themes/priya/images/egg.png",
+      "page": "https://priyapalada.com/products/",
+      "desc": "Priya Instant Foods » Products"
+    },
+    {
+      "image": "https://www.quicklly.com/upload_images/product/1682355794-priya:-egg-masala.jpg",
+      "page": "https://www.quicklly.com/grocery-store/priya-egg-masala/665667",
+      "desc": "Buy Priya Egg Masala 50 Gm | Suvidha Morrisville - Quicklly"
+    },
+    {
+      "image": "https://dookan.com/cdn/shop/files/PriyaEggMasala_50g_-500px_2a63986e-3d51-4fa6-a2ea-4addfd001950.png?v=1770470189&amp;width=1445",
+      "page": "https://dookan.com/products/priya-egg-curry-masala-50g-sale-item-bbd-3-april-2026",
+      "desc": "Priya Egg Curry Masala (50g) - Sale Item [BBD: 3 May 2026] – Dookan"
+    }
+  ]
+}

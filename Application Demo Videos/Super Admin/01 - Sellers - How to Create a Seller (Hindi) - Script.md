@@ -1,0 +1,50 @@
+# Video 1 — Sellers: नया Seller कैसे बनाएँ? (Hindi)
+
+- **Series:** Super Admin Training
+- **Duration:** ~6:30 | 1920×1080 | Voice: hi-IN Swara (female, Indian accent)
+- **Audience:** FMCG / grocery distributors की onboarding करने वाली Super Admin team
+
+## Narration script (scene-wise)
+
+### Scene 1 — Intro
+नमस्ते! Qwipo Seller Store के training video में आपका स्वागत है। ये series हमारी Super Admin team के लिए है। आज के video में हम सीखेंगे कि platform पर नया seller कैसे बनाया जाता है। Seller यानी आपका distributor — जैसे ITC, Hindustan Unilever, या Adani Wilmar जैसी companies का माल retailers तक पहुँचाने वाला distributor। चलिए, शुरू करते हैं!
+
+### Scene 2 — Sellers page
+Super Admin portal में login करने के बाद, left side के menu में Sellers page पर click कीजिए। यहाँ आपको सारे onboarded sellers की list दिखेगी — seller का नाम, business name, mobile number, और status। नया distributor जोड़ने के लिए, ऊपर right corner में नीले रंग के Add Seller button पर click कीजिए।
+
+### Scene 3 — जानकारी तैयार रखें (checklist)
+लेकिन उससे पहले — ये जानकारी तैयार रखिए। पहला: distributor का पूरा नाम और दस अंकों का mobile number — इसी number से seller app में login करेगा। दूसरा: business का नाम, जैसे Sharma Agencies, और seller type — Distributor या Wholesaler। तीसरा: छह अंकों के PIN code के साथ पूरा पता। चौथा: दुकान या godown के latitude और longitude — ये Google Maps से मिल जाते हैं। और पाँचवाँ, सबसे ज़रूरी: उन companies और brands की list, जिनकी distributorship seller के पास है — जैसे ITC की Aashirvaad और Sunfeast। ये सब तैयार हो, तो form सिर्फ़ दो minute में भर जाता है।
+
+### Scene 4 — Add Seller form overview
+Add Seller पर click करते ही ये form खुलता है। इसमें दो हिस्से हैं — ऊपर Seller Information, और नीचे Companies and Brands। जिन fields पर लाल star लगा है, वो भरना ज़रूरी है। Business photo optional है — चाहें तो distributor की दुकान या firm की photo upload कर सकते हैं।
+
+### Scene 5 — Basic details
+सबसे पहले basic details। Full Name में distributor का नाम — जैसे Rajesh Sharma। Mobile Number में दस अंकों का number — ध्यान रहे, इसी number से seller अपने portal में login करेगा। Business Name में firm का नाम — Sharma Agencies। और Seller Type में Distributor select कीजिए। याद रखिए — एक seller या तो Distributor हो सकता है या Wholesaler, दोनों एक साथ नहीं।
+
+### Scene 6 — PIN Code auto-lookup
+अब address की बारी। PIN Code में छह अंकों का PIN डालिए — जैसे Secunderabad का 500003। PIN डालते ही system अपने आप City और State भर देता है — देखिए, नीचे green tick के साथ लिखा आ गया: Resolved to Hyderabad, Telangana। इससे गलत city चुनने की गुंजाइश ही नहीं रहती।
+
+### Scene 7 — Location & address
+इसके बाद Latitude और Longitude भरिए — ये godown की exact location है, जो आगे serviceability और delivery beats में काम आएगी। Google Maps में location पर right click करके ये numbers आसानी से copy हो जाते हैं। फिर Locality में इलाके का नाम — जैसे Secunderabad — और Street Address में shop number, road, और कोई landmark। यही पता invoices और dispatch labels पर छपेगा, इसलिए इसे ध्यान से भरिए।
+
+### Scene 8 — Companies & Brands: company चुनना
+अब आता है सबसे important section — Companies and Brands। यहाँ बताना है कि seller किन companies का authorized distributor है। Select a company पर click कीजिए — पूरी company list खुल जाती है, हर company के साथ उसके brands की संख्या भी दिखती है। लंबी list में type करके search भी कर सकते हैं — जैसे ITC।
+
+### Scene 9 — All brands mode
+ITC select करते ही, default में All brands mode लग जाता है — यानी seller को ITC के सभी पाँच brands मिलेंगे — Aashirvaad, Sunfeast, Bingo, Yippee, और Classmate। और आगे चलकर ITC में जो भी नया brand जुड़ेगा, वो इस seller को अपने आप मिल जाएगा।
+
+### Scene 10 — Specific brands
+लेकिन असली दुनिया में अक्सर distributor के पास कुछ ही brands की distributorship होती है। ऐसे में Pick specific brands पर click करके सिर्फ़ वही brands चुनिए। जैसे यहाँ हमने Aashirvaad, Sunfeast, और Yippee select किए हैं — Bingo और Classmate हटा दिए। जो brands seller असल में बेचता है, वही select कीजिए — तभी उसके catalog में सही products दिखेंगे।
+
+### Scene 11 — दूसरी company जोड़ना
+FMCG में ज़्यादातर distributors एक से ज़्यादा companies का काम करते हैं। ऐसे में Add another company पर click करके अगली company जोड़िए। जैसे यहाँ हमने Adani Wilmar भी जोड़ दी — Fortune जैसे brands के लिए। इसी तरह आप जितनी चाहें companies जोड़ सकते हैं।
+
+### Scene 12 — Save & success
+सब details एक बार check कर लीजिए, और नीचे Add Seller button पर click कीजिए। बस — हो गया! देखिए, ऊपर green message आ गया — Seller Rajesh Sharma created successfully — और list में सबसे ऊपर नया seller दिखने लगा, Active status के साथ। अब Rajesh Sharma अपने mobile number से login करके अपना store manage कर सकते हैं।
+
+### Scene 13 — Outro
+तो ये था नया seller बनाने का पूरा process — Sellers page से Add Seller, फिर seller की information, address, और companies and brands। अगले video में हम देखेंगे company tagging — यानी Companies and Brands page पर नई company और brands कैसे जोड़ें। और उसके बाद, serviceability. धन्यवाद, और मिलते हैं अगले video में!
+
+---
+
+*Regenerate: `Application Demo Videos/video-pipeline/` — capture.js (puppeteer frames) → tts.js (Edge TTS, hi-IN-SwaraNeural) → build-video.js (ffmpeg assembly).*

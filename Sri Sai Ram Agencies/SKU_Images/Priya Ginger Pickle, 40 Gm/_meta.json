@@ -1,0 +1,30 @@
+{
+  "skuCode": "3c38d0c9-3769-48d4-8cec-ab8e551ce395",
+  "skuName": "Priya Ginger Pickle, 40 Gm",
+  "brand": "Priya",
+  "query": "Priya Ginger Pickle, 40 Gm product",
+  "fetchedAt": "2026-05-26T07:34:50.480Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "https://cdn.shopify.com/s/files/1/0587/5410/5495/products/Gingercopy.jpg?v=1671532567",
+      "page": "https://priyafoods.com/products/ginger-pickle",
+      "desc": "Ginger Pickle – Priya Foods"
+    },
+    {
+      "image": "https://www.quicklly.com/upload_images/product/1607542861-priya-lime-ginger-pickle.jpg",
+      "page": "https://www.quicklly.com/grocery-store/priya-lime-ginger-pickle/57773",
+      "desc": "Buy Priya Lime Ginger Pickle 300 Gm | Surabhi Indian Grocery - Quicklly"
+    },
+    {
+      "image": "https://memsaab.co.uk/wp-content/uploads/2021/03/Priya-Ginger-Pickle-1.jpg",
+      "page": "https://memsaab.co.uk/product/priya-ginger-pickle/",
+      "desc": "Priya Ginger Pickle - House of Raja`s Indian Superstore in Bolton"
+    },
+    {
+      "image": "https://mpfoods.co.nz/wp-content/uploads/2019/08/priya-ginger-with-garlic-pickle-v-300-g.png",
+      "page": "https://mpfoods.co.nz/product/priya-ginger-pickle/",
+      "desc": "Priya Ginger Pickle - MP FOODS"
+    }
+  ]
+}

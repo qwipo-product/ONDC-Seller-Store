@@ -1,0 +1,30 @@
+{
+  "skuCode": "5d1fd8fe-b80f-4541-82b6-be2cd8f25fbe",
+  "skuName": "Priya Tamarind Paste, 100 Gm",
+  "brand": "Priya",
+  "query": "Priya Tamarind Paste, 100 Gm product",
+  "fetchedAt": "2026-05-26T07:37:08.997Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "https://image.aapkabazar.co/product/1927/1711087919988.png?type=png",
+      "page": "https://aapkabazar.co/1927/pd/priya-tamarind-paste-100-gm",
+      "desc": "Priya Tamarind Paste 100 Gm - Shop Online Home Delivery"
+    },
+    {
+      "image": "https://www.bbassets.com/media/uploads/p/l/40008182_3-priya-tamarind-paste.jpg",
+      "page": "https://www.bigbasket.com/pd/40008182/priya-tamarind-paste-100-g-0/",
+      "desc": "Buy Priya Paste Tamarind 100 Gm Pouch Online at the Best Price of Rs 30 ..."
+    },
+    {
+      "image": "https://www.jiomart.com/images/product/600x600/490000534/priya-tamarind-paste-100-g-product-images-o490000534-p490000534-1-202207111602.jpg",
+      "page": "https://www.jiomart.com/p/groceries/priya-tamarind-paste-100-g/490000534",
+      "desc": "Priya Tamarind Paste 100 g - JioMart"
+    },
+    {
+      "image": "http://www.carrydor.com/cdn/shop/files/priya-tamarind-paste-100-g-pack.jpg?v=1714725189",
+      "page": "https://www.carrydor.com/products/priya-tamarind-paste-100-g-pack",
+      "desc": "Priya Tamarind Paste 100 g Pack – Carrydor Online Grocery Store"
+    }
+  ]
+}

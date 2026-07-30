@@ -1,0 +1,22 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "name": "Bachupally 1" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [78.352, 17.532],
+            [78.382, 17.532],
+            [78.386, 17.548],
+            [78.372, 17.562],
+            [78.35, 17.556],
+            [78.352, 17.532]
+          ]
+        ]
+      }
+    }
+  ]
+}

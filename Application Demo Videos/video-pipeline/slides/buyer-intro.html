@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden;
+    font-family: 'Segoe UI', 'Nirmala UI', sans-serif;
+    background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 45%, #7c3aed 100%);
+    color: white; position: relative;
+    display: flex; flex-direction: column; justify-content: center; padding: 0 160px;
+  }
+  .blob1 { position: absolute; top: 90px; left: 60px; width: 480px; height: 480px; background: rgba(255,255,255,0.08); border-radius: 50%; filter: blur(80px); }
+  .blob2 { position: absolute; bottom: 60px; right: 80px; width: 560px; height: 560px; background: rgba(192,132,252,0.25); border-radius: 50%; filter: blur(90px); }
+  .brand { font-size: 44px; font-weight: 700; letter-spacing: 1px; margin-bottom: 8px; }
+  .brand span { color: #bfdbfe; font-weight: 400; }
+  .series { display: inline-block; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); border-radius: 999px; padding: 10px 28px; font-size: 26px; margin: 36px 0 28px; width: fit-content; }
+  h1 { font-size: 84px; font-weight: 800; line-height: 1.18; margin-bottom: 24px; }
+  .sub { font-size: 36px; color: #dbeafe; max-width: 1250px; line-height: 1.5; }
+  .video-tag { position: absolute; bottom: 70px; left: 160px; font-size: 28px; color: #bfdbfe; }
+  .chips { display: flex; gap: 16px; margin-top: 48px; }
+  .chip { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.25); border-radius: 12px; padding: 12px 24px; font-size: 24px; }
+</style>
+</head>
+<body>
+  <div class="blob1"></div><div class="blob2"></div>
+  <div class="brand">Qwipo <span>| Buyer App (Retailer App)</span></div>
+  <div class="series">Buyer Application Demo &mdash; SalesBeat</div>
+  <h1>Beat-wise Delivery &mdash;<br>दुकानदार के App में 📱</h1>
+  <p class="sub">Beat-day delivery, dynamic MOV, और smart distributor sorting &mdash; retailer के पूरे buying journey का walkthrough</p>
+  <div class="chips">
+    <div class="chip">🏠 Smart Home Sorting</div>
+    <div class="chip">🗓️ Beat Day vs Tomorrow</div>
+    <div class="chip">💰 Dynamic MOV</div>
+    <div class="chip">🧾 Consolidated Checkout</div>
+  </div>
+  <div class="video-tag">हिंदी में &mdash; ONDC DigiDukaan powered</div>
+</body>
+</html>

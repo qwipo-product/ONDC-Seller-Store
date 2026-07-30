@@ -1,0 +1,30 @@
+{
+  "skuCode": "e769dc57-5e8a-46e4-9c53-b302bc2f8bd5",
+  "skuName": "Priya Mango Avakaya Pickle, 300 Gm",
+  "brand": "Priya",
+  "query": "Priya Mango Avakaya Pickle, 300 Gm product",
+  "fetchedAt": "2026-05-26T07:35:36.170Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "https://m.media-amazon.com/images/I/71bULYBVgwL._SL1500_.jpg",
+      "page": "https://www.amazon.in/Priya-Pickle-Avakaya-Garlic-Bottle/dp/B07H5HPWPC",
+      "desc": "Priya Pickle - Mango Avakaya (with Garlic) 300 gm Bottle : Amazon.in ..."
+    },
+    {
+      "image": "https://starindojapan.com/wp-content/uploads/2020/02/Priya-Mango-Pickle-300-gm-Avakaya.jpg",
+      "page": "https://starindojapan.com/product/priya-mango-pickle-300-g-avakaya/",
+      "desc": "Priya Mango Pickle 300 g (Avakaya) – Star Indo Japan"
+    },
+    {
+      "image": "https://i5.walmartimages.com/seo/Priya-Mango-Pickle-Avakaya-with-Garlic-300-gm-bottle_c56de82b-4f6b-4030-804c-a9e2535ff5ec.5362f3c78153e1496a7af30dd1620dd3.png",
+      "page": "https://www.walmart.com/ip/Priya-Mango-Pickle-Avakaya-with-Garlic-300-gm-bottle/925959886",
+      "desc": "Priya Mango Pickle (Avakaya) with Garlic 300 gm bottle - Walmart.com"
+    },
+    {
+      "image": "https://dailycart.com/cdn/shop/products/priya-mango-pickle-avakaya-with-garlic_baa49b89-7c81-436a-9c95-a7c4d3e6cb03.jpg?v=1640281643&amp;width=1267",
+      "page": "https://dailycart.com/products/priya-mango-pickle-avakaya-with-garlic-300-g",
+      "desc": "Priya Mango Pickle (Avakaya) With Garlic, 300 g"
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "skuCode": "72e64f47-36ae-4046-97b5-1868da03c6df",
+  "skuName": "Good Luck Shivuli Agarbathi 100g, 100 Gm",
+  "brand": "Good Luck",
+  "query": "Good Luck Shivuli Agarbathi 100g, 100 Gm product",
+  "fetchedAt": "2026-05-26T07:40:29.356Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "https://cycle.in/cdn/shop/files/Good-Luck-Lifestyle-.jpg-4.jpg?v=1736763141&amp;width=1540",
+      "page": "https://cycle.in/products/goodluck-agarbatti",
+      "desc": "Goodluck Agarbatti | Pure Fragrance for Daily Pooja – Cycle.in"
+    },
+    {
+      "image": "https://shanthalaagarbathies.com/wp-content/uploads/2023/10/good-luck-hexa.jpg",
+      "page": "https://shanthalaagarbathies.com/shanthala-classic-range/",
+      "desc": "Shanthala Classic Range – Shanthala Agarbathies"
+    },
+    {
+      "image": "https://www.bigbasket.com/media/uploads/p/s/60000335-2_6-cycle-agarbathi-good-luck-champa-incense-sticks.jpg",
+      "page": "https://www.bigbasket.com/pd/60000335/cycle-agarbathi-good-luck-champa-incense-sticks-250-g/",
+      "desc": "Buy Cycle Agarbathi Good Luck Champa Incense Sticks 264 Pcs300 Gm ..."
+    },
+    {
+      "image": "https://m.media-amazon.com/images/I/51Uu831+awL._AC_.jpg",
+      "page": "https://www.amazon.in/Agarbatti-Assorted-Agarbathi-agarbathi-Fragrance/dp/B07SJGNCL3",
+      "desc": "Cycle Pure All in One Assorted Incense Sticks | 8 Assorted Agarbathi ..."
+    }
+  ]
+}

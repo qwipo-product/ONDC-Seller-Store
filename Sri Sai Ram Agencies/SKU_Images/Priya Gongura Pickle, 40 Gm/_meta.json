@@ -1,0 +1,30 @@
+{
+  "skuCode": "554ed052-aeeb-472a-9ad4-f3f5f240a6ab",
+  "skuName": "Priya Gongura Pickle, 40 Gm",
+  "brand": "Priya",
+  "query": "Priya Gongura Pickle, 40 Gm product",
+  "fetchedAt": "2026-05-26T07:35:00.086Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "https://m.media-amazon.com/images/I/41lChQinTcL.jpg",
+      "page": "https://www.amazon.in/Priya-Pickle-Gongura-Garlic-Pack/dp/B0B59PB3KW",
+      "desc": "Priya Pickle Gongura with Garlic 40 Gm(Pack of 1) : Amazon.in: Grocery ..."
+    },
+    {
+      "image": "http://easydaysupermarket.com.au/cdn/shop/files/PGP1.png?v=1742271127",
+      "page": "https://easydaysupermarket.com.au/products/priya-gongura-pickle",
+      "desc": "Priya Gongura Pickle"
+    },
+    {
+      "image": "https://www.bombayspices.ca/wp-content/uploads/2019/03/PRIYA-GONGURA-1.jpg",
+      "page": "https://www.bombayspices.ca/product/priya-gongura-pickle-300g/",
+      "desc": "PRIYA GONGURA PICKLE 300G – Bombay Spices"
+    },
+    {
+      "image": "https://asianfoodcork.com/wp-content/uploads/2021/10/PriyaGonguraPickle-980x980.jpg",
+      "page": "https://asianfoodcork.com/product/priya-gongura-pickle/",
+      "desc": "PRIYA GONGURA PICKLE – Asian Foods Cork"
+    }
+  ]
+}

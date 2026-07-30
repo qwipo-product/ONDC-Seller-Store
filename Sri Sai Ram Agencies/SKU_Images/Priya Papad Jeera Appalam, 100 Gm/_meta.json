@@ -1,0 +1,30 @@
+{
+  "skuCode": "6417a362-09ed-4f8e-aaed-20cc85ebad82",
+  "skuName": "Priya Papad Jeera Appalam, 100 Gm",
+  "brand": "Priya",
+  "query": "Priya Papad Jeera Appalam, 100 Gm pickle product",
+  "fetchedAt": "2026-05-26T07:35:22.073Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "http://priyafoods.com/cdn/shop/files/Jeera_1200x1200.jpg?v=1730196798",
+      "page": "https://priyafoods.com/products/priya-paped-jeera-appalam-100g",
+      "desc": "Priya Papad Jeera Appalam 100g"
+    },
+    {
+      "image": "https://2.wlimg.com/product_images/bc-full/2023/8/610272/d8179453-2-1693386066_1438415_1895121.jpg",
+      "page": "https://www.tazapapadudyog.com/priya-papad.htm",
+      "desc": "Priya Papad"
+    },
+    {
+      "image": "https://kitchin.in/wp-content/uploads/2025/03/JEERA-APPALAM.webp",
+      "page": "https://kitchin.in/product/jeera-appalam-2/",
+      "desc": "Jeera appalam - Kitchin"
+    },
+    {
+      "image": "https://5.imimg.com/data5/ANDROID/Default/2025/9/544504873/BR/EW/NK/202568603/product-jpeg-500x500.jpg",
+      "page": "https://www.indiamart.com/proddetail/jeera-appalam-papad-2857481182455.html",
+      "desc": "Jeera Appalam Papad, 100 g at ₹ 200/kg in Madurai | ID: 2857481182455"
+    }
+  ]
+}

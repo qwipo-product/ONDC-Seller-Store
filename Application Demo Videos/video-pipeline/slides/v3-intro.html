@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden;
+    font-family: 'Segoe UI', 'Nirmala UI', sans-serif;
+    background: linear-gradient(135deg, #4338ca 0%, #6d28d9 50%, #a21caf 100%);
+    color: white; position: relative;
+    display: flex; flex-direction: column; justify-content: center; padding: 0 160px;
+  }
+  .blob1 { position: absolute; top: 90px; left: 60px; width: 480px; height: 480px; background: rgba(255,255,255,0.08); border-radius: 50%; filter: blur(80px); }
+  .blob2 { position: absolute; bottom: 60px; right: 80px; width: 560px; height: 560px; background: rgba(232,121,249,0.25); border-radius: 50%; filter: blur(90px); }
+  .brand { font-size: 44px; font-weight: 700; letter-spacing: 1px; margin-bottom: 8px; }
+  .brand span { color: #ddd6fe; font-weight: 400; }
+  .series { display: inline-block; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); border-radius: 999px; padding: 10px 28px; font-size: 26px; margin: 36px 0 28px; width: fit-content; }
+  h1 { font-size: 88px; font-weight: 800; line-height: 1.15; margin-bottom: 24px; }
+  .sub { font-size: 36px; color: #ede9fe; max-width: 1250px; line-height: 1.5; }
+  .video-tag { position: absolute; bottom: 70px; left: 160px; font-size: 28px; color: #ddd6fe; }
+  .chips { display: flex; gap: 16px; margin-top: 48px; }
+  .chip { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.25); border-radius: 12px; padding: 12px 24px; font-size: 24px; }
+</style>
+</head>
+<body>
+  <div class="blob1"></div><div class="blob2"></div>
+  <div class="brand">Qwipo <span>| Seller Store</span></div>
+  <div class="series">Super Admin Training Series &mdash; Video 3</div>
+  <h1>Serviceability &mdash;<br>Delivery Beats 🗺️</h1>
+  <p class="sub">Distributor किस इलाके में, किस दिन delivery करता है &mdash; और ये बात customer के mobile app तक कैसे पहुँचती है</p>
+  <div class="chips">
+    <div class="chip">🚚 Delivery Beats</div>
+    <div class="chip">🗓️ Day-wise Areas</div>
+    <div class="chip">📱 Mobile App Impact</div>
+  </div>
+  <div class="video-tag">हिंदी में &mdash; सबसे important functionality</div>
+</body>
+</html>

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden;
+    font-family: 'Segoe UI', 'Nirmala UI', sans-serif;
+    background: linear-gradient(135deg, #eff6ff 0%, #ffffff 45%, #faf5ff 100%);
+    color: #111827; padding: 80px 160px;
+  }
+  .brand { font-size: 30px; font-weight: 700; color: #2563eb; margin-bottom: 20px; }
+  h1 { font-size: 62px; font-weight: 800; margin-bottom: 12px; }
+  .sub { font-size: 30px; color: #6b7280; margin-bottom: 48px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .item { display: flex; gap: 20px; align-items: flex-start; background: white; border: 1px solid #e5e7eb; border-radius: 16px; padding: 26px 30px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+  .num { width: 52px; height: 52px; flex-shrink: 0; border-radius: 50%; background: #2563eb; color: white; font-size: 26px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  .t { font-size: 30px; font-weight: 700; margin-bottom: 6px; }
+  .d { font-size: 24px; color: #6b7280; line-height: 1.45; }
+  .req { color: #dc2626; }
+</style>
+</head>
+<body>
+  <div class="brand">Qwipo | Seller Store</div>
+  <h1>Seller बनाने से पहले &mdash; ये जानकारी तैयार रखें ✅</h1>
+  <p class="sub">सारे <span class="req">*</span> fields mandatory हैं &mdash; अधूरी जानकारी से form save नहीं होगा</p>
+  <div class="grid">
+    <div class="item"><div class="num">1</div><div><div class="t">नाम और Mobile Number <span class="req">*</span></div><div class="d">Distributor का पूरा नाम + 10-digit mobile &mdash; इसी से seller login करेगा</div></div></div>
+    <div class="item"><div class="num">2</div><div><div class="t">Business Name और Seller Type <span class="req">*</span></div><div class="d">Firm का नाम (जैसे Sharma Agencies) &mdash; type: Distributor या Wholesaler</div></div></div>
+    <div class="item"><div class="num">3</div><div><div class="t">PIN Code वाला पूरा पता <span class="req">*</span></div><div class="d">6-digit PIN (City/State auto-fill) + Locality + Street Address</div></div></div>
+    <div class="item"><div class="num">4</div><div><div class="t">Latitude &amp; Longitude <span class="req">*</span></div><div class="d">Godown/दुकान की exact location &mdash; Google Maps से copy करें</div></div></div>
+    <div class="item"><div class="num">5</div><div><div class="t">Companies &amp; Brands की list <span class="req">*</span></div><div class="d">किन companies की distributorship है &mdash; जैसे ITC (Aashirvaad, Sunfeast)</div></div></div>
+    <div class="item"><div class="num">6</div><div><div class="t">Business Photo (optional)</div><div class="d">दुकान/firm की photo &mdash; PNG, JPG, WEBP, 2 MB से कम</div></div></div>
+  </div>
+</body>
+</html>

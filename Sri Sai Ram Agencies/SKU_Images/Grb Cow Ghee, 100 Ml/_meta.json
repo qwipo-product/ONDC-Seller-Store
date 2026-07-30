@@ -1,0 +1,30 @@
+{
+  "skuCode": "21813527-db82-4535-bf4f-ad9d2470d676",
+  "skuName": "Grb Cow Ghee, 100 Ml",
+  "brand": "Grb",
+  "query": "Grb Cow Ghee, 100 Ml product",
+  "fetchedAt": "2026-05-26T07:38:30.434Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "https://cdn.shopaccino.com/edible-smart/products/grb-ghee-cow-537494_l.jpg?v=578?param=1",
+      "page": "https://www.grainculture.store/products/grb-ghee-cow-100-ml",
+      "desc": "GRB Ghee Cow"
+    },
+    {
+      "image": "https://bf1af2.akinoncloudcdn.com/products/2024/09/12/77158/7f2e05b3-1caa-4cde-978b-4299ef0489f0_size3840_cropCenter.jpg",
+      "page": "https://gcc.luluhypermarket.com/en-ae/grb-pure-ghee-100-ml/p/945154",
+      "desc": "GRB Pure Ghee 100 ml Online at Best Price | Lulu UAE"
+    },
+    {
+      "image": "https://down-th.img.susercontent.com/file/th-11134207-7rasj-m9obram5r8xde2",
+      "page": "https://shopee.co.th/HALAL-FOODS-เนยใสนมวัว-100-GRB-Pure-Cow-Ghee-100ml-i.333369367.23770821772",
+      "desc": "HALAL FOODS เนยใสนมวัว 100% GRB Pure Cow Ghee 100ml | Shopee Thailand"
+    },
+    {
+      "image": "https://giri.in/cdn/shop/files/80762_GRB_Udhayam_Ghee_Bottle_100ml_1_result_700x700.webp?v=1767157220",
+      "page": "https://giri.in/products/grb-udhayam-ghee-bottle-100-ml-cow-ghee-pure-ghee-for-daily-kitchen-pooja-use",
+      "desc": "GRB Udhayam Ghee Bottle - 50ml | Organic Ghee Bottle"
+    }
+  ]
+}

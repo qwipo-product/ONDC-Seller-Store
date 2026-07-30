@@ -1,0 +1,30 @@
+{
+  "skuCode": "89829dfa-4827-401b-b8af-b4a51b6e9f21",
+  "skuName": "Lia Jas Agarbathi, 100 Gm",
+  "brand": "Lia",
+  "query": "Lia Jas Agarbathi, 100 Gm product",
+  "fetchedAt": "2026-05-26T07:40:57.855Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "https://asset.sastasundar.com/incom/images/product/Cycle-Lia-Jas-Agarbathi-1662460119-10104347-1.jpg",
+      "page": "https://sastasundar.com/order-otc/cycle-lia-jas-agarbathi-100-g-rla5xrd",
+      "desc": ""
+    },
+    {
+      "image": "https://amartex.in/img/products/fimg/0001646.jpg",
+      "page": "https://amartex.in/p/lia-jas-agarbatti",
+      "desc": ""
+    },
+    {
+      "image": "https://cycle.in/cdn/shop/files/LiaJasRs100-5.jpg?v=1708839272&amp;width=480",
+      "page": "https://cycle.in/products/lia-jas-agarbatti",
+      "desc": ""
+    },
+    {
+      "image": "https://m.media-amazon.com/images/S/aplus-media-library-service-media/06dc14cb-be59-4608-afb7-c104a7b0771c.__CR0,0,300,300_PT0_SX300_V1___.jpg",
+      "page": "https://www.amazon.in/Lia-Special-Combo-Pack-Chandanam/dp/B08W59FSGN",
+      "desc": ""
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "skuCode": "d471b00a-1201-4d64-ab60-bda7ac33b10a",
+  "skuName": "Priya Cut Mango Pickle, 300 Gm",
+  "brand": "Priya",
+  "query": "Priya Cut Mango Pickle, 300 Gm product",
+  "fetchedAt": "2026-05-26T07:33:34.306Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "https://www.quicklly.com/upload_images/product/1675021137-priya-cut-mango-pickle.jpg",
+      "page": "https://www.quicklly.com/grocery-store/priya-cut-mango-pickle/223044",
+      "desc": ""
+    },
+    {
+      "image": "https://muscatfoodmarket.com/pub/media/catalog/product/cache/c737dbd738a3f8dd385b1a7eb2d4be8e/l/a/large-priya_cut_mango.webp",
+      "page": "https://muscatfoodmarket.com/priya-ginger-pickle-300-gm-8.html",
+      "desc": ""
+    },
+    {
+      "image": "https://i5.walmartimages.com/seo/Priya-Cut-Mango-Without-Garlic-Pickle-300-Gm-10-Oz_f8214a88-9885-4999-a18f-0772e1a3174a.c90795c8ea5cd8c978ed1533d9828582.jpeg",
+      "page": "https://www.walmart.com/ip/Priya-Cut-Mango-Without-Garlic-Pickle-300-Gm-10-Oz/841569772",
+      "desc": ""
+    },
+    {
+      "image": "https://bahrain.ahmarket.com/pub/media/catalog/product/cache/c2050c491cc394847402580e8720d8f6/7/8/785018012060_2.JPG",
+      "page": "https://bahrain.ahmarket.com/en/priya-pickle-mango-cut-300gm.html",
+      "desc": ""
+    }
+  ]
+}

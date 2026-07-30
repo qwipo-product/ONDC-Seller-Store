@@ -1,0 +1,30 @@
+{
+  "skuCode": "3cf51fd9-0936-448e-bfab-361ff7fedbe4",
+  "skuName": "Priya Mixed Vegetable Pickle, 300 Gm",
+  "brand": "Priya",
+  "query": "Priya Mixed Vegetable Pickle, 300 Gm product",
+  "fetchedAt": "2026-05-26T07:36:07.266Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "http://dailycart.com/cdn/shop/products/priya-mixed-veg-pickle-with-garlic.jpg?v=1640281653",
+      "page": "https://dailycart.com/products/priya-mixed-vegetable-pickle-with-garlic-300-g",
+      "desc": "Priya Mixed Vegetable Pickle With Garlic, 300 g"
+    },
+    {
+      "image": "https://www.directwholesale.com.sg/pub/media/catalog/product/cache/27ed4154bc0e5c3c51a580076325aed3/p/r/pry-pmv-mvp-24x300gmbtl.jpg",
+      "page": "https://www.directwholesale.com.sg/priya-mixed-vegetable-pickle-case-24x300gm.html",
+      "desc": "Priya Mixed Vegetable Pickle - Case"
+    },
+    {
+      "image": "http://cdn.shopify.com/s/files/1/0525/8015/5572/products/PRIYAMIXEDVEGETABLEPICKLEWITHGARLIC300GM_1200x1200.jpg?v=1656407464",
+      "page": "https://newindiansupermarket.com/products/priya-mixed-vegetable-pickle-with-garlic",
+      "desc": "PRIYA MIXED VEGETABLE PICKLE WITH GARLIC – New Indian Supermarket, Tracy"
+    },
+    {
+      "image": "https://www.bbassets.com/media/uploads/p/l/20005148_1-priya-pickle-mixed-vegetable-with-garlic.jpg",
+      "page": "https://www.bigbasket.com/pd/20005148/priya-pickle-mixed-vegetable-with-garlic-300-g-bottle/",
+      "desc": "Buy Priya Pickle Mixed Vegetable With Garlic 300 Gm Bottle Online At ..."
+    }
+  ]
+}

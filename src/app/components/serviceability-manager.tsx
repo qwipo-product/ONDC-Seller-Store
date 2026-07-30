@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -481,7 +481,22 @@ export function ServiceabilityManager({
     setServiceabilityBeats(next);
   };
 
-  const groups = useMemo(() => groupBeatsByCompany(beats), [beats]);
+  // Scope the view (and validation) to the seller being managed — the
+  // store holds EVERY seller's beats since the production replica, so
+  // an unscoped list would show all sellers' zones on each seller.
+  // Legacy records without a sellerId stay visible everywhere.
+  const visibleBeats = useMemo(
+    () =>
+      seller
+        ? beats.filter((b) => !b.sellerId || b.sellerId === seller.id)
+        : beats,
+    [beats, seller],
+  );
+
+  const groups = useMemo(
+    () => groupBeatsByCompany(visibleBeats),
+    [visibleBeats],
+  );
 
   // ---- Map View dialog (GIS visualization of beat polygons) ----
   // Three entry points: header button (all beats), company card
@@ -595,7 +610,7 @@ export function ServiceabilityManager({
       return;
     }
 
-    const nameCollision = beats.find(
+    const nameCollision = visibleBeats.find(
       (b) =>
         b.id !== editingId &&
         b.companyId === editCompanyId &&
@@ -613,7 +628,7 @@ export function ServiceabilityManager({
     // must match across every company that uses it. Surfaced as an
     // error screen (not a toast) so the clash is unmissable.
     const editKey = daysKey(editDays);
-    const dayConflict = beats.find(
+    const dayConflict = visibleBeats.find(
       (b) =>
         b.id !== editingId &&
         b.beatName.trim().toLowerCase() === beatName.toLowerCase() &&
@@ -621,7 +636,7 @@ export function ServiceabilityManager({
         daysKey(b.deliveryDays) !== editKey,
     );
     // Geometry overlap with a DIFFERENT company running different days.
-    const overlapConflict = beats.find(
+    const overlapConflict = visibleBeats.find(
       (b) =>
         b.id !== editingId &&
         b.companyId !== editCompanyId &&
@@ -724,7 +739,7 @@ export function ServiceabilityManager({
     }
 
     // Uniqueness: one beat name per company.
-    const nameCollision = beats.find(
+    const nameCollision = visibleBeats.find(
       (b) =>
         b.companyId === addCompanyId &&
         b.beatName.trim().toLowerCase() === beatName.toLowerCase(),
@@ -742,13 +757,13 @@ export function ServiceabilityManager({
     // different company on different days is the same violation. Both
     // are surfaced as an error screen.
     const addKey = daysKey(addDays);
-    const dayConflict = beats.find(
+    const dayConflict = visibleBeats.find(
       (b) =>
         b.beatName.trim().toLowerCase() === beatName.toLowerCase() &&
         b.deliveryDays.length > 0 &&
         daysKey(b.deliveryDays) !== addKey,
     );
-    const overlapConflict = beats.find(
+    const overlapConflict = visibleBeats.find(
       (b) =>
         b.companyId !== addCompanyId &&
         b.polygonData != null &&
@@ -1246,7 +1261,7 @@ export function ServiceabilityManager({
                 const name = addBeatName.trim().toLowerCase();
                 if (!name || addDays.length === 0) return null;
                 const addKey = daysKey(addDays);
-                const conflict = beats.find(
+                const conflict = visibleBeats.find(
                   (b) =>
                     b.beatName.trim().toLowerCase() === name &&
                     b.deliveryDays.length > 0 &&
@@ -1372,7 +1387,7 @@ export function ServiceabilityManager({
                 const name = editBeatName.trim().toLowerCase();
                 if (!name || editDays.length === 0) return null;
                 const editKey = daysKey(editDays);
-                const conflict = beats.find(
+                const conflict = visibleBeats.find(
                   (b) =>
                     b.id !== editingId &&
                     b.beatName.trim().toLowerCase() === name &&
@@ -1435,7 +1450,7 @@ export function ServiceabilityManager({
       <ServiceabilityMapDialog
         open={mapOpen}
         onOpenChange={setMapOpen}
-        beats={beats}
+        beats={visibleBeats}
         initialCompanyId={mapCompanyId}
         focusBeatId={mapFocusBeatId}
         warehouse={warehouse}

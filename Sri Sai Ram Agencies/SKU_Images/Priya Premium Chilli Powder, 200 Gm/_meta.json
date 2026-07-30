@@ -1,0 +1,30 @@
+{
+  "skuCode": "3cec1a82-6b53-4bdd-9d73-7340d715d902",
+  "skuName": "Priya Premium Chilli Powder, 200 Gm",
+  "brand": "Priya",
+  "query": "Priya Premium Chilli Powder, 200 Gm product",
+  "fetchedAt": "2026-05-26T07:33:24.348Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "https://m.media-amazon.com/images/I/81h77mAZk6L._SL1500_.jpg",
+      "page": "https://www.amazon.in/Priya-Chilli-Powder-Premium-200g/dp/B07G1FMLS2",
+      "desc": "Priya Chilli Powder - Premium, 200g Pack : Amazon.in: Grocery &amp; Gourmet ..."
+    },
+    {
+      "image": "https://bf1af2.a-cdn.akinoncloud.com/products/2024/09/11/82729/4e6855f4-be0c-465f-b000-dd85e2011f45.jpg",
+      "page": "https://gcc.luluhypermarket.com/en-bh/priya-chilli-powder-200-g/p/10651",
+      "desc": "Priya Chilli Powder 200 g Online at Best Price | Lulu Bahrain"
+    },
+    {
+      "image": "https://img.lazcdn.com/g/p/3ed85b8ee954a5ab958a92e18e873bad.jpg_720x720q80.jpg",
+      "page": "https://www.lazada.sg/products/priya-chilli-powder-box-200gm-expiry-date-aug-2025-i2882938065.html",
+      "desc": "PRIYA CHILLI POWDER BOX 200GM - Expiry Date Aug 2025 | Lazada Singapore"
+    },
+    {
+      "image": "https://www.bigbasket.com/media/uploads/p/xl/20005177_7-priya-premium-chilli-powder.jpg",
+      "page": "https://www.bigbasket.com/pd/20005177/priya-premium-chilli-powder-200-g/",
+      "desc": "Buy Priya Powder Chilli 200 Gm Online at the Best Price of Rs 80 ..."
+    }
+  ]
+}

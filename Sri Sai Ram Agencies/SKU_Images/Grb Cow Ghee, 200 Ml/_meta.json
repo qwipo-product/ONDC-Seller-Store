@@ -1,0 +1,30 @@
+{
+  "skuCode": "1a15bd9d-6ac4-4c13-b55f-ce32178598b0",
+  "skuName": "Grb Cow Ghee, 200 Ml",
+  "brand": "Grb",
+  "query": "Grb Cow Ghee, 200 Ml product",
+  "fetchedAt": "2026-05-26T07:38:45.814Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "https://cdn.shopaccino.com/edible-smart/products/grb-ghee-cow-355332_l.jpg?v=538?param=1",
+      "page": "https://www.grainculture.store/products/grb-ghee-cow-200-ml",
+      "desc": "GRB Ghee Cow - 200 ml"
+    },
+    {
+      "image": "https://5.imimg.com/data5/SELLER/Default/2024/12/477044132/DA/DF/IA/35041173/200-ml-grb-cow-ghee-1000x1000.jpg",
+      "page": "https://www.indiamart.com/proddetail/200-ml-grb-cow-ghee-2855535361597.html",
+      "desc": "200 Ml GRB Cow Ghee at ₹ 156/pack | Cow Milk Ghee in Hyderabad | ID ..."
+    },
+    {
+      "image": "https://www.southasiancentral.com/wp-content/uploads/GRB-Cow-Ghee-200ml.png",
+      "page": "https://www.southasiancentral.com/product/grb-cow-ghee-200ml/",
+      "desc": "Shop GRB Cow Ghee 200ml Online | South Asian Central USA"
+    },
+    {
+      "image": "https://www.jiomart.com/images/product/600x600/490011311/grb-ghee-200-ml-jar-product-images-o490011311-p490011311-0-202203150148.jpg",
+      "page": "https://www.jiomart.com/p/groceries/grb-ghee-200-ml-jar/490011311",
+      "desc": "GRB Ghee 200 ml (Jar) - JioMart"
+    }
+  ]
+}

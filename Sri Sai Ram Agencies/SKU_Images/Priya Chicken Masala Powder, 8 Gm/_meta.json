@@ -1,0 +1,30 @@
+{
+  "skuCode": "cd541250-20a9-4279-a5b8-9502320ef0a4",
+  "skuName": "Priya Chicken Masala Powder, 8 Gm",
+  "brand": "Priya",
+  "query": "Priya Chicken Masala Powder, 8 Gm product",
+  "fetchedAt": "2026-05-26T07:33:14.093Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "https://d3pi03i22pjpvc.cloudfront.net/images/product/400.400/priya_chickenmasala_c.webp",
+      "page": "https://www.ishopindian.com/priya-chicken-masala-powder",
+      "desc": "Priya Chicken Masala Powder &gt; Priya Brand &gt; iShopIndian.com"
+    },
+    {
+      "image": "https://www.msmemart.com/upload/products/1573536281044.jpg",
+      "page": "https://www.msmemart.com/member/product/197680/74197/sri-priya-chicken-masala-rs-10-pack-of-20-piece",
+      "desc": "PRIYA MASALA UDYOG | MSME B2B Portal | msmemart.com"
+    },
+    {
+      "image": "https://cdn.justgotochef.com/uploads/eFvlTZ6NqWzCSN8pnoh4CULVBKMaauzM20WRnvj1.png",
+      "page": "https://www.justgotochef.com/products/priya-chicken-masala-pack",
+      "desc": "Priya Chicken Masala Pack - GoToChef"
+    },
+    {
+      "image": "https://m.media-amazon.com/images/I/71hNc93YpcL._SL1500_.jpg",
+      "page": "https://www.amazon.in/Priya-Chicken-Masala-Pack-Piece/dp/B07T8M1QXQ",
+      "desc": "Sri Priya Chicken Masala Rs 20/- (Pack of 12 Piece) : Amazon.in ..."
+    }
+  ]
+}

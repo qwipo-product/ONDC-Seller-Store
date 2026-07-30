@@ -1,0 +1,30 @@
+{
+  "skuCode": "bb4bbf59-d88d-402f-8cc2-a9ba922912ab",
+  "skuName": "Ajay 110 - Prime Thoothbrush, 9 Pcs",
+  "brand": "Ajay",
+  "query": "Ajay 110 - Prime Thoothbrush product",
+  "fetchedAt": "2026-05-26T07:32:34.002Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "https://www.koyambedumarket.in/uploads/product/-1776989268.png",
+      "page": "https://www.koyambedumarket.in/retail/personal-care/oral-care",
+      "desc": "Koyambedu Market"
+    },
+    {
+      "image": "https://5.imimg.com/data5/SELLER/Default/2025/6/519986357/EF/PS/FX/155306636/ajay-plastic-toothbrushes-1000x1000.jpg",
+      "page": "https://www.indiamart.com/proddetail/ajay-plastic-toothbrushes-26004559512.html",
+      "desc": "Ajay Plastic Toothbrushes at ₹ 110/dozen | Plastic Toothbrushes in ..."
+    },
+    {
+      "image": "https://m.media-amazon.com/images/I/71kaKvt3e4L._SL1000_.jpg",
+      "page": "https://www.amazon.in/Ajay-TB110-Prime-Premium-Toothbrush/dp/B09NM6G22H",
+      "desc": "Buy Ajay Prime Premium Toothbrush Online at Low Prices in India - Amazon.in"
+    },
+    {
+      "image": "http://www.ajaycare.in/wp-content/uploads/2020/04/ToothbrushProductPage.png",
+      "page": "http://www.ajaycare.in/",
+      "desc": "Ajay Toothbrushes"
+    }
+  ]
+}

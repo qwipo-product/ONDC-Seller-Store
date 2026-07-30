@@ -19,7 +19,7 @@
 // every UI surface (admin Serviceability page, customer detail).
 
 import type { DeliveryDay } from "./customers-data";
-import { UPLOADED_SEED_BEATS } from "./uploaded-beats-seed";
+import { PROD_REPLICA_BEATS } from "./prod-replica-beats-seed";
 
 export interface ServiceabilityBeat {
   id: string;
@@ -50,21 +50,32 @@ export type ServiceabilityBit = ServiceabilityBeat;
 
 // ---- Seed ----
 //
-// Seeded ONLY from the business team's uploaded GeoJSON files (see
-// serviceability-uploads/ at the repo root and uploaded-beats-seed.ts).
-// No demo beats — sellers without an upload have empty serviceability
-// until their polygons arrive.
+// Seeded from the FULL production replica captured from
+// seller-portal.bms.qwipo.com on 2026-07-24 (568 beats across 19
+// sellers — see prod-replica-beats-seed.ts and "Production Polygons/"
+// at the repo root). Sellers with no production beats have empty
+// serviceability, same as production.
 
-const SEED_BEATS: ServiceabilityBeat[] = UPLOADED_SEED_BEATS;
+const SEED_BEATS: ServiceabilityBeat[] = PROD_REPLICA_BEATS;
 
 // ---- In-memory store + subscribe API ----
 
 let _beats: ServiceabilityBeat[] = [...SEED_BEATS];
 const _listeners = new Set<() => void>();
 
+// Bumped on every beat-store write. Lets consumers (the customer
+// database's match cache) invalidate derived data without resorting
+// to deep comparisons over hundreds of polygons.
+let _beatsVersion = 0;
+
 const notify = () => {
+  _beatsVersion++;
   for (const cb of _listeners) cb();
 };
+
+export function getServiceabilityBeatsVersion(): number {
+  return _beatsVersion;
+}
 
 export function getServiceabilityBeats(): ServiceabilityBeat[] {
   return _beats;
@@ -294,10 +305,43 @@ export function polygonContainsPoint(
   lat: number,
   lng: number,
 ): boolean {
-  for (const ring of polygonOuterRings(data)) {
-    if (pointInRing(lng, lat, ring)) return true;
+  for (const { ring, bbox } of cachedRings(data)) {
+    if (
+      lng >= bbox.minX &&
+      lng <= bbox.maxX &&
+      lat >= bbox.minY &&
+      lat <= bbox.maxY &&
+      pointInRing(lng, lat, ring)
+    ) {
+      return true;
+    }
   }
   return false;
+}
+
+// Ring extraction + bbox per polygon, cached on the polygon object
+// itself. The customer database matches tens of thousands of points
+// against every beat — without this, every check re-walks the GeoJSON
+// and every ring, and the admin pages freeze on real rosters. The
+// bbox reject settles almost every (point, beat) pair without an
+// O(vertices) point-in-ring test.
+interface CachedRing {
+  ring: Ring;
+  bbox: BBox;
+}
+
+const _ringCache = new WeakMap<object, CachedRing[]>();
+
+function cachedRings(data: unknown): CachedRing[] {
+  if (data === null || typeof data !== "object") return [];
+  const hit = _ringCache.get(data);
+  if (hit) return hit;
+  const entries = polygonOuterRings(data).map((ring) => ({
+    ring,
+    bbox: ringBBox(ring),
+  }));
+  _ringCache.set(data, entries);
+  return entries;
 }
 
 /**

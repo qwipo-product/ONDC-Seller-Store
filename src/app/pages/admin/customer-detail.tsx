@@ -161,9 +161,32 @@ export function AdminCustomerDetail() {
           Back
         </Button>
         <div className="flex-1">
-          <h2 className="text-lg font-semibold text-gray-900">
-            {customer.name}
-          </h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-lg font-semibold text-gray-900">
+              {customer.name}
+            </h2>
+            {customer.businessType && (
+              <Badge variant="secondary" className="text-xs">
+                {customer.businessType}
+              </Badge>
+            )}
+            {customer.status && (
+              <Badge
+                variant="secondary"
+                className={
+                  customer.status === "Active"
+                    ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-50 text-xs"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-100 text-xs"
+                }
+              >
+                {customer.status}
+                {customer.businessStatus &&
+                customer.businessStatus !== customer.status
+                  ? ` · ${customer.businessStatus}`
+                  : ""}
+              </Badge>
+            )}
+          </div>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500 mt-0.5">
             {customer.customerId && (
               <span className="flex items-center gap-1">
@@ -176,6 +199,23 @@ export function AdminCustomerDetail() {
                 <Phone className="h-3.5 w-3.5" />
                 {customer.mobile}
               </span>
+            )}
+            {customer.cluster && (
+              <span className="flex items-center gap-1">
+                <Building2 className="h-3.5 w-3.5" />
+                {customer.cluster}
+              </span>
+            )}
+            {customer.salespersonName && (
+              <span>
+                Salesperson: {customer.salespersonName}
+                {customer.salespersonNumber
+                  ? ` (${customer.salespersonNumber})`
+                  : ""}
+              </span>
+            )}
+            {customer.registeredDate && (
+              <span>Registered {customer.registeredDate}</span>
             )}
             <span className="flex items-center gap-1 font-mono text-xs">
               <MapPin className="h-3.5 w-3.5" />
@@ -274,6 +314,7 @@ export function AdminCustomerDetail() {
                   <TableRow>
                     <TableHead>Company</TableHead>
                     <TableHead>Seller</TableHead>
+                    <TableHead>Business Name</TableHead>
                     <TableHead>Beat</TableHead>
                     <TableHead>Delivery Days</TableHead>
                     <TableHead>Distance</TableHead>
@@ -309,6 +350,9 @@ export function AdminCustomerDetail() {
                         </TableCell>
                         <TableCell className="text-gray-700">
                           {sellerName || "—"}
+                        </TableCell>
+                        <TableCell className="text-gray-700">
+                          {seller?.businessName || "—"}
                         </TableCell>
                         <TableCell className="text-gray-700">
                           {beat.beatName}

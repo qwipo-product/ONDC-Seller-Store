@@ -1,0 +1,30 @@
+{
+  "skuCode": "4042db16-190a-4bd0-a164-4767eca96123",
+  "skuName": "Priya Biryani Masala Powder , 8 Gm",
+  "brand": "Priya",
+  "query": "Priya Biryani Masala Powder , 8 Gm product",
+  "fetchedAt": "2026-05-26T07:33:10.554Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "https://s3.amazonaws.com/grocery-project/product_images/priya-biryani-masala-powder-6499387-8099216.jpg",
+      "page": "https://cooklist.com/product/priya-biryani-masala-powder-6499387",
+      "desc": "Priya Biryani Masala Powder"
+    },
+    {
+      "image": "https://m.media-amazon.com/images/I/61HCvBoL-1L._SL1100_.jpg",
+      "page": "https://www.amazon.in/Priya-Biryani-Masala-Powder-50g/dp/B0BSV26MP4",
+      "desc": "Priya Biryani Masala Powder, 50g : Amazon.in: Grocery &amp; Gourmet Foods"
+    },
+    {
+      "image": "https://img1.exportersindia.com/product_images/bc-full/2025/8/14060201/masalas-1753859402-8236133.jpeg",
+      "page": "https://www.exportersindia.com/product-detail/chicken-biryani-masala-4482623146.htm",
+      "desc": "Priya Blended Gmo Chicken Biryani Masala, Form : Powder at Best Price ..."
+    },
+    {
+      "image": "https://www.quicklly.com/upload_images/product/1639513887-priya-biryani-masala-powder.jpg",
+      "page": "https://www.quicklly.com/grocery-store/priya-biryani-masala-powder/147153",
+      "desc": "Buy Priya Biryani Masala Powder 100 Gm | Janani - Quicklly"
+    }
+  ]
+}

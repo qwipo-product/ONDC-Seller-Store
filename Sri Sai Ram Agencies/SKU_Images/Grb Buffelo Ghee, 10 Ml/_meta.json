@@ -1,0 +1,30 @@
+{
+  "skuCode": "f4429dc4-e93a-4a16-99b1-608571492108",
+  "skuName": "Grb Buffelo Ghee, 10 Ml",
+  "brand": "Grb",
+  "query": "Grb Buffelo Ghee, 10 Ml product",
+  "fetchedAt": "2026-05-26T07:38:02.334Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "https://cdn.grofers.com/app/images/products/sliding_image/519846a.jpg",
+      "page": "https://blinkit.com/prn/grb-ghee/prid/519846",
+      "desc": ""
+    },
+    {
+      "image": "https://www.bbassets.com/media/uploads/p/l/40276161_1-grb-pure-buffalo-ghee-rich-in-nutrients.jpg",
+      "page": "https://www.bigbasket.com/pd/40276161/grb-pure-buffalo-ghee-rich-in-nutrients-200-ml/",
+      "desc": ""
+    },
+    {
+      "image": "https://www.indianspices.com.au/cdn/shop/files/GRBbufflaogheePNG-2cf43423-e5e8-47dc-83c0-efe65078edf0-_1.png?v=1702357816",
+      "page": "https://www.indianspices.com.au/products/grb-buffalo-ghee",
+      "desc": ""
+    },
+    {
+      "image": "https://www.quicklly.com/upload_images/product/thumb/1660172892-buffalo-ghee-grb.jpg",
+      "page": "https://www.quicklly.com/grocery-store/buffalo-ghee-grb/181745",
+      "desc": ""
+    }
+  ]
+}

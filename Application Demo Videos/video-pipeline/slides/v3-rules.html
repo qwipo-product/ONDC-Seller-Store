@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden;
+    font-family: 'Segoe UI', 'Nirmala UI', sans-serif;
+    background: linear-gradient(135deg, #eff6ff 0%, #ffffff 45%, #faf5ff 100%);
+    color: #111827; padding: 80px 160px;
+  }
+  .brand { font-size: 28px; font-weight: 700; color: #4f46e5; margin-bottom: 16px; }
+  h1 { font-size: 58px; font-weight: 800; margin-bottom: 14px; }
+  .sub { font-size: 28px; color: #6b7280; margin-bottom: 44px; }
+  .rules { display: flex; flex-direction: column; gap: 24px; }
+  .rule { display: grid; grid-template-columns: 76px 1fr; gap: 24px; background: white; border: 1px solid #e5e7eb; border-left: 6px solid #4f46e5; border-radius: 16px; padding: 28px 32px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); align-items: start; }
+  .num { width: 64px; height: 64px; border-radius: 50%; background: #4f46e5; color: white; font-size: 30px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+  .t { font-size: 30px; font-weight: 800; margin-bottom: 8px; }
+  .d { font-size: 24px; color: #4b5563; line-height: 1.5; }
+  .d b { color: #4f46e5; }
+</style>
+</head>
+<body>
+  <div class="brand">Qwipo | Seller Store &mdash; Serviceability</div>
+  <h1>Beat बनाते समय &mdash; 3 golden rules ⚖️</h1>
+  <p class="sub">System ये rules खुद enforce करता है &mdash; गलती होने पर save से पहले ही warning मिलती है</p>
+  <div class="rules">
+    <div class="rule"><div class="num">1</div><div><div class="t">Beat का नाम &mdash; हर company में unique</div><div class="d">एक company के अंदर दो beats का एक जैसा नाम नहीं हो सकता। नाम में sales route या इलाके की पहचान रखिए &mdash; जैसे <b>"KPHB 1"</b>।</div></div></div>
+    <div class="rule"><div class="num">2</div><div><div class="t">एक नाम = एक ही day-set, हर company में</div><div class="d">अगर "KPHB 1" ITC के लिए <b>सोमवार-गुरुवार</b> है, तो HUL के लिए भी वही दिन होने चाहिए &mdash; इलाका एक, schedule एक।</div></div></div>
+    <div class="rule"><div class="num">3</div><div><div class="t">Overlap वाले इलाके = same delivery days</div><div class="d">दो polygons एक-दूसरे के ऊपर आते हैं तो उनके delivery days match होने चाहिए &mdash; वरना एक ही दुकान को app में दो अलग-अलग din दिखेंगे।</div></div></div>
+  </div>
+</body>
+</html>

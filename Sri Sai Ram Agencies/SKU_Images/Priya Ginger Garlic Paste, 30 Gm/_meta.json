@@ -1,0 +1,30 @@
+{
+  "skuCode": "a1b04562-fc74-467a-a204-4ce155da1940",
+  "skuName": "Priya Ginger Garlic Paste, 30 Gm",
+  "brand": "Priya",
+  "query": "Priya Ginger Garlic Paste, 30 Gm product",
+  "fetchedAt": "2026-05-26T07:34:34.983Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "http://tajspices.co.uk/cdn/shop/products/PKL-GGPPRI-30G01.jpg?v=1602658003",
+      "page": "https://tajspices.co.uk/products/priya-ginger-garlic-paste",
+      "desc": "Priya Ginger Garlic Paste"
+    },
+    {
+      "image": "https://tajstores.co.uk/wp-content/uploads/2023/03/DSC_0014-929x1536.jpg",
+      "page": "https://tajstores.co.uk/product/priya-ginger-garlic-paste/",
+      "desc": "PRIYA GINGER GARLIC PASTE – Taj Stores"
+    },
+    {
+      "image": "http://dailycart.com/cdn/shop/products/priya-ginger-garlic-paste-1kg_2adb2e10-e2cf-4157-bbc1-38bbe56007f8.jpg?v=1665342293",
+      "page": "https://dailycart.com/products/priya-ginger-garlic-paste-500-gm",
+      "desc": "Priya Ginger Garlic Paste, 500 g"
+    },
+    {
+      "image": "https://www.quicklly.com/upload_images/product/1699989337-priya-ginger-garlic-paste.jpg",
+      "page": "https://www.quicklly.com/grocery-store/priya-ginger-garlic-paste/326982",
+      "desc": "Buy Priya Ginger Garlic Paste 300 Gm | New Foods Of India - Quicklly"
+    }
+  ]
+}

@@ -104,7 +104,10 @@
       "Bash(awk 'NR==86,NR==207' \"C:\\\\Users\\\\Lenovo\\\\OneDrive - Xavica Primary\\\\Desktop\\\\Seller Store\\\\src\\\\app\\\\pages\\\\customers-demo.tsx\")",
       "Bash(/Users/shubham/Desktop/Qwipo/Seller-Store/node_modules/vite/bin/vite.js build *)",
       "Skill(run)",
-      "Skill(run:*)"
+      "Skill(run:*)",
+      "PowerShell(\\(Get-Command node\\).Source; node -v; \\(Get-Command npm\\).Source)",
+      "PowerShell(Get-Process node -ErrorAction SilentlyContinue)",
+      "PowerShell(Get-NetTCPConnection -LocalPort 5180 -State Listen -ErrorAction SilentlyContinue)"
     ]
   }
 }

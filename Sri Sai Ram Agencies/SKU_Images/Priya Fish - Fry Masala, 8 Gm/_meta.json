@@ -1,0 +1,30 @@
+{
+  "skuCode": "e9942333-d2e0-410e-bd13-3562e2177350",
+  "skuName": "Priya Fish - Fry Masala, 8 Gm",
+  "brand": "Priya",
+  "query": "Priya Fish - Fry Masala, 8 Gm product",
+  "fetchedAt": "2026-05-26T07:34:02.782Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "https://cdn.justgotochef.com/uploads/RDce3c7r50gcuVGv54d6PITIbeAOf1hlKGeEAxZq.png",
+      "page": "https://www.justgotochef.com/products/priya-fish-fry-masala-pack",
+      "desc": "Priya Fish Fry Masala Pack - GoToChef"
+    },
+    {
+      "image": "https://www.quicklly.com/upload_images/product/1608169587-priya-fish-fry-masala.jpg",
+      "page": "https://www.quicklly.com/grocery-store/priya-fish-fry-masala/59556",
+      "desc": "Buy Priya Fish Fry Masala 1.76 Oz | Surabhi Indian Grocery - Quicklly"
+    },
+    {
+      "image": "https://umamifoods.ie/wp-content/uploads/2024/06/c2523f24-8e14-4391-92ad-7f03c692bf43.jpeg",
+      "page": "https://umamifoods.ie/product/priya-fish-fry-masala/",
+      "desc": "Priya Fish Fry Masala 50g – Umami Foods Dublin Ireland"
+    },
+    {
+      "image": "https://down-sg.img.susercontent.com/file/sg-11134207-7rfi1-m9h1jplekbx5a5",
+      "page": "https://shopee.sg/PRIYA-FISH-FRY-MASALA-POWDER-BOX-200GM-EXPIRY-DATE-AUG-2025--i.1532310833.40800027482",
+      "desc": "PRIYA FISH FRY MASALA POWDER BOX - 200GM-[EXPIRY DATE AUG 2025 ..."
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "skuCode": "7709a9b6-a4a3-4ef1-9b8d-88ef32c1922c",
+  "skuName": "Ajay 104 - Comfort Thoothbrush, 12 Pcs",
+  "brand": "Ajay",
+  "query": "Ajay 104 - Comfort Thoothbrush product",
+  "fetchedAt": "2026-05-26T07:32:18.095Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "http://www.ajaycare.in/wp-content/uploads/2020/04/Comfort-pack.png",
+      "page": "http://www.ajaycare.in/main_product/ajay-comfort/",
+      "desc": "Ajay Care Products – Oral Care Products, Toothbrush Products"
+    },
+    {
+      "image": "https://m.media-amazon.com/images/I/31NegGfEPFL._SX300_SY300_QL70_ML2_.jpg",
+      "page": "https://www.amazon.in/Ajay-Comfort-Toothbrush-Pack-12/dp/B07JVBDFJY",
+      "desc": "Buy Ajay Comfort Toothbrush - Pack of 12 Online at Low Prices in India ..."
+    },
+    {
+      "image": "https://5.imimg.com/data5/SELLER/Default/2023/12/371375723/AJ/EX/IH/39084474/sunscreen-1000x1000.png",
+      "page": "https://www.indiamart.com/proddetail/ajay-comfort-toothbrush-2852349747291.html",
+      "desc": "Ajay Comfort Toothbrush at Rs 11/piece | Plastic Toothbrush in Jalna ..."
+    },
+    {
+      "image": "https://lookaside.fbsbx.com/lookaside/crawler/media/?media_id=100057534126487",
+      "page": "https://www.facebook.com/people/AJAY-Toothbrush/100057534126487/",
+      "desc": "AJAY Toothbrush"
+    }
+  ]
+}

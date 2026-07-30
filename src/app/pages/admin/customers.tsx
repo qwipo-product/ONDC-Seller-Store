@@ -60,6 +60,7 @@ import {
   countDuplicateMobiles,
   downloadCustomerTemplate,
   getCustomers,
+  getSeedCustomerCount,
   makeSampleCustomers,
   matchCustomer,
   groupByCompany,
@@ -72,6 +73,13 @@ import {
 import {
   subscribeToServiceabilityBeats,
 } from "../../lib/serviceability-data";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../components/ui/select";
 
 export function AdminCustomers() {
   const navigate = useNavigate();
@@ -123,16 +131,31 @@ export function AdminCustomers() {
     };
   }, [customers, matchInfo]);
 
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
+
+  const typeOptions = useMemo(
+    () =>
+      [...new Set(customers.map((c) => c.businessType).filter(Boolean))].sort(
+        (a, b) => a.localeCompare(b),
+      ),
+    [customers],
+  );
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return customers;
-    return customers.filter(
-      (c) =>
+    return customers.filter((c) => {
+      if (statusFilter !== "all" && c.status !== statusFilter) return false;
+      if (typeFilter !== "all" && c.businessType !== typeFilter) return false;
+      if (!q) return true;
+      return (
         c.name.toLowerCase().includes(q) ||
         c.customerId.toLowerCase().includes(q) ||
-        c.mobile.includes(q),
-    );
-  }, [customers, search]);
+        c.mobile.includes(q) ||
+        c.cluster.toLowerCase().includes(q)
+      );
+    });
+  }, [customers, search, statusFilter, typeFilter]);
 
   // ---- Upload dialog ----
   const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -329,16 +352,43 @@ export function AdminCustomers() {
       ) : (
         <Card>
           <CardContent className="p-0">
-            <div className="p-4 border-b border-gray-100">
-              <div className="relative max-w-sm">
+            <div className="p-4 border-b border-gray-100 flex flex-wrap items-center gap-3">
+              <div className="relative flex-1 min-w-[220px] max-w-sm">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
-                  placeholder="Search by name, ID or mobile…"
+                  placeholder="Search by name, ID, mobile or cluster…"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="pl-9"
                 />
               </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="Active">Active</SelectItem>
+                  <SelectItem value="InActive">InActive</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Business Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Business Types</SelectItem>
+                  {typeOptions.map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {t}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <span className="text-xs text-gray-500 ml-auto">
+                {filtered.length.toLocaleString("en-IN")} customer
+                {filtered.length === 1 ? "" : "s"}
+              </span>
             </div>
             <Table>
               <TableHeader>
@@ -346,6 +396,9 @@ export function AdminCustomers() {
                   <TableHead>Customer ID</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Mobile</TableHead>
+                  <TableHead>Business Type</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Cluster</TableHead>
                   <TableHead>Location</TableHead>
                   <TableHead>Companies</TableHead>
                   <TableHead>Beats</TableHead>
@@ -369,6 +422,28 @@ export function AdminCustomers() {
                       </TableCell>
                       <TableCell className="text-gray-600">
                         {c.mobile || "—"}
+                      </TableCell>
+                      <TableCell className="text-gray-600">
+                        {c.businessType || "—"}
+                      </TableCell>
+                      <TableCell>
+                        {c.status ? (
+                          <Badge
+                            variant="secondary"
+                            className={
+                              c.status === "Active"
+                                ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-50"
+                                : "bg-gray-100 text-gray-600 hover:bg-gray-100"
+                            }
+                          >
+                            {c.status}
+                          </Badge>
+                        ) : (
+                          "—"
+                        )}
+                      </TableCell>
+                      <TableCell className="text-gray-600">
+                        {c.cluster || "—"}
                       </TableCell>
                       <TableCell className="font-mono text-xs text-gray-500">
                         {c.lat.toFixed(4)}, {c.lng.toFixed(4)}
@@ -442,8 +517,9 @@ export function AdminCustomers() {
             <DialogTitle>Upload Customers</DialogTitle>
             <DialogDescription>
               CSV or Excel with columns: Customer ID, Customer Name, Mobile
-              Number, Latitude, Longitude. Lat/long is required — it drives the
-              beat matching.
+              Number, Latitude, Longitude — plus optional Business Type,
+              Status, Cluster, Salesperson and Registered Date. Lat/long is
+              required — it drives the beat matching.
             </DialogDescription>
           </DialogHeader>
 
@@ -568,8 +644,9 @@ export function AdminCustomers() {
             <AlertDialogTitle>Reset the customer database?</AlertDialogTitle>
             <AlertDialogDescription>
               This removes every uploaded customer and restores the database to
-              the built-in base roster of 705 customers. Beat polygons under
-              Sellers are not affected.
+              the built-in base roster of{" "}
+              {getSeedCustomerCount().toLocaleString("en-IN")} customers. Beat
+              polygons under Sellers are not affected.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

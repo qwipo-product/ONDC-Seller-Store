@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden;
+    font-family: 'Segoe UI', 'Nirmala UI', sans-serif;
+    background: linear-gradient(135deg, #eff6ff 0%, #ffffff 45%, #faf5ff 100%);
+    color: #111827; padding: 70px 150px;
+  }
+  .brand { font-size: 28px; font-weight: 700; color: #4f46e5; margin-bottom: 16px; }
+  h1 { font-size: 56px; font-weight: 800; margin-bottom: 40px; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 36px; margin-bottom: 30px; }
+  .col { background: white; border: 1px solid #e5e7eb; border-radius: 20px; padding: 30px 34px; box-shadow: 0 2px 10px rgba(0,0,0,0.06); }
+  .col h3 { font-size: 30px; font-weight: 800; margin-bottom: 20px; display: flex; align-items: center; gap: 12px; }
+  .col.ret h3 { color: #1d4ed8; }
+  .col.dist h3 { color: #7c3aed; }
+  .li { display: flex; gap: 12px; font-size: 24px; color: #374151; padding: 9px 0; line-height: 1.4; }
+  .li .tick { color: #059669; font-weight: 800; }
+  .backend { background: #f5f3ff; border: 2px solid #ddd6fe; border-radius: 18px; padding: 22px 30px; }
+  .backend .t { font-size: 26px; font-weight: 800; color: #5b21b6; margin-bottom: 8px; }
+  .backend .d { font-size: 22px; color: #6d28d9; line-height: 1.5; }
+</style>
+</head>
+<body>
+  <div class="brand">Qwipo | Buyer App &mdash; SalesBeat</div>
+  <h1>एक feature &mdash; दोनों तरफ़ फायदा 🤝</h1>
+  <div class="cols">
+    <div class="col ret">
+      <h3>🏪 Retailer (दुकानदार) को</h3>
+      <div class="li"><span class="tick">✓</span><span>कौन-सा distributor <b>सबसे पहले</b> deliver करेगा — पहली नज़र में</span></div>
+      <div class="li"><span class="tick">✓</span><span>Delivery day पहले से पता — planning आसान</span></div>
+      <div class="li"><span class="tick">✓</span><span>Beat day या Tomorrow — <b>अपनी मर्ज़ी</b> का option</span></div>
+      <div class="li"><span class="tick">✓</span><span>"कितना और add करें" — साफ़ guidance</span></div>
+    </div>
+    <div class="col dist">
+      <h3>🚚 Distributor को</h3>
+      <div class="li"><span class="tick">✓</span><span><b>Higher average order value</b> — MOV से बड़ी baskets</span></div>
+      <div class="li"><span class="tick">✓</span><span>Better beat utilization — गाड़ी full, route fix</span></div>
+      <div class="li"><span class="tick">✓</span><span>Tomorrow delivery से <b>extra sales</b> opportunities</span></div>
+      <div class="li"><span class="tick">✓</span><span>Promotional flexibility — free delivery campaigns</span></div>
+    </div>
+  </div>
+  <div class="backend">
+    <div class="t">📊 Bonus — Backend Serviceability Reports</div>
+    <div class="d">Uploaded polygons से system बता सकता है — किस customer को कौन-सा distributor serve करता है, उसका beat day, delivery distance, और serviceability status। Sales और Marketing teams इसे customer segmentation, targeted promotions और beat planning में use कर सकती हैं।</div>
+  </div>
+</body>
+</html>

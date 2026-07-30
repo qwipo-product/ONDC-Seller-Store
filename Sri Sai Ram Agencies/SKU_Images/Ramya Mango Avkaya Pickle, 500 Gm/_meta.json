@@ -1,0 +1,30 @@
+{
+  "skuCode": "82243f28-6e75-4d95-9f83-1c3c68a194e4",
+  "skuName": "Ramya Mango Avkaya Pickle, 500 Gm",
+  "brand": "Priya",
+  "query": "Priya Ramya Mango Avkaya Pickle, 500 Gm product",
+  "fetchedAt": "2026-05-26T07:36:31.146Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "https://m.media-amazon.com/images/I/51N2jfd5s5L.jpg",
+      "page": "https://www.amazon.in/Priya-Mango-Pickle-Garlic-Avakaya/dp/B08LB6KZFN",
+      "desc": "Priya Mango Avakaya Pickle With Garlic,500G|Authentic Telugu Style ..."
+    },
+    {
+      "image": "https://priyafoods.com/cdn/shop/products/MangoAvakayaWOG500g.jpg?v=1686739262",
+      "page": "https://priyafoods.com/products/mango-avakaya-pickle",
+      "desc": "Buy Avakaya Pickle Online at Best Price in India | Priya Foods"
+    },
+    {
+      "image": "https://www.bbassets.com/media/uploads/p/l/20005124_3-priya-pickle-mango-avakaya-with-garlic.jpg",
+      "page": "https://www.bigbasket.com/pd/20005124/priya-pickle-mango-avakaya-with-garlic-500-g-bottle/",
+      "desc": "Buy Priya Pickle Mango Avakaya With Garlic 500 Gm Bottle Online at the ..."
+    },
+    {
+      "image": "https://thespicecentre.com/wp-content/uploads/2021/03/98.jpg",
+      "page": "https://thespicecentre.com/product/priya-mango-pickle-avakaya/",
+      "desc": "Priya Mango Pickle Avakaya – Spice Centre"
+    }
+  ]
+}

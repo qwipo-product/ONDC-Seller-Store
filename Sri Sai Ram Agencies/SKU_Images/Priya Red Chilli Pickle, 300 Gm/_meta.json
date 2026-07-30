@@ -1,0 +1,30 @@
+{
+  "skuCode": "42c0b76a-0471-41d7-b6ad-06056dfd6620",
+  "skuName": "Priya Red Chilli Pickle, 300 Gm",
+  "brand": "Priya",
+  "query": "Priya Red Chilli Pickle, 300 Gm product",
+  "fetchedAt": "2026-05-26T07:36:45.733Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "https://www.spicevillage.eu/cdn/shop/products/Red-Chilli-Priya-Pickle-300gm.jpg?v=1645949171",
+      "page": "https://www.spicevillage.eu/products/red-chilli-priya-pickle-300gm",
+      "desc": "Priya Red Chilli Pickle 300gm – Spice Village"
+    },
+    {
+      "image": "https://m.media-amazon.com/images/I/61ujPcntFUL.jpg",
+      "page": "https://www.desertcart.in/products/312277427-priya-foods-gongura-red-chilli-pickle-in-oil-300-gm",
+      "desc": "Buy PRIYA FOODS Gongura Red Chilli Pickle In Oil, 300 Gm Online at ..."
+    },
+    {
+      "image": "https://thedesifood.com/media/Priya Red Chilli Pickle, 300 g-1.webp",
+      "page": "https://thedesifood.com/products/priya-red-chilli-pickle",
+      "desc": "Priya Red Chilli Pickle"
+    },
+    {
+      "image": "https://www.kesargrocery.com/images/P/Priya-Red-Chillies-Pickle-600.jpg",
+      "page": "https://www.kesargrocery.com/priya-red-chilli-pickle/",
+      "desc": "Buy Online Priya Red Chilli Pickle 300 GM | NJ USA."
+    }
+  ]
+}

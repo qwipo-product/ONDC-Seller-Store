@@ -1,0 +1,30 @@
+{
+  "skuCode": "bc3cc595-e883-4570-8335-c32298552f96",
+  "skuName": "Cycle Sambrani, 14 Pcs",
+  "brand": "Cycle",
+  "query": "Cycle Sambrani product",
+  "fetchedAt": "2026-05-26T07:39:20.207Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "https://www.jiomart.com/images/product/600x600/491350234/cycle-navin-om-shanthi-cup-sambrani-10-pcs-product-images-o491350234-p491350234-0-202203150235.jpg",
+      "page": "https://www.jiomart.com/p/groceries/cycle-navin-cup-sambrani-10-pcs/491350234",
+      "desc": "Cycle Navin Om Shanthi Sambrani Cup 10 pcs - JioMart"
+    },
+    {
+      "image": "https://dukaan.b-cdn.net/1000x1000/webp/master/products/cycle-naivedya-pure-sambrani-dhoop-big.png",
+      "page": "https://mydukaan.io/baranwalstore/products/cycle-naivedya-pure-sambrani-dhoop-big",
+      "desc": "Buy Cycle Naivedya Pure Sambrani Dhoop Big online from Baranwal Store"
+    },
+    {
+      "image": "https://res.retailershakti.com/incom/images/product/Cycle-Naivedya-Sambrani-Free-Agarbathi-Sambrani-Holder-1-Piece-1590830847-10072746-1.jpg",
+      "page": "https://www.retailershakti.com/otc/cycle-naivedya-sambrani-free-agarbathi-sambrani-holder-pack-of-12-wholesale-97716",
+      "desc": "Buy Cycle Naivedya Sambrani (Free Agarbathi Sambrani Holder) Pack Of 12 ..."
+    },
+    {
+      "image": "https://cycle.in/cdn/shop/products/Turmeric-side.jpg?v=1722078801&amp;width=1080",
+      "page": "https://cycle.in/products/turmeric-sambrani-powder",
+      "desc": "Turmeric Sambrani Powder – Cycle.in"
+    }
+  ]
+}

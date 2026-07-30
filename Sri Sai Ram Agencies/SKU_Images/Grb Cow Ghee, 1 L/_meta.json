@@ -1,0 +1,30 @@
+{
+  "skuCode": "8be15255-15d7-4208-8785-8740062317a5",
+  "skuName": "Grb Cow Ghee, 1 L",
+  "brand": "Grb",
+  "query": "Grb Cow Ghee, 1 L product",
+  "fetchedAt": "2026-05-26T07:38:21.038Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "https://cdn.shopaccino.com/edible-smart/products/grb-ghee-cow-850030_l.jpg?v=502",
+      "page": "https://www.grainculture.store/products/grb-ghee-cow-1-lt",
+      "desc": "GRB Ghee Cow - 1 Lt"
+    },
+    {
+      "image": "https://5.imimg.com/data5/SELLER/Default/2024/12/476994098/BR/IW/BM/35041173/1l-grb-cow-ghee-1000x1000.jpg",
+      "page": "https://www.indiamart.com/proddetail/1l-grb-cow-ghee-2855535276455.html",
+      "desc": "1L GRB Cow Ghee at ₹ 720/pack | Cows Ghee in Hyderabad | ID: 2855535276455"
+    },
+    {
+      "image": "https://easydaysupermarket.com.au/cdn/shop/files/GRBCowGhee.png?v=1726724362",
+      "page": "https://easydaysupermarket.com.au/products/grb-pure-cow-ghee-1lt",
+      "desc": "GRB Pure Cow Ghee 1L: Health Benefits &amp; Cooking Tips – EasyDay Supermarket"
+    },
+    {
+      "image": "https://kiasumart.com/wp-content/uploads/2024/01/GRB-Ghee-1L-1024x1024.jpeg",
+      "page": "https://kiasumart.com/product/grb-ghee-tin-1l/",
+      "desc": "GRB Ghee (Tin) 1L - KIASU MART"
+    }
+  ]
+}

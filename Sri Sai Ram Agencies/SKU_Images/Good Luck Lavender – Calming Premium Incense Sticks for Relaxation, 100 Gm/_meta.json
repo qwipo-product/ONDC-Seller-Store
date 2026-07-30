@@ -1,0 +1,30 @@
+{
+  "skuCode": "c2c3bed5-967e-48f7-9846-4fec456c4c3d",
+  "skuName": "Good Luck Lavender – Calming Premium Incense Sticks for Relaxation, 100 Gm",
+  "brand": "Good Luck",
+  "query": "Good Luck Lavender – Calming Premium Incense Sticks for Relaxation, 100 Gm product",
+  "fetchedAt": "2026-05-26T07:39:47.340Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "https://incenselebanon.com/wp-content/uploads/2022/10/AT_211-scaled.jpg",
+      "page": "https://incenselebanon.com/product/pure-lavender-incense-sticks/",
+      "desc": ""
+    },
+    {
+      "image": "https://m.media-amazon.com/images/I/81NWWVQZ-nL.jpg",
+      "page": "https://www.amazon.co.uk/Fresh-Lavender-Incense-Calming-Relaxation/dp/B09DCCNTH6",
+      "desc": ""
+    },
+    {
+      "image": "https://5.imimg.com/data5/SELLER/Default/2024/10/460615211/BA/OQ/YC/64023267/2-500x500.webp",
+      "page": "https://www.indiamart.com/proddetail/lavender-premium-incense-sticks-agarbatti-100-gm-with-stand-for-stick-13803-2855182583097.html",
+      "desc": ""
+    },
+    {
+      "image": "https://laaromas.com/wp-content/uploads/2024/12/ML2-scaled.jpg",
+      "page": "https://laaromas.com/product/lavender-incense-sticks-charcoal-free-agarbatti-calming/",
+      "desc": ""
+    }
+  ]
+}

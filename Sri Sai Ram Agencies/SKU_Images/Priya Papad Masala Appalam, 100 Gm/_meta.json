@@ -1,0 +1,30 @@
+{
+  "skuCode": "5aa6c4a2-3be0-4ef2-a8e9-c7471d85f3fb",
+  "skuName": "Priya Papad Masala Appalam, 100 Gm",
+  "brand": "Priya",
+  "query": "Priya Papad Masala Appalam, 100 Gm product",
+  "fetchedAt": "2026-05-26T07:35:59.084Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "https://priyafoods.com/cdn/shop/files/MasalaAppalam.jpg?v=1730195634",
+      "page": "https://priyafoods.com/products/priya-paped-masala-appalam-100g",
+      "desc": "Priya Papad Masala Appalam 100g – Priya Foods"
+    },
+    {
+      "image": "https://2.wlimg.com/product_images/bc-full/2023/8/610272/d8179453-2-1693386066_1438415_1895121.jpg",
+      "page": "https://www.tazapapadudyog.com/priya-papad.htm",
+      "desc": "Priya Papad"
+    },
+    {
+      "image": "https://m.media-amazon.com/images/S/al-eu-726f4d26-7fdb/7b53bde3-4541-400e-8da7-ff3032222efc.jpg",
+      "page": "https://www.amazon.in/stores/PriyaFoods/page/97432707-14D5-40B7-A741-FC649A8CCC51",
+      "desc": "Amazon.in: Priya Foods: Papad/Appalam"
+    },
+    {
+      "image": "https://5.imimg.com/data5/SELLER/Default/2025/7/525444641/HH/XM/YB/247548941/targito-masala-appalam-papad-1000x1000.jpg",
+      "page": "https://www.indiamart.com/proddetail/targito-masala-appalam-papad-2856802455033.html",
+      "desc": "TargiTo Masala Appalam Papad, 100 g at ₹ 35/kg in Bengaluru | ID ..."
+    }
+  ]
+}

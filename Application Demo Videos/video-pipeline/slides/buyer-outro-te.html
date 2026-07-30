@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden;
+    font-family: 'Segoe UI', 'Nirmala UI', 'Gautami', sans-serif;
+    background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 45%, #7c3aed 100%);
+    color: white; position: relative;
+    display: flex; flex-direction: column; justify-content: center; padding: 0 160px;
+  }
+  .blob1 { position: absolute; top: 90px; left: 60px; width: 480px; height: 480px; background: rgba(255,255,255,0.08); border-radius: 50%; filter: blur(80px); }
+  .blob2 { position: absolute; bottom: 60px; right: 80px; width: 560px; height: 560px; background: rgba(192,132,252,0.25); border-radius: 50%; filter: blur(90px); }
+  .brand { font-size: 40px; font-weight: 700; margin-bottom: 40px; }
+  .brand span { color: #bfdbfe; font-weight: 400; }
+  h1 { font-size: 68px; font-weight: 800; margin-bottom: 40px; line-height: 1.25; }
+  .recap { display: flex; flex-direction: column; gap: 18px; margin-bottom: 52px; }
+  .step { display: flex; align-items: center; gap: 18px; font-size: 30px; color: #eff6ff; }
+  .tick { width: 44px; height: 44px; border-radius: 50%; background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0; }
+  .next { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.3); border-radius: 16px; padding: 24px 32px; width: fit-content; }
+  .next .label { font-size: 24px; color: #bfdbfe; margin-bottom: 8px; }
+  .next .title { font-size: 32px; font-weight: 700; }
+</style>
+</head>
+<body>
+  <div class="blob1"></div><div class="blob2"></div>
+  <div class="brand">Qwipo <span>| Buyer App (Retailer App)</span></div>
+  <h1>SalesBeat &mdash; smarter, beat-aware ordering 🎉</h1>
+  <div class="recap">
+    <div class="step"><div class="tick">✓</div>Home &mdash; earliest-delivery ప్రకారం distributor sorting</div>
+    <div class="step"><div class="tick">✓</div>ప్రతి card, product page మీద beat day + Tomorrow + MOV</div>
+    <div class="step"><div class="tick">✓</div>Cart లో delivery choice + dynamic MOV + "Add more" guidance</div>
+    <div class="step"><div class="tick">✓</div>Consolidated Order Summary &rarr; Place Order &rarr; Confirmed</div>
+  </div>
+  <div class="next">
+    <div class="label">ఈ video జోడీ</div>
+    <div class="title">Super Admin Video 3: Serviceability &mdash; Beats ఎలా తయారవుతాయి</div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden;
+    font-family: 'Segoe UI', 'Nirmala UI', sans-serif;
+    background: linear-gradient(135deg, #eff6ff 0%, #ffffff 45%, #faf5ff 100%);
+    color: #111827; padding: 44px 90px;
+  }
+  h1 { font-size: 46px; font-weight: 800; text-align: center; margin-bottom: 28px; }
+  .row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 56px; justify-items: center; }
+  .col { display: flex; flex-direction: column; align-items: center; }
+  .phone { width: 400px; height: 800px; background: #111827; border-radius: 40px; padding: 12px; box-shadow: 0 16px 46px rgba(0,0,0,0.22); }
+  .screen { background: #f3f4f6; border-radius: 30px; height: 100%; overflow: hidden; display: flex; flex-direction: column; }
+  .statusbar { display: flex; justify-content: space-between; padding: 12px 22px 4px; font-size: 14px; font-weight: 700; background: white; }
+  .navbar { display: flex; align-items: center; gap: 12px; padding: 10px 16px 12px; background: white; border-radius: 0 0 18px 18px; }
+  .navbar .back { width: 34px; height: 34px; border-radius: 10px; background: #f3f4f6; display: flex; align-items: center; justify-content: center; font-size: 17px; }
+  .navbar .title { font-size: 18px; font-weight: 700; }
+  .body { flex: 1; overflow: hidden; padding: 12px; display: flex; flex-direction: column; gap: 12px; }
+  .card { background: white; border-radius: 14px; padding: 13px 14px; }
+  .seller-name { font-size: 16.5px; font-weight: 700; }
+  .lbl { font-size: 12.5px; color: #6b7280; margin: 8px 0 5px; }
+  .chips { display: flex; gap: 8px; }
+  .chip { border: 1.5px solid #2563eb; border-radius: 9px; padding: 7px 10px; }
+  .chip .c1 { font-size: 12.5px; color: #2563eb; font-weight: 700; }
+  .chip .c2 { font-size: 10.5px; color: #6b7280; margin-top: 2px; }
+  .chip.plain { border-color: #d1d5db; }
+  .chip.plain .c1 { color: #374151; }
+  .brands { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px; }
+  .brand { border: 1px solid #e5e7eb; border-radius: 10px; padding: 7px 4px; text-align: center; }
+  .brand .logo { width: 40px; height: 30px; margin: 0 auto 4px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 800; color: white; }
+  .brand .bn { font-size: 10.5px; color: #374151; }
+  /* cart screen */
+  .cs-top { display: flex; justify-content: space-between; align-items: flex-start; }
+  .buying { font-size: 11.5px; color: #6b7280; }
+  .cs-seller { font-size: 15.5px; font-weight: 700; color: #2563eb; margin-top: 2px; }
+  .total { font-size: 13px; color: #374151; text-align: right; }
+  .total b { color: #2563eb; }
+  .drop { font-size: 11px; color: #059669; margin-top: 3px; text-align: right; }
+  .freedel { font-size: 11.5px; color: #059669; font-weight: 700; margin-top: 7px; }
+  .mov { font-size: 11.5px; color: #6b7280; margin-top: 3px; }
+  .mov b { color: #059669; }
+  .items { display: flex; gap: 8px; margin-top: 9px; }
+  .item { flex: 1; text-align: center; }
+  .item .im { height: 58px; border: 1px solid #e5e7eb; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 26px; background: linear-gradient(160deg, #fef9c3, #fde047); }
+  .item .qty { font-size: 10px; color: #6b7280; margin-top: 3px; }
+  .item .pr { font-size: 11px; font-weight: 700; }
+  .radio { width: 15px; height: 15px; border: 2px solid #9ca3af; border-radius: 50%; display: inline-block; vertical-align: -2px; margin-right: 6px; }
+  .radio.on { border-color: #2563eb; box-shadow: inset 0 0 0 3.5px white, inset 0 0 0 10px #2563eb; }
+  .del-opts { display: flex; gap: 8px; margin-top: 7px; }
+  .del { flex: 1; border: 1.5px solid #d1d5db; border-radius: 9px; padding: 8px 10px; font-size: 12.5px; color: #374151; }
+  .del.on { border-color: #2563eb; color: #2563eb; font-weight: 700; }
+  .cart-footer { background: white; border-radius: 18px 18px 0 0; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; }
+  .cf-l .l1 { font-size: 11.5px; color: #6b7280; }
+  .cf-l .l2 { font-size: 19px; font-weight: 800; }
+  .cf-btn { background: #2563eb; color: white; border-radius: 12px; padding: 12px 26px; font-size: 16px; font-weight: 700; }
+  /* confirmation screen */
+  .conf { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px; }
+  .conf .h { font-size: 27px; font-weight: 700; color: #059669; }
+  .tickwrap { width: 170px; height: 170px; border-radius: 50%; background: #059669; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 30px rgba(5,150,105,0.35); }
+  .tickring { width: 146px; height: 146px; border-radius: 50%; border: 2.5px solid rgba(255,255,255,0.75); display: flex; align-items: center; justify-content: center; font-size: 64px; color: white; font-weight: 800; }
+  .conf .msg { font-size: 15.5px; color: #374151; text-align: center; padding: 0 26px; }
+  .conf-note { margin: 0 14px; background: #ecfdf5; border: 1.5px solid #6ee7b7; border-radius: 12px; padding: 10px 13px; font-size: 12.5px; color: #065f46; text-align: center; }
+  .home-btn { margin: 12px auto 16px; background: #2563eb; color: white; border-radius: 12px; padding: 12px 34px; font-size: 15.5px; font-weight: 700; width: fit-content; }
+  .caption { margin-top: 16px; text-align: center; }
+  .caption .step { display: inline-block; background: #4f46e5; color: white; border-radius: 999px; font-size: 15px; font-weight: 700; padding: 3px 13px; margin-bottom: 6px; }
+  .caption .t { font-size: 21px; font-weight: 700; }
+  .caption .d { font-size: 16.5px; color: #6b7280; margin-top: 2px; max-width: 460px; }
+</style>
+</head>
+<body>
+  <h1>Mobile App में Beat का जादू 📱 — retailer की नज़र से</h1>
+  <div class="row">
+    <!-- Phone 1: Authorised Distributors -->
+    <div class="col">
+      <div class="phone"><div class="screen">
+        <div class="statusbar"><span>9:41</span><span>▮▮▮ ᯤ ▭</span></div>
+        <div class="navbar"><div class="back">‹</div><div class="title">Authorised Distributors</div></div>
+        <div class="body">
+          <div class="card">
+            <div class="seller-name">Shri Sai Krishna Traders</div>
+            <div class="lbl">Delivery by</div>
+            <div class="chips">
+              <div class="chip"><div class="c1">Tomorrow (Beat day)</div><div class="c2">Seller MOV: 500</div></div>
+            </div>
+            <div class="brands">
+              <div class="brand"><div class="logo" style="background:#ca8a04;">Freedom</div><div class="bn">Freedo...</div></div>
+              <div class="brand"><div class="logo" style="background:#b45309;">Mysore</div><div class="bn">Mysore...</div></div>
+              <div class="brand"><div class="logo" style="background:#111827;">BLACK R</div><div class="bn">Black R...</div></div>
+              <div class="brand"><div class="logo" style="background:#059669;">Dwib</div><div class="bn">Dwibha...</div></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="seller-name">Sri Sarda Enterprises</div>
+            <div class="lbl">Delivery by</div>
+            <div class="chips">
+              <div class="chip"><div class="c1">Fri, 28th (Beat day)</div><div class="c2">Seller MOV: 500</div></div>
+            </div>
+            <div class="brands">
+              <div class="brand"><div class="logo" style="background:#dc2626;">PRIYA</div><div class="bn">Priya G...</div></div>
+              <div class="brand"><div class="logo" style="background:#1d4ed8;">GOLD</div><div class="bn">Gold Dr...</div></div>
+              <div class="brand"><div class="logo" style="background:#ea580c;">RUCHI</div><div class="bn">Ruchi G...</div></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="seller-name">Mahedeva Enterprises</div>
+            <div class="lbl">Delivery by</div>
+            <div class="chips">
+              <div class="chip"><div class="c1">Wed, 3rd (Beat day)</div><div class="c2">Seller MOV: 500</div></div>
+              <div class="chip"><div class="c1">Tomorrow</div><div class="c2">Seller MOV: 2,500</div></div>
+            </div>
+            <div class="brands">
+              <div class="brand"><div class="logo" style="background:#ea580c;">Eastern</div><div class="bn">Eastern</div></div>
+              <div class="brand"><div class="logo" style="background:#dc2626;">MTR</div><div class="bn">MTR</div></div>
+              <div class="brand"><div class="logo" style="background:#111827;">ZINDA</div><div class="bn">Zindha...</div></div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+      <div class="caption">
+        <div class="step">1</div>
+        <div class="t">Distributor list — delivery day पहले से दिख रहा है</div>
+        <div class="d">हर seller के साथ beat day + MOV — beat से ही आता है</div>
+      </div>
+    </div>
+
+    <!-- Phone 2: Cart Summary -->
+    <div class="col">
+      <div class="phone"><div class="screen">
+        <div class="statusbar"><span>9:41</span><span>▮▮▮ ᯤ ▭</span></div>
+        <div class="navbar"><div class="back">‹</div><div class="title">Cart Summary</div></div>
+        <div class="body">
+          <div class="card">
+            <div class="cs-top">
+              <div><div class="buying">Buying from</div><div class="cs-seller">Shri Sai Krishna Traders</div></div>
+              <div><div class="total">Total: <b>₹ 8,560</b></div><div class="drop">↓ Price dropped by ₹ 50.6</div></div>
+            </div>
+            <div class="freedel">🚚 Free Delivery</div>
+            <div class="mov">Min. Order Value: <b>₹ 2,500</b></div>
+            <div class="items">
+              <div class="item"><div class="im">🌻</div><div class="qty">(12)</div><div class="pr">₹ 1,062</div></div>
+              <div class="item"><div class="im">🛢️</div><div class="qty">(1)</div><div class="pr">₹ 1,852</div></div>
+              <div class="item"><div class="im">🌻</div><div class="qty">(12)</div><div class="pr">₹ 2,832</div></div>
+              <div class="item"><div class="im">🫙</div><div class="qty">(12)</div><div class="pr">₹ 2,814</div></div>
+            </div>
+            <div class="lbl">Delivery by</div>
+            <div class="del-opts">
+              <div class="del"><span class="radio"></span>Fri, 28th (Beat day)</div>
+              <div class="del on"><span class="radio on"></span>Tomorrow</div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="cs-top">
+              <div><div class="buying">Buying from</div><div class="cs-seller">Vinit Enterprises</div></div>
+              <div><div class="total">Total: <b>₹ 8,560</b></div><div class="drop">↓ Price dropped by ₹ 50.6</div></div>
+            </div>
+            <div class="freedel">🚚 Free Delivery</div>
+            <div class="mov">Min. Order Value: <b>₹ 200</b></div>
+            <div class="items">
+              <div class="item"><div class="im">🌻</div><div class="qty">(12)</div><div class="pr">₹ 1,062</div></div>
+              <div class="item"><div class="im">🛢️</div><div class="qty">(1)</div><div class="pr">₹ 1,852</div></div>
+              <div class="item"><div class="im">🌻</div><div class="qty">(12)</div><div class="pr">₹ 2,832</div></div>
+            </div>
+            <div class="lbl">Delivery by</div>
+            <div class="del-opts">
+              <div class="del on"><span class="radio on"></span>Tomorrow (Beat day)</div>
+            </div>
+          </div>
+        </div>
+        <div class="cart-footer">
+          <div class="cf-l"><div class="l1">Total Cart Value:</div><div class="l2">₹1,245.45</div></div>
+          <div class="cf-btn">Checkout</div>
+        </div>
+      </div></div>
+      <div class="caption">
+        <div class="step">2</div>
+        <div class="t">Cart — हर distributor का delivery day चुनिए</div>
+        <div class="d">Beat day free delivery, या ज़्यादा MOV पर Tomorrow express</div>
+      </div>
+    </div>
+
+    <!-- Phone 3: Order Confirmed -->
+    <div class="col">
+      <div class="phone"><div class="screen">
+        <div class="statusbar"><span>9:41</span><span>▮▮▮ ᯤ ▭</span></div>
+        <div class="navbar"><div class="back">‹</div><div class="title">Order Confirmed</div></div>
+        <div class="conf">
+          <div class="h">Order Confirmation</div>
+          <div class="tickwrap"><div class="tickring">✓</div></div>
+          <div class="msg">Your order has been placed successfully!</div>
+          <div class="conf-note">🚚 Delivery: Wed, 3rd — आपके इलाके का beat day</div>
+        </div>
+        <div class="home-btn">Back to Home</div>
+      </div></div>
+      <div class="caption">
+        <div class="step">3</div>
+        <div class="t">Order confirmed — day पहले से पता है</div>
+        <div class="d">ना call, ना confusion — गाड़ी उसी दिन, उसी इलाके में</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,30 @@
+{
+  "skuCode": "1ee9038f-4c7d-4467-b833-3e166715f78f",
+  "skuName": "Priya Meat Masala, 8 Gm",
+  "brand": "Priya",
+  "query": "Priya Meat Masala, 8 Gm product",
+  "fetchedAt": "2026-05-26T07:36:01.328Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "https://krishnafoods.co.uk/wp-content/uploads/2016/09/meat_masala_powder.png",
+      "page": "https://krishnafoods.co.uk/products/priya_masala/",
+      "desc": "Priya Masala – Krishna Foods"
+    },
+    {
+      "image": "https://5.imimg.com/data5/FI/TD/MY-47152830/meat-masala-500x500.jpg",
+      "page": "https://www.indiamart.com/proddetail/meat-masala-17600097248.html",
+      "desc": "Priya Gold Meat Masala, Packaging: Packet at best price in Khalilabad ..."
+    },
+    {
+      "image": "https://www.quicklly.com/upload_images/product/1593883511-priya-meat-masala-powder.png",
+      "page": "https://www.quicklly.com/grocery-store/priya-meat-masala-powder/29110",
+      "desc": "Buy Priya Meat Masala Powder 100 Gm | India Foods - Quicklly"
+    },
+    {
+      "image": "https://m.media-amazon.com/images/I/51H9CcdLx5L._SY300_SX300_QL70_ML2_.jpg",
+      "page": "https://www.amazon.com/Priya-Meat-Masala-Powder/dp/B01LWLUD04",
+      "desc": "Amazon.com : Priya - Meat Masala Powder by Priya : Grocery &amp; Gourmet Food"
+    }
+  ]
+}

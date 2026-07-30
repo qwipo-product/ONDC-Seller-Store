@@ -1,0 +1,30 @@
+{
+  "skuCode": "65a91e50-9679-494e-8944-eb35d8d5f811",
+  "skuName": "Priya Red Chilli Pickle, 40 Gm",
+  "brand": "Priya",
+  "query": "Priya Red Chilli Pickle, 40 Gm product",
+  "fetchedAt": "2026-05-26T07:36:53.051Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "https://maharajafarmersmarketusa.com/wp-content/uploads/2023/09/priya-red-chilli-pickle-with-garlic-priya__87556.1600125725.jpg",
+      "page": "https://maharajafarmersmarketusa.com/product/priya-red-chilli-pickle-with-garlic/",
+      "desc": "PRIYA RED CHILLI PICKLE WITH GARLIC - MaharajaFarmersMarket"
+    },
+    {
+      "image": "http://newindiansupermarket.com/cdn/shop/products/PRIYAREDCHILLIPICKLE.jpg?crop=center&amp;height=1200&amp;v=1628616827&amp;width=1200",
+      "page": "https://newindiansupermarket.com/products/priya-red-chilli-pickle",
+      "desc": "PRIYA RED CHILLI PICKLE – New Indian Supermarket, Tracy"
+    },
+    {
+      "image": "https://memsaab.co.uk/wp-content/uploads/2021/03/priya-red-chilli-pickle.jpg",
+      "page": "https://memsaab.co.uk/product/priya-red-chilli-pickle/",
+      "desc": "Priya Red Chilli Pickle - House of Raja`s Indian Superstore in Bolton"
+    },
+    {
+      "image": "https://www.bombayspices.ca/wp-content/uploads/2019/03/PRIYA-RED-CHILLI.jpeg",
+      "page": "https://www.bombayspices.ca/product/priya-red-chilli-pickle/",
+      "desc": "PRIYA RED CHILLI PICKLE – Bombay Spices"
+    }
+  ]
+}

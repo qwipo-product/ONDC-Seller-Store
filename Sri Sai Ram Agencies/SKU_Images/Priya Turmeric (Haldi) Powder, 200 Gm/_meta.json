@@ -1,0 +1,30 @@
+{
+  "skuCode": "fe0392b6-0c87-4c61-8a91-aa31dfc81481",
+  "skuName": "Priya Turmeric (Haldi) Powder, 200 Gm",
+  "brand": "Priya",
+  "query": "Priya Turmeric (Haldi) Powder, 200 Gm product",
+  "fetchedAt": "2026-05-26T07:37:37.107Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "http://priyafoods.com/cdn/shop/files/TURMERIC_1.jpg?v=1702640061",
+      "page": "https://priyafoods.com/products/turmeric-powder",
+      "desc": "Buy Pure Turmeric (Haldi) Powder Online at Best Price in India – Priya ..."
+    },
+    {
+      "image": "https://5.imimg.com/data5/SELLER/Default/2022/8/OF/DL/FY/105911423/haldi-500x500.png",
+      "page": "https://www.indiamart.com/proddetail/haldi-powder-26400234962.html",
+      "desc": "Haldi powder, 200 gm at best price in Hyderabad | ID: 26400234962"
+    },
+    {
+      "image": "https://cdn.bharatrath.com/tr:n-large/nitya-masale-04fxm/turmeric-haldi-powder-6-gtbpe-mmlh.jpg",
+      "page": "https://www.nityaspices.com/products/turmeric-haldi-powder",
+      "desc": "Turmeric (Haldi) Powder"
+    },
+    {
+      "image": "https://www.avonagro.com/image/cache/catalog/amazon-pic/combo pack/61C2vxN1oPL._SL1000_-1000x1000.jpg",
+      "page": "https://www.avonagro.com/product/monthly-combo-pack-haldi-mirch-dhania-powder-600gm",
+      "desc": "Buy Monthly Combo Pack Haldi, Mirch, Dhania Powder at Best Price"
+    }
+  ]
+}

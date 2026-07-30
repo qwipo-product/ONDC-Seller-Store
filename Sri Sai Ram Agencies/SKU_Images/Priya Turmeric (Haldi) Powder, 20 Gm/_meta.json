@@ -1,0 +1,30 @@
+{
+  "skuCode": "d4ed5b4d-9ac9-4553-a397-cfbdff410fd9",
+  "skuName": "Priya Turmeric (Haldi) Powder, 20 Gm",
+  "brand": "Priya",
+  "query": "Priya Turmeric (Haldi) Powder, 20 Gm product",
+  "fetchedAt": "2026-05-26T07:37:25.603Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "https://m.media-amazon.com/images/I/51wzMCA4aYL.jpg",
+      "page": "https://www.amazon.in/Priya-Haldi-Powder-Pack-Piece/dp/B07TG3BX94",
+      "desc": "Sri Priya Haldi Powder Rs 10/- (Pack of 20 Piece) : Amazon.in: Grocery ..."
+    },
+    {
+      "image": "https://5.imimg.com/data5/SELLER/Default/2023/4/298933101/XI/SF/XB/148954622/priya-haldi-powder-1000x1000.jpg",
+      "page": "https://www.indiamart.com/proddetail/priya-haldi-powder-2850452457148.html",
+      "desc": "Spicy Priya Haldi Powder at ₹ 140/kg in Sojat | ID: 2850452457148"
+    },
+    {
+      "image": "https://img.drz.lazcdn.com/static/pk/p/57c179eddd15ba816e27d434b45d3bd6.jpg_720x720q80.jpg",
+      "page": "https://www.daraz.pk/products/turmeric-haldi-powder-primium-200-gm-i928596657.html",
+      "desc": "Turmeric (Haldi) Powder (Primium) -200 GM | Daraz.pk"
+    },
+    {
+      "image": "https://cdn.bharatrath.com/tr:n-large/nitya-masale-04fxm/turmeric-haldi-powder-6-gtbpe-mmlh.jpg",
+      "page": "https://www.nityaspices.com/products/turmeric-haldi-powder",
+      "desc": "Turmeric (Haldi) Powder"
+    }
+  ]
+}

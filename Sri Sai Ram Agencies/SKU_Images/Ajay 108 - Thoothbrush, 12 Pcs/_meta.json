@@ -1,0 +1,30 @@
+{
+  "skuCode": "34ef4eaa-19c1-48dd-af90-85d213406b0b",
+  "skuName": "Ajay 108 - Thoothbrush, 12 Pcs",
+  "brand": "Ajay",
+  "query": "Ajay 108 - Thoothbrush product",
+  "fetchedAt": "2026-05-26T07:32:25.028Z",
+  "imageCount": 4,
+  "sources": [
+    {
+      "image": "http://www.ajaycare.in/wp-content/uploads/2020/04/banner-2.jpg",
+      "page": "http://www.ajaycare.in/",
+      "desc": "Ajay Toothbrushes"
+    },
+    {
+      "image": "https://5.imimg.com/data5/ANDROID/Default/2023/8/338094554/XK/WT/HG/41956758/product-jpeg-1000x1000.jpg",
+      "page": "https://www.indiamart.com/proddetail/ajay-toothbrush-comleat-medium-2852148796848.html",
+      "desc": "Ajay Toothbrush COMLEAT MEDIUM, Adults at ₹ 110/dozen in Nagpur | ID ..."
+    },
+    {
+      "image": "https://www.harishfoodzone.com/jb-content/uploads/2020/11/AJAY-PRO-CARE-TOOTHBRUSH.jpg",
+      "page": "https://www.harishfoodzone.com/product/ajay-pro-care-toothbrush/",
+      "desc": "AJAY PRO CARE TOOTHBRUSH – Harish Food Zone"
+    },
+    {
+      "image": "https://rukminim2.flixcart.com/image/612/612/l4iscy80/toothbrush/6/5/s/quest-offer-pack-of-8-pcs-hard-8-ajay-hard-original-imagfehngswvz56y.jpeg?q=70",
+      "page": "https://www.flipkart.com/toothbrush/pr?sid=g9b,cey,prx",
+      "desc": "Toothbrush (टूथब्रश) Online In India at Best Prices | Flipkart.com"
+    }
+  ]
+}

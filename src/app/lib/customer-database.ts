@@ -12,11 +12,12 @@
 
 import {
   findBeatsContainingPoint,
+  getServiceabilityBeatsVersion,
   haversineKm,
   sortDeliveryDays,
   type ServiceabilityBeat,
 } from "./serviceability-data";
-import { getSellerById } from "./mock-store";
+import { getSellers, type Seller } from "./mock-store";
 // The production "Customer raw" roster — bundled with the app so the
 // base customer database is ALWAYS present, on every device, without
 // re-uploading. Uploads layer on top of it (deduped by mobile number).
@@ -29,6 +30,18 @@ export interface DbCustomer {
   customerId: string;
   name: string;
   mobile: string;
+  /** "Kirana", "Restaurant", "PgHostel", … — free text, may be blank. */
+  businessType: string;
+  /** Lifecycle detail: "Active-User", "Business-Shutdown", … */
+  businessStatus: string;
+  /** Coarse flag from the master roster: "Active" / "InActive". */
+  status: string;
+  salespersonName: string;
+  salespersonNumber: string;
+  /** Operational cluster the customer belongs to (e.g. "Kondapur"). */
+  cluster: string;
+  /** "YYYY-MM-DD" registration date, blank when unknown. */
+  registeredDate: string;
   lat: number;
   lng: number;
   uploadedAt: string;
@@ -71,7 +84,7 @@ function getSeedCustomers(): DbCustomer[] {
     _seedCustomers = parsed.customers.map((c, i) => ({
       ...c,
       id: `seed-${i + 1}`,
-      uploadedAt: "2026-07-19T00:00:00Z",
+      uploadedAt: "2026-07-30T00:00:00Z",
     }));
   }
   return _seedCustomers;
@@ -94,14 +107,26 @@ function loadFromStorage(): DbCustomer[] {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (c): c is DbCustomer =>
-        c &&
-        typeof c === "object" &&
-        typeof c.id === "string" &&
-        typeof c.lat === "number" &&
-        typeof c.lng === "number",
-    );
+    return parsed
+      .filter(
+        (c): c is DbCustomer =>
+          c &&
+          typeof c === "object" &&
+          typeof c.id === "string" &&
+          typeof c.lat === "number" &&
+          typeof c.lng === "number",
+      )
+      // Rows stored before the master-roster fields existed.
+      .map((c) => ({
+        businessType: "",
+        businessStatus: "",
+        status: "",
+        salespersonName: "",
+        salespersonNumber: "",
+        cluster: "",
+        registeredDate: "",
+        ...c,
+      }));
   } catch {
     return [];
   }
@@ -168,6 +193,11 @@ export function getCustomers(): DbCustomer[] {
 
 export function getCustomerById(id: string): DbCustomer | undefined {
   return ensureLoaded().find((c) => c.id === id);
+}
+
+/** Size of the bundled base roster — for "reset to N customers" copy. */
+export function getSeedCustomerCount(): number {
+  return getSeedCustomers().length;
 }
 
 export function subscribeToCustomers(cb: () => void): () => void {
@@ -257,7 +287,14 @@ export function clearCustomers(): void {
 
 const HEADER_ALIASES: Record<keyof ParsedColumns, string[]> = {
   customerId: ["customerid", "custid", "id", "customercode", "code", "retailerid"],
-  name: ["customername", "name", "retailername", "storename", "outletname"],
+  name: [
+    "customername",
+    "name",
+    "businessname",
+    "retailername",
+    "storename",
+    "outletname",
+  ],
   mobile: [
     "mobile",
     "mobilenumber",
@@ -268,6 +305,24 @@ const HEADER_ALIASES: Record<keyof ParsedColumns, string[]> = {
     "contact",
     "contactnumber",
   ],
+  businessType: ["businesstype", "type", "category"],
+  businessStatus: ["businessstatus"],
+  status: ["status", "customerstatus"],
+  salespersonName: ["salespersonname", "salesperson", "salesmanname", "salesman"],
+  salespersonNumber: [
+    "salespersonnumber",
+    "salespersonno",
+    "salespersonmobile",
+    "salesmannumber",
+  ],
+  cluster: ["cluster", "clustername"],
+  registeredDate: [
+    "registereddate",
+    "registrationdate",
+    "regdate",
+    "registered",
+    "createdat",
+  ],
   lat: ["lat", "latitude"],
   lng: ["lng", "long", "lon", "longitude"],
 };
@@ -276,6 +331,13 @@ interface ParsedColumns {
   customerId: number | null;
   name: number | null;
   mobile: number | null;
+  businessType: number | null;
+  businessStatus: number | null;
+  status: number | null;
+  salespersonName: number | null;
+  salespersonNumber: number | null;
+  cluster: number | null;
+  registeredDate: number | null;
   lat: number | null;
   lng: number | null;
 }
@@ -287,6 +349,13 @@ function mapHeaders(headerRow: string[]): ParsedColumns {
     customerId: null,
     name: null,
     mobile: null,
+    businessType: null,
+    businessStatus: null,
+    status: null,
+    salespersonName: null,
+    salespersonNumber: null,
+    cluster: null,
+    registeredDate: null,
     lat: null,
     lng: null,
   };
@@ -373,6 +442,13 @@ function rowsToCustomers(grid: string[][]): ParseResult {
       customerId,
       name: name || customerId,
       mobile: cell(cols.mobile),
+      businessType: cell(cols.businessType),
+      businessStatus: cell(cols.businessStatus),
+      status: cell(cols.status),
+      salespersonName: cell(cols.salespersonName),
+      salespersonNumber: cell(cols.salespersonNumber),
+      cluster: cell(cols.cluster),
+      registeredDate: cell(cols.registeredDate).slice(0, 10),
       lat,
       lng,
       uploadedAt,
@@ -451,6 +527,10 @@ export async function parseCustomerXlsx(buffer: ArrayBuffer): Promise<ParseResul
       const v = values[c];
       if (v == null) {
         cells.push("");
+      } else if (v instanceof Date) {
+        // Registered-date cells come through as Date objects — keep
+        // the ISO day, not the locale-dependent toString.
+        cells.push(v.toISOString().slice(0, 10));
       } else if (typeof v === "object" && v !== null && "text" in (v as object)) {
         cells.push(String((v as { text: unknown }).text ?? ""));
       } else if (typeof v === "object" && v !== null && "result" in (v as object)) {
@@ -481,9 +561,26 @@ export interface CompanyMatch {
   beats: ServiceabilityBeat[];
 }
 
+// Match results cached per customer OBJECT (roster rows are stable
+// references between store writes), invalidated wholesale when the
+// beat store changes. Both the Customer Database page and the report
+// builder match the entire roster — without this, each page redoes
+// tens of thousands of point-in-polygon lookups the other already did.
+let _matchCache = new WeakMap<object, ServiceabilityBeat[]>();
+let _matchCacheVersion = -1;
+
 /** All beats (any company) whose polygon contains this customer. */
 export function matchCustomer(customer: Pick<DbCustomer, "lat" | "lng">): ServiceabilityBeat[] {
-  return findBeatsContainingPoint(customer.lat, customer.lng);
+  const version = getServiceabilityBeatsVersion();
+  if (version !== _matchCacheVersion) {
+    _matchCache = new WeakMap();
+    _matchCacheVersion = version;
+  }
+  const hit = _matchCache.get(customer);
+  if (hit) return hit;
+  const beats = findBeatsContainingPoint(customer.lat, customer.lng);
+  _matchCache.set(customer, beats);
+  return beats;
 }
 
 /** Group matched beats by company for display. */
@@ -508,11 +605,19 @@ export interface ReportRow {
   customerId: string;
   customerName: string;
   mobile: string;
+  businessType: string;
+  /** Roster status ("Active" / "InActive") — NOT serviceability. */
+  customerStatus: string;
+  cluster: string;
+  salespersonName: string;
+  registeredDate: string;
   lat: number;
   lng: number;
   /** Seller (distributor) who owns the matched beat. Empty when unknown. */
   sellerId: string;
   sellerName: string;
+  /** The seller's business name (e.g. "DEV AGENCIES"). Empty when unknown. */
+  businessName: string;
   companyName: string;
   beatName: string;
   /** "Monday, Wednesday" — calendar-sorted. Empty for unserviceable rows. */
@@ -534,9 +639,11 @@ function sellerInfoForBeat(
   beat: ServiceabilityBeat,
   customerLat: number,
   customerLng: number,
-): { sellerName: string; distanceKm: number | null } {
-  const seller = beat.sellerId ? getSellerById(beat.sellerId) : undefined;
+  sellerById: Map<string, Seller>,
+): { sellerName: string; businessName: string; distanceKm: number | null } {
+  const seller = beat.sellerId ? sellerById.get(beat.sellerId) : undefined;
   const sellerName = seller?.name ?? beat.sellerName ?? "";
+  const businessName = seller?.businessName ?? "";
   const distanceKm =
     seller?.latitude != null && seller?.longitude != null
       ? Number(
@@ -548,7 +655,7 @@ function sellerInfoForBeat(
           ).toFixed(2),
         )
       : null;
-  return { sellerName, distanceKm };
+  return { sellerName, businessName, distanceKm };
 }
 
 /**
@@ -558,7 +665,70 @@ function sellerInfoForBeat(
  * visible in the same sheet.
  */
 export function buildReportRows(customers: DbCustomer[]): ReportRow[] {
+  const cached = reportCacheHit(customers);
+  if (cached) return cached;
   const rows: ReportRow[] = [];
+  appendReportRows(rows, customers);
+  storeReportCache(customers, rows);
+  return rows;
+}
+
+/**
+ * Same output as buildReportRows, but computed in slices with the
+ * event loop released between them — the report page stays painted
+ * (spinner, progress) instead of freezing while a 26k-customer roster
+ * explodes into a few hundred thousand rows.
+ */
+export async function buildReportRowsAsync(
+  customers: DbCustomer[],
+  onProgress?: (done: number, total: number) => void,
+): Promise<ReportRow[]> {
+  const cached = reportCacheHit(customers);
+  if (cached) return cached;
+  const rows: ReportRow[] = [];
+  const CHUNK = 1000;
+  for (let i = 0; i < customers.length; i += CHUNK) {
+    appendReportRows(rows, customers.slice(i, i + CHUNK));
+    onProgress?.(Math.min(i + CHUNK, customers.length), customers.length);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  storeReportCache(customers, rows);
+  return rows;
+}
+
+// One-entry result cache keyed on (roster reference, beat version):
+// both change by replacement, so reference equality is exact. Repeat
+// visits to the report page — the common case while iterating on
+// filters — skip the rebuild entirely.
+let _reportCache: {
+  customers: DbCustomer[];
+  version: number;
+  rows: ReportRow[];
+} | null = null;
+
+function reportCacheHit(customers: DbCustomer[]): ReportRow[] | null {
+  return _reportCache &&
+    _reportCache.customers === customers &&
+    _reportCache.version === getServiceabilityBeatsVersion()
+    ? _reportCache.rows
+    : null;
+}
+
+function storeReportCache(customers: DbCustomer[], rows: ReportRow[]): void {
+  _reportCache = {
+    customers,
+    version: getServiceabilityBeatsVersion(),
+    rows,
+  };
+}
+
+function appendReportRows(rows: ReportRow[], customers: DbCustomer[]): void {
+  // Resolve sellers ONCE per batch — getSellers() re-parses the whole
+  // roster from localStorage on every call, and doing that per row
+  // (hundreds of thousands of rows) dominated the entire report build.
+  const sellerById = new Map<string, Seller>(
+    getSellers().map((s) => [s.id, s]),
+  );
   for (const c of customers) {
     const beats = matchCustomer(c);
     if (beats.length === 0) {
@@ -566,10 +736,16 @@ export function buildReportRows(customers: DbCustomer[]): ReportRow[] {
         customerId: c.customerId,
         customerName: c.name,
         mobile: c.mobile,
+        businessType: c.businessType,
+        customerStatus: c.status,
+        cluster: c.cluster,
+        salespersonName: c.salespersonName,
+        registeredDate: c.registeredDate,
         lat: c.lat,
         lng: c.lng,
         sellerId: "",
         sellerName: "",
+        businessName: "",
         companyName: "",
         beatName: "",
         deliveryDays: "",
@@ -579,15 +755,26 @@ export function buildReportRows(customers: DbCustomer[]): ReportRow[] {
       continue;
     }
     for (const b of beats) {
-      const { sellerName, distanceKm } = sellerInfoForBeat(b, c.lat, c.lng);
+      const { sellerName, businessName, distanceKm } = sellerInfoForBeat(
+        b,
+        c.lat,
+        c.lng,
+        sellerById,
+      );
       rows.push({
         customerId: c.customerId,
         customerName: c.name,
         mobile: c.mobile,
+        businessType: c.businessType,
+        customerStatus: c.status,
+        cluster: c.cluster,
+        salespersonName: c.salespersonName,
+        registeredDate: c.registeredDate,
         lat: c.lat,
         lng: c.lng,
         sellerId: b.sellerId ?? "",
         sellerName,
+        businessName,
         companyName: b.companyName,
         beatName: b.beatName,
         deliveryDays: sortDeliveryDays(b.deliveryDays).join(", "),
@@ -596,16 +783,21 @@ export function buildReportRows(customers: DbCustomer[]): ReportRow[] {
       });
     }
   }
-  return rows;
 }
 
 export const REPORT_HEADERS = [
   "Customer ID",
   "Customer Name",
   "Mobile Number",
+  "Business Type",
+  "Customer Status",
+  "Cluster",
+  "Salesperson",
+  "Registered Date",
   "Latitude",
   "Longitude",
   "Seller Name",
+  "Business Name",
   "Company Name",
   "Beat Name",
   "Delivery Days",
@@ -618,9 +810,15 @@ export function reportRowCells(r: ReportRow): (string | number)[] {
     r.customerId,
     r.customerName,
     r.mobile,
+    r.businessType || "—",
+    r.customerStatus || "—",
+    r.cluster || "—",
+    r.salespersonName || "—",
+    r.registeredDate || "—",
     r.lat,
     r.lng,
     r.serviceable ? r.sellerName || "—" : "—",
+    r.serviceable ? r.businessName || "—" : "—",
     r.serviceable ? r.companyName : "—",
     r.serviceable ? r.beatName : "—",
     r.serviceable ? r.deliveryDays : "—",
@@ -630,6 +828,33 @@ export function reportRowCells(r: ReportRow): (string | number)[] {
 }
 
 // ---- Downloads ----
+
+/**
+ * Above this many detail rows, the combined workbook ships WITHOUT
+ * the Raw Data tab. ExcelJS keeps the whole workbook as cell objects
+ * in memory — a 270k-row raw tab peaked at >2GB of heap and crashed
+ * the tab on ordinary machines. CSV has no such ceiling; the report
+ * page points users there for oversized raw data.
+ */
+export const EXCEL_RAW_ROW_LIMIT = 75_000;
+
+/**
+ * addRow in slices, yielding the event loop between them so the
+ * export spinner keeps animating instead of the tab freezing for the
+ * whole build.
+ */
+async function addRowsChunked<T>(
+  ws: import("exceljs").Worksheet,
+  rows: T[],
+  toCells: (r: T) => (string | number)[],
+): Promise<void> {
+  const CHUNK = 5000;
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const end = Math.min(i + CHUNK, rows.length);
+    for (let j = i; j < end; j++) ws.addRow(toCells(rows[j]));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+}
 
 function triggerDownload(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
@@ -646,6 +871,28 @@ const csvEscape = (v: string | number) => {
   const s = String(v);
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
+
+// Shared between the standalone exports and the combined workbook so
+// the column sets can't drift apart.
+const REPORT_XLSX_COLUMNS = [
+  { header: REPORT_HEADERS[0], key: "cid", width: 16 },
+  { header: REPORT_HEADERS[1], key: "name", width: 28 },
+  { header: REPORT_HEADERS[2], key: "mobile", width: 16 },
+  { header: REPORT_HEADERS[3], key: "btype", width: 16 },
+  { header: REPORT_HEADERS[4], key: "cstatus", width: 16 },
+  { header: REPORT_HEADERS[5], key: "cluster", width: 18 },
+  { header: REPORT_HEADERS[6], key: "salesperson", width: 20 },
+  { header: REPORT_HEADERS[7], key: "registered", width: 16 },
+  { header: REPORT_HEADERS[8], key: "lat", width: 12 },
+  { header: REPORT_HEADERS[9], key: "lng", width: 12 },
+  { header: REPORT_HEADERS[10], key: "seller", width: 22 },
+  { header: REPORT_HEADERS[11], key: "business", width: 26 },
+  { header: REPORT_HEADERS[12], key: "company", width: 26 },
+  { header: REPORT_HEADERS[13], key: "beat", width: 22 },
+  { header: REPORT_HEADERS[14], key: "days", width: 24 },
+  { header: REPORT_HEADERS[15], key: "distance", width: 14 },
+  { header: REPORT_HEADERS[16], key: "status", width: 16 },
+];
 
 export function downloadReportCsv(rows: ReportRow[], filename: string): void {
   const lines = [
@@ -668,19 +915,7 @@ export async function downloadReportXlsx(
   const ws = wb.addWorksheet("Serviceability Report", {
     views: [{ state: "frozen", ySplit: 1 }],
   });
-  ws.columns = [
-    { header: REPORT_HEADERS[0], key: "cid", width: 16 },
-    { header: REPORT_HEADERS[1], key: "name", width: 28 },
-    { header: REPORT_HEADERS[2], key: "mobile", width: 16 },
-    { header: REPORT_HEADERS[3], key: "lat", width: 12 },
-    { header: REPORT_HEADERS[4], key: "lng", width: 12 },
-    { header: REPORT_HEADERS[5], key: "seller", width: 22 },
-    { header: REPORT_HEADERS[6], key: "company", width: 26 },
-    { header: REPORT_HEADERS[7], key: "beat", width: 22 },
-    { header: REPORT_HEADERS[8], key: "days", width: 24 },
-    { header: REPORT_HEADERS[9], key: "distance", width: 14 },
-    { header: REPORT_HEADERS[10], key: "status", width: 16 },
-  ];
+  ws.columns = REPORT_XLSX_COLUMNS;
   const header = ws.getRow(1);
   header.font = { bold: true, color: { argb: "FFFFFFFF" } };
   header.fill = {
@@ -688,8 +923,213 @@ export async function downloadReportXlsx(
     pattern: "solid",
     fgColor: { argb: "FF1D4ED8" },
   };
-  for (const r of rows) ws.addRow(reportRowCells(r));
-  ws.autoFilter = { from: "A1", to: "K1" };
+  await addRowsChunked(ws, rows, reportRowCells);
+  ws.autoFilter = { from: "A1", to: "Q1" };
+  const buf = await wb.xlsx.writeBuffer();
+  triggerDownload(
+    new Blob([buf], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    }),
+    filename,
+  );
+}
+
+// ---- Summary report (one row per customer per delivery schedule) ----
+//
+// The detailed report explodes one row per (customer × company beat),
+// so a customer covered by 16 companies shows 16 rows. The summary
+// collapses those: rows sharing the SAME customer, seller and
+// delivery-day set merge into one (companies are counted, not
+// listed). A customer only gets extra rows when a seller genuinely
+// delivers to them on a different day-set for some companies — the
+// common case stays "one customer, one row, one delivery schedule".
+
+export interface SummaryReportRow {
+  customerId: string;
+  customerName: string;
+  mobile: string;
+  businessType: string;
+  /** Roster status ("Active" / "InActive") — NOT serviceability. */
+  customerStatus: string;
+  cluster: string;
+  sellerName: string;
+  businessName: string;
+  /** "Monday, Wednesday" — calendar-sorted. Empty for unserviceable rows. */
+  deliveryDays: string;
+  /** How many companies this (customer, seller, day-set) group covers. */
+  companyCount: number;
+  distanceKm: number | null;
+  serviceable: boolean;
+}
+
+export function buildSummaryReportRows(rows: ReportRow[]): SummaryReportRow[] {
+  const groups = new Map<string, SummaryReportRow>();
+  for (const r of rows) {
+    const key = r.serviceable
+      ? `${r.customerId}|${r.mobile}|${r.sellerId}|${r.deliveryDays}`
+      : `${r.customerId}|${r.mobile}|not-serviceable`;
+    const existing = groups.get(key);
+    if (existing) {
+      existing.companyCount += r.serviceable ? 1 : 0;
+      continue;
+    }
+    groups.set(key, {
+      customerId: r.customerId,
+      customerName: r.customerName,
+      mobile: r.mobile,
+      businessType: r.businessType,
+      customerStatus: r.customerStatus,
+      cluster: r.cluster,
+      sellerName: r.sellerName,
+      businessName: r.businessName,
+      deliveryDays: r.deliveryDays,
+      companyCount: r.serviceable ? 1 : 0,
+      distanceKm: r.distanceKm,
+      serviceable: r.serviceable,
+    });
+  }
+  return [...groups.values()];
+}
+
+export const SUMMARY_REPORT_HEADERS = [
+  "Customer ID",
+  "Customer Name",
+  "Mobile Number",
+  "Business Type",
+  "Customer Status",
+  "Cluster",
+  "Seller Name",
+  "Business Name",
+  "Delivery Days",
+  "Companies",
+  "Distance (km)",
+  "Status",
+] as const;
+
+export function summaryReportRowCells(
+  r: SummaryReportRow,
+): (string | number)[] {
+  return [
+    r.customerId,
+    r.customerName,
+    r.mobile,
+    r.businessType || "—",
+    r.customerStatus || "—",
+    r.cluster || "—",
+    r.serviceable ? r.sellerName || "—" : "—",
+    r.serviceable ? r.businessName || "—" : "—",
+    r.serviceable ? r.deliveryDays : "—",
+    r.serviceable ? r.companyCount : "—",
+    r.distanceKm ?? "—",
+    r.serviceable ? "Serviceable" : "Not Serviceable",
+  ];
+}
+
+const SUMMARY_XLSX_COLUMNS = [
+  { header: SUMMARY_REPORT_HEADERS[0], key: "cid", width: 16 },
+  { header: SUMMARY_REPORT_HEADERS[1], key: "name", width: 28 },
+  { header: SUMMARY_REPORT_HEADERS[2], key: "mobile", width: 16 },
+  { header: SUMMARY_REPORT_HEADERS[3], key: "btype", width: 16 },
+  { header: SUMMARY_REPORT_HEADERS[4], key: "cstatus", width: 16 },
+  { header: SUMMARY_REPORT_HEADERS[5], key: "cluster", width: 18 },
+  { header: SUMMARY_REPORT_HEADERS[6], key: "seller", width: 22 },
+  { header: SUMMARY_REPORT_HEADERS[7], key: "business", width: 26 },
+  { header: SUMMARY_REPORT_HEADERS[8], key: "days", width: 24 },
+  { header: SUMMARY_REPORT_HEADERS[9], key: "companies", width: 12 },
+  { header: SUMMARY_REPORT_HEADERS[10], key: "distance", width: 14 },
+  { header: SUMMARY_REPORT_HEADERS[11], key: "status", width: 16 },
+];
+
+export function downloadSummaryReportCsv(
+  rows: SummaryReportRow[],
+  filename: string,
+): void {
+  const lines = [
+    SUMMARY_REPORT_HEADERS.join(","),
+    ...rows.map((r) => summaryReportRowCells(r).map(csvEscape).join(",")),
+  ];
+  const blob = new Blob(["﻿" + lines.join("\r\n")], {
+    type: "text/csv;charset=utf-8;",
+  });
+  triggerDownload(blob, filename);
+}
+
+export async function downloadSummaryReportXlsx(
+  rows: SummaryReportRow[],
+  filename: string,
+): Promise<void> {
+  const ExcelJS = (await import("exceljs")).default;
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet("Serviceability Summary", {
+    views: [{ state: "frozen", ySplit: 1 }],
+  });
+  ws.columns = SUMMARY_XLSX_COLUMNS;
+  const header = ws.getRow(1);
+  header.font = { bold: true, color: { argb: "FFFFFFFF" } };
+  header.fill = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: "FF1D4ED8" },
+  };
+  await addRowsChunked(ws, rows, summaryReportRowCells);
+  ws.autoFilter = { from: "A1", to: "L1" };
+  const buf = await wb.xlsx.writeBuffer();
+  triggerDownload(
+    new Blob([buf], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    }),
+    filename,
+  );
+}
+
+/**
+ * The Excel export: ONE workbook, two tabs —
+ *   "Summary"  — one row per (customer, seller, delivery-day set)
+ *   "Raw Data" — one row per (customer × company beat), the full
+ *                detail the summary is built from.
+ *
+ * `includeRaw: false` skips the Raw Data tab — used when the detail
+ * row count exceeds EXCEL_RAW_ROW_LIMIT and building it in-browser
+ * would exhaust memory. The caller is responsible for telling the
+ * user where the raw data went (CSV).
+ */
+export async function downloadCombinedReportXlsx(
+  summaryRows: SummaryReportRow[],
+  detailRows: ReportRow[],
+  filename: string,
+  { includeRaw = true }: { includeRaw?: boolean } = {},
+): Promise<void> {
+  const ExcelJS = (await import("exceljs")).default;
+  const wb = new ExcelJS.Workbook();
+
+  const styleHeader = (ws: import("exceljs").Worksheet) => {
+    const header = ws.getRow(1);
+    header.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    header.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FF1D4ED8" },
+    };
+  };
+
+  const summary = wb.addWorksheet("Summary", {
+    views: [{ state: "frozen", ySplit: 1 }],
+  });
+  summary.columns = SUMMARY_XLSX_COLUMNS;
+  styleHeader(summary);
+  await addRowsChunked(summary, summaryRows, summaryReportRowCells);
+  summary.autoFilter = { from: "A1", to: "L1" };
+
+  if (includeRaw) {
+    const raw = wb.addWorksheet("Raw Data", {
+      views: [{ state: "frozen", ySplit: 1 }],
+    });
+    raw.columns = REPORT_XLSX_COLUMNS;
+    styleHeader(raw);
+    await addRowsChunked(raw, detailRows, reportRowCells);
+    raw.autoFilter = { from: "A1", to: "Q1" };
+  }
+
   const buf = await wb.xlsx.writeBuffer();
   triggerDownload(
     new Blob([buf], {
@@ -702,9 +1142,9 @@ export async function downloadReportXlsx(
 /** Blank upload template with the expected headers + two example rows. */
 export function downloadCustomerTemplate(): void {
   const lines = [
-    "Customer ID,Customer Name,Mobile Number,Latitude,Longitude",
-    "CUST-0001,Sri Venkateswara Kirana,9876543210,17.4948,78.3996",
-    "CUST-0002,Lakshmi General Store,9123456780,17.4326,78.4071",
+    "Customer ID,Customer Name,Mobile Number,Business Type,Business Status,Status,Salesperson Name,Salesperson Number,Cluster,Registered Date,Latitude,Longitude",
+    "CUST-0001,Sri Venkateswara Kirana,9876543210,Kirana,Active-User,Active,Ajay Kumar,9154297173,Kondapur,2024-06-25,17.4948,78.3996",
+    "CUST-0002,Lakshmi General Store,9123456780,Kirana,Active-User,Active,,,Jubilee Hills,2025-01-12,17.4326,78.4071",
   ];
   const blob = new Blob(["﻿" + lines.join("\r\n")], {
     type: "text/csv;charset=utf-8;",
@@ -750,13 +1190,20 @@ export function makeSampleCustomers(count = 30): DbCustomer[] {
   for (let i = 0; i < count; i++) {
     // A few far-out points so coverage gaps show in the demo.
     const outside = i % 9 === 8;
-    const [, cLat, cLng] = SAMPLE_CENTRES[i % SAMPLE_CENTRES.length];
+    const [centre, cLat, cLng] = SAMPLE_CENTRES[i % SAMPLE_CENTRES.length];
     const jitter = () => (Math.random() - 0.5) * (outside ? 0.4 : 0.016);
     rows.push({
       id: makeCustomerRowId(),
       customerId: `CUST-${String(i + 1).padStart(4, "0")}`,
       name: `${SAMPLE_NAMES[i % SAMPLE_NAMES.length]} ${i + 1}`,
       mobile: `9${String(100000000 + Math.floor(Math.random() * 899999999))}`,
+      businessType: "Kirana",
+      businessStatus: "Active-User",
+      status: "Active",
+      salespersonName: "",
+      salespersonNumber: "",
+      cluster: centre,
+      registeredDate: "2026-01-15",
       lat: Number((cLat + jitter()).toFixed(6)),
       lng: Number((cLng + jitter()).toFixed(6)),
       uploadedAt,
