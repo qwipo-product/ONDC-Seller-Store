@@ -139,20 +139,20 @@ function groupBeatsByCompany(beats: ServiceabilityBeat[]): CompanyGroup[] {
   return groups.sort((a, b) => a.companyName.localeCompare(b.companyName));
 }
 
-interface PolygonDraft {
+export interface PolygonDraft {
   file: File | null;
   data: unknown;
   valid: boolean | null;
   existingName?: string;
 }
 
-const emptyPolygonDraft = (): PolygonDraft => ({
+export const emptyPolygonDraft = (): PolygonDraft => ({
   file: null,
   data: null,
   valid: null,
 });
 
-async function readPolygonFile(file: File): Promise<PolygonDraft> {
+export async function readPolygonFile(file: File): Promise<PolygonDraft> {
   if (!file.name.endsWith(".json") && !file.name.endsWith(".geojson")) {
     toast.error(`${file.name}: not a JSON/GeoJSON file.`);
     return { file, data: null, valid: false };
@@ -186,7 +186,7 @@ async function readPolygonFile(file: File): Promise<PolygonDraft> {
   });
 }
 
-function PolygonCell({
+export function PolygonCell({
   polygon,
   onChange,
   compact,
@@ -442,6 +442,7 @@ function ConflictErrorView({
 export function ServiceabilityManager({
   warehouse,
   seller,
+  excludeCompanyIds,
 }: {
   /** Distributor's warehouse location — pinned on the Map View. */
   warehouse?: WarehousePoint | null;
@@ -451,15 +452,29 @@ export function ServiceabilityManager({
    * (name + warehouse distance).
    */
   seller?: { id: string; name: string } | null;
+  /**
+   * Companies to hide from the Add-beat company picker — used for
+   * hybrid sellers, whose Wholesaler-mode companies are served by the
+   * shared wholesaler polygon instead of delivery beats. Existing
+   * beats for these companies stay visible/editable.
+   */
+  excludeCompanyIds?: string[];
 } = {}) {
-  const [adminCompanies, setAdminCompanies] = useState<AdminCatalogCompany[]>(
-    () => getAdminCatalogCompanies(),
-  );
+  const [allAdminCompanies, setAllAdminCompanies] = useState<
+    AdminCatalogCompany[]
+  >(() => getAdminCatalogCompanies());
   useEffect(() => {
     return subscribeToCompanies(() => {
-      setAdminCompanies(getAdminCatalogCompanies());
+      setAllAdminCompanies(getAdminCatalogCompanies());
     });
   }, []);
+  const adminCompanies = useMemo(
+    () =>
+      excludeCompanyIds && excludeCompanyIds.length > 0
+        ? allAdminCompanies.filter((c) => !excludeCompanyIds.includes(c.id))
+        : allAdminCompanies,
+    [allAdminCompanies, excludeCompanyIds],
+  );
 
   const [beats, setBeatsState] = useState<ServiceabilityBeat[]>(() =>
     getServiceabilityBeats(),
@@ -586,7 +601,10 @@ export function ServiceabilityManager({
       toast.error("Company is required.");
       return;
     }
-    const company = adminCompanies.find((c) => c.id === editCompanyId);
+    // Look up against the UNFILTERED catalog — the company on an
+    // existing beat is locked, and may be excluded from the Add picker
+    // (e.g. switched to Wholesaler mode) yet still editable here.
+    const company = allAdminCompanies.find((c) => c.id === editCompanyId);
     if (!company) {
       toast.error("Selected company not found.");
       return;
@@ -852,7 +870,7 @@ export function ServiceabilityManager({
     addPolygon.data != null;
 
   const editCompanyName =
-    adminCompanies.find((c) => c.id === editCompanyId)?.name ?? "";
+    allAdminCompanies.find((c) => c.id === editCompanyId)?.name ?? "";
 
   const editPolygonReady =
     editPolygon.data != null &&

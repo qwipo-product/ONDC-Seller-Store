@@ -10,7 +10,8 @@ import {
   Plus,
   Filter,
 } from "lucide-react";
-import { getSellers, type Seller } from "../../lib/mock-store";
+import { getSellers, deriveSellerType, type Seller } from "../../lib/mock-store";
+import { SellerTypeBadge } from "../../components/seller-type-badge";
 import { EmptyState } from "../../components/empty-state";
 import { ListPagination, paginate } from "../../components/ui/list-pagination";
 import {
@@ -164,6 +165,9 @@ export function AdminActiveSellers() {
                         Mobile Number
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
+                        Seller Type
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                         Status
                       </th>
                       <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-600">
@@ -184,6 +188,11 @@ export function AdminActiveSellers() {
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-700">
                           {s.phone}
+                        </td>
+                        <td className="px-4 py-3">
+                          {/* Calculated from company operation modes —
+                              never stored/edited manually. */}
+                          <SellerTypeBadge type={deriveSellerType(s)} />
                         </td>
                         <td className="px-4 py-3">
                           {s.isActive !== false ? (

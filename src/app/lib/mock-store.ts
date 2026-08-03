@@ -105,17 +105,54 @@ export interface SellerPermissions {
   update: boolean;
 }
 
+/** How the seller operates for ONE linked company. Chosen while
+ *  linking the company; each linked company carries its own mode. */
+export type OperationMode = "distributor" | "wholesaler";
+
 /** Selection of company + (optionally) specific brands for the seller.
  *  Empty `brandIds` means "all brands of that company". Companies/brands
  *  reference the admin-catalog data (src/app/lib/admin-catalog.ts). */
 export interface CompanyBrandSelection {
   companyId: string;
   brandIds: string[];
+  /** Distributor or Wholesaler for THIS company. Legacy records that
+   *  predate the field are treated as "distributor". */
+  operationMode?: OperationMode;
 }
 
-/** Seller business type — a seller is either a distributor or a
- *  wholesaler, never both. */
-export type SellerType = "distributor" | "wholesaler";
+/** Seller business type — no longer chosen manually. Calculated from
+ *  the operation modes of the linked companies: all distributor →
+ *  "distributor", all wholesaler → "wholesaler", a mix → "hybrid". */
+export type SellerType = "distributor" | "wholesaler" | "hybrid";
+
+/**
+ * Calculate the seller type from company mappings. Sellers with no
+ * linked companies fall back to their stored type (legacy records) or
+ * "distributor".
+ */
+export function deriveSellerType(
+  seller: Pick<Seller, "companyBrandSelections" | "sellerType">,
+): SellerType {
+  const selections = seller.companyBrandSelections ?? [];
+  if (selections.length === 0) return seller.sellerType ?? "distributor";
+  const hasDistributor = selections.some(
+    (s) => (s.operationMode ?? "distributor") === "distributor",
+  );
+  const hasWholesaler = selections.some(
+    (s) => s.operationMode === "wholesaler",
+  );
+  if (hasDistributor && hasWholesaler) return "hybrid";
+  return hasWholesaler ? "wholesaler" : "distributor";
+}
+
+/** The seller's single wholesaler delivery polygon. It applies to
+ *  EVERY company mapped as Wholesaler — including companies linked
+ *  later — so there is exactly one per seller, not one per company. */
+export interface WholesalerPolygon {
+  fileName: string;
+  data?: unknown;
+  updatedAt: string; // ISO
+}
 
 export interface Seller {
   id: string;
@@ -123,7 +160,10 @@ export interface Seller {
   email: string;
   phone: string;
   businessName: string;
-  /** Business type — defaults to "distributor" in Phase 1. */
+  /** Business type — CALCULATED from linked-company operation modes
+   *  (see deriveSellerType). Kept on the record so list surfaces don't
+   *  recompute, and as the fallback for sellers with no linked
+   *  companies. Never edited manually. */
   sellerType?: SellerType;
   city: string;
   /** Structured address fields captured during seller creation. PIN drives
@@ -145,6 +185,9 @@ export interface Seller {
   managedCompanies: string[]; // legacy Qwipo company ids
   /** Companies & brands attached to this seller (added via Add Seller flow) */
   companyBrandSelections?: CompanyBrandSelection[];
+  /** One polygon covering all wholesaler-mode companies. Only present
+   *  once uploaded from the Wholesaler Serviceability section. */
+  wholesalerPolygon?: WholesalerPolygon | null;
   approvedAt?: string;
 }
 
@@ -444,7 +487,21 @@ export function updateCompanyBrandSelections(
   id: string,
   selections: CompanyBrandSelection[],
 ): Seller | null {
-  return writeSeller(id, (s) => ({ ...s, companyBrandSelections: selections }));
+  // Seller type follows the company mappings automatically — every
+  // write recalculates it so the profile never needs manual upkeep.
+  return writeSeller(id, (s) => {
+    const next = { ...s, companyBrandSelections: selections };
+    return { ...next, sellerType: deriveSellerType(next) };
+  });
+}
+
+// ---- Wholesaler serviceability polygon ----
+
+export function updateSellerWholesalerPolygon(
+  id: string,
+  polygon: WholesalerPolygon | null,
+): Seller | null {
+  return writeSeller(id, (s) => ({ ...s, wholesalerPolygon: polygon }));
 }
 
 // Toggle a seller's active flag. Inactive sellers cannot log in or have new
@@ -460,7 +517,6 @@ export function addSeller(input: {
   email?: string;
   phone: string;
   businessName: string;
-  sellerType?: SellerType;
   city: string;
   pinCode?: string;
   state?: string;
@@ -484,7 +540,11 @@ export function addSeller(input: {
     fullAddress: input.fullAddress,
     imageUrl: input.imageUrl ?? null,
     isActive: true,
-    sellerType: input.sellerType ?? "distributor",
+    // Never chosen manually — calculated from the linked companies'
+    // operation modes.
+    sellerType: deriveSellerType({
+      companyBrandSelections: input.companyBrandSelections,
+    }),
     kyc: { status: "not_started" },
     connectors: {
       bizom: { status: "not_connected", config: emptyBizomConfig() },

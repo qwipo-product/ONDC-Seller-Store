@@ -43,6 +43,7 @@ import {
   ArrowRight,
   MapPin,
   Truck,
+  Warehouse,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -55,12 +56,26 @@ import {
   updateSellerActive,
   getQwipoCompanies,
   emptyOndcConfig,
+  deriveSellerType,
   type Seller,
   type SellerPermissions,
   type OndcConfig,
   type ConnectorType,
   type CompanyBrandSelection,
+  type OperationMode,
 } from "../../lib/mock-store";
+import {
+  SellerTypeBadge,
+  SELLER_TYPE_LABELS,
+} from "../../components/seller-type-badge";
+import { WholesalerServiceability } from "../../components/wholesaler-serviceability";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../components/ui/select";
 import {
   getCompanies as getAdminCatalogCompanies,
   subscribeToCompanies as subscribeToAdminCatalog,
@@ -309,6 +324,14 @@ export function AdminSellerDetail() {
     seller.managedCompanies.includes(c.id),
   );
 
+  // Calculated seller type + the wholesaler-mode company ids. Drives
+  // the Profile display, the header badge and which serviceability
+  // sections render (Beats / Wholesaler polygon / both for hybrid).
+  const sellerType = deriveSellerType(seller);
+  const wholesalerCompanyIds = (seller.companyBrandSelections ?? [])
+    .filter((s) => s.operationMode === "wholesaler")
+    .map((s) => s.companyId);
+
   const ondcConnected = seller.connectors.ondc.status === "connected";
 
   return (
@@ -343,6 +366,7 @@ export function AdminSellerDetail() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <SellerTypeBadge type={sellerType} />
             {(seller.isActive ?? true) ? (
               <Badge className="bg-green-50 text-green-700 border-green-200 gap-1">
                 <CheckCircle2 className="h-3 w-3" />
@@ -444,14 +468,17 @@ export function AdminSellerDetail() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-5">
                     <Field label="Full Name" value={seller.name} />
                     <Field label="Mobile Number" value={seller.phone} />
-                    <Field
-                      label="Seller Type"
-                      value={
-                        seller.sellerType === "wholesaler"
-                          ? "Wholesaler"
-                          : "Distributor"
-                      }
-                    />
+                    <div>
+                      <Label className="text-xs text-gray-500 font-normal">
+                        Seller Type
+                      </Label>
+                      <div className="mt-1">
+                        <SellerTypeBadge type={sellerType} />
+                      </div>
+                      <p className="mt-1 text-[11px] text-gray-500">
+                        Auto-calculated from linked companies' operation modes.
+                      </p>
+                    </div>
                     <Field label="Business Name" value={seller.businessName} />
                     <Field
                       label="Created On"
@@ -753,28 +780,71 @@ export function AdminSellerDetail() {
                 Manage Seller view, so admins can configure delivery
                 zones for any seller from a single place. */}
             <TabsContent value="serviceability" className="p-6 mt-0">
-              <ServiceabilityManager
-                seller={{ id: seller.id, name: seller.name }}
-                warehouse={
-                  seller.latitude != null && seller.longitude != null
-                    ? {
-                        lat: seller.latitude,
-                        lng: seller.longitude,
-                        name: seller.name,
-                        businessName: seller.businessName,
-                        address:
-                          [
-                            seller.fullAddress,
-                            seller.city,
-                            seller.state,
-                            seller.pinCode,
-                          ]
-                            .filter(Boolean)
-                            .join(", ") || undefined,
-                      }
-                    : undefined
+              {/* Sub-tabs — Distributor (Delivery Beats) and Wholesaler
+                  (shared polygon) side by side, both always available so
+                  either configuration is one click away. The default tab
+                  follows the calculated seller type. */}
+              <Tabs
+                defaultValue={
+                  sellerType === "wholesaler" ? "wholesaler" : "distributor"
                 }
-              />
+                className="w-full"
+              >
+                <TabsList className="bg-gray-100 p-1 rounded-lg inline-flex gap-1 h-auto mb-5">
+                  <TabsTrigger
+                    value="distributor"
+                    className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2"
+                  >
+                    <Truck className="h-4 w-4 mr-2" />
+                    Distributor Serviceability
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="wholesaler"
+                    className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2"
+                  >
+                    <Warehouse className="h-4 w-4 mr-2" />
+                    Wholesaler Serviceability
+                  </TabsTrigger>
+                </TabsList>
+
+                {/* Distributor Delivery Beats — unchanged behaviour;
+                    wholesaler-mode companies are excluded from the
+                    Add-beat picker. */}
+                <TabsContent value="distributor" className="mt-0">
+                  <ServiceabilityManager
+                    seller={{ id: seller.id, name: seller.name }}
+                    excludeCompanyIds={wholesalerCompanyIds}
+                    warehouse={
+                      seller.latitude != null && seller.longitude != null
+                        ? {
+                            lat: seller.latitude,
+                            lng: seller.longitude,
+                            name: seller.name,
+                            businessName: seller.businessName,
+                            address:
+                              [
+                                seller.fullAddress,
+                                seller.city,
+                                seller.state,
+                                seller.pinCode,
+                              ]
+                                .filter(Boolean)
+                                .join(", ") || undefined,
+                          }
+                        : undefined
+                    }
+                  />
+                </TabsContent>
+
+                {/* Wholesaler Serviceability — ONE polygon shared by
+                    all wholesaler-mode companies. */}
+                <TabsContent value="wholesaler" className="mt-0">
+                  <WholesalerServiceability
+                    seller={seller}
+                    onChange={setSeller}
+                  />
+                </TabsContent>
+              </Tabs>
             </TabsContent>
           </Tabs>
         </Card>
@@ -1223,6 +1293,18 @@ export function SellerCatalogTab({
   const [addCompanyId, setAddCompanyId] = useState<string>("");
   const [addAllBrands, setAddAllBrands] = useState(true);
   const [addBrandIds, setAddBrandIds] = useState<string[]>([]);
+  const [addOperationMode, setAddOperationMode] =
+    useState<OperationMode>("distributor");
+
+  // ---- Operation-mode change (Distributor ↔ Wholesaler) ----
+  // Changing a company's mode after setup impacts serviceability and
+  // business configuration, so it never applies silently — the admin
+  // must confirm through this dialog first (stands in for the approval
+  // workflow discussed for production).
+  const [pendingModeChange, setPendingModeChange] = useState<{
+    companyId: string;
+    nextMode: OperationMode;
+  } | null>(null);
 
   // ---- Add Brands dialog (per-card "+ Add Brands" CTA) ----
   // Behaves as "extend only" — existing brand access is preserved and
@@ -1314,6 +1396,7 @@ export function SellerCatalogTab({
     setAddCompanyId("");
     setAddAllBrands(true);
     setAddBrandIds([]);
+    setAddOperationMode("distributor");
     setAddOpen(true);
   };
 
@@ -1324,8 +1407,40 @@ export function SellerCatalogTab({
   };
 
   const persistSelections = (next: CompanyBrandSelection[]) => {
+    const before = deriveSellerType(seller);
     const updated = updateCompanyBrandSelections(seller.id, next);
-    if (updated) onChange(updated);
+    if (updated) {
+      onChange(updated);
+      // Surface the automatic recalculation whenever a mapping change
+      // flips the seller type (e.g. first wholesaler company → Hybrid).
+      const after = deriveSellerType(updated);
+      if (after !== before) {
+        toast.info(
+          `Seller type recalculated: ${SELLER_TYPE_LABELS[before]} → ${SELLER_TYPE_LABELS[after]}`,
+        );
+      }
+    }
+  };
+
+  const confirmModeChange = () => {
+    if (!pendingModeChange) return;
+    const company = companies.find(
+      (c) => c.id === pendingModeChange.companyId,
+    );
+    const next: CompanyBrandSelection[] = selections.map((s) =>
+      s.companyId === pendingModeChange.companyId
+        ? { ...s, operationMode: pendingModeChange.nextMode }
+        : s,
+    );
+    persistSelections(next);
+    toast.success(
+      `${company?.name ?? "Company"} is now mapped as ${
+        pendingModeChange.nextMode === "wholesaler"
+          ? "Wholesaler"
+          : "Distributor"
+      }.`,
+    );
+    setPendingModeChange(null);
   };
 
   const handleAddSubmit = () => {
@@ -1347,10 +1462,15 @@ export function SellerCatalogTab({
       {
         companyId: addCompanyId,
         brandIds: addAllBrands ? [] : addBrandIds,
+        operationMode: addOperationMode,
       },
     ];
     persistSelections(next);
-    toast.success(`Linked "${company?.name ?? "company"}" to seller`);
+    toast.success(
+      `Linked "${company?.name ?? "company"}" as ${
+        addOperationMode === "wholesaler" ? "Wholesaler" : "Distributor"
+      }`,
+    );
     setAddOpen(false);
   };
 
@@ -1363,8 +1483,9 @@ export function SellerCatalogTab({
             Companies &amp; Brands
           </h3>
           <p className="text-sm text-gray-500">
-            Companies and brands this distributor sells. Add more to grant
-            access to additional catalog products.
+            Companies and brands this seller works with, each mapped as
+            Distributor or Wholesaler. The seller type is calculated from
+            these operation modes.
           </p>
         </div>
         <Button
@@ -1433,6 +1554,9 @@ export function SellerCatalogTab({
             // covers the catalog company status.
             const isCompanyInactive = company.isActive === false;
             const isInactiveSeller = isInactive;
+            const mode: OperationMode = sel.operationMode ?? "distributor";
+            const otherMode: OperationMode =
+              mode === "distributor" ? "wholesaler" : "distributor";
             return (
               <div
                 key={sel.companyId}
@@ -1455,6 +1579,15 @@ export function SellerCatalogTab({
                       <p className="text-sm font-semibold text-gray-900">
                         {company.name}
                       </p>
+                      <Badge
+                        className={
+                          mode === "wholesaler"
+                            ? "bg-amber-50 text-amber-700 border-amber-200 text-[10px]"
+                            : "bg-blue-50 text-blue-700 border-blue-200 text-[10px]"
+                        }
+                      >
+                        {mode === "wholesaler" ? "Wholesaler" : "Distributor"}
+                      </Badge>
                       {isCompanyInactive && (
                         <Badge className="bg-gray-100 text-gray-600 border-gray-200 text-[10px]">
                           Inactive in catalog
@@ -1496,20 +1629,43 @@ export function SellerCatalogTab({
                       pruning and the Use-all-brands toggle, so power
                       users keep their full kit; we just don't expose
                       a second button for it. */}
-                  <Button
-                    size="sm"
-                    className="gap-1.5 shrink-0"
-                    onClick={() => openEdit(sel.companyId)}
-                    disabled={isInactiveSeller}
-                    title={
-                      isInactiveSeller
-                        ? "Activate this seller before adding brands"
-                        : `Add more brands for ${company.name}`
-                    }
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    Add Brands
-                  </Button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5"
+                      onClick={() =>
+                        setPendingModeChange({
+                          companyId: sel.companyId,
+                          nextMode: otherMode,
+                        })
+                      }
+                      disabled={isInactiveSeller}
+                      title={
+                        isInactiveSeller
+                          ? "Activate this seller before changing the operation mode"
+                          : `Change ${company.name} to ${otherMode === "wholesaler" ? "Wholesaler" : "Distributor"} mode`
+                      }
+                    >
+                      <ArrowRight className="h-3.5 w-3.5" />
+                      Switch to{" "}
+                      {otherMode === "wholesaler" ? "Wholesaler" : "Distributor"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="gap-1.5"
+                      onClick={() => openEdit(sel.companyId)}
+                      disabled={isInactiveSeller}
+                      title={
+                        isInactiveSeller
+                          ? "Activate this seller before adding brands"
+                          : `Add more brands for ${company.name}`
+                      }
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Add Brands
+                    </Button>
+                  </div>
                 </div>
               </div>
             );
@@ -1561,6 +1717,32 @@ export function SellerCatalogTab({
                   on an existing company below to extend its brand list.
                 </p>
               )}
+            </div>
+
+            {/* Operation Mode — per-company Distributor/Wholesaler
+                choice made at link time. Drives the calculated seller
+                type and which serviceability model the company uses. */}
+            <div className="space-y-1">
+              <Label className="text-xs">
+                Operation Mode <span className="text-red-500">*</span>
+              </Label>
+              <Select
+                value={addOperationMode}
+                onValueChange={(v) => setAddOperationMode(v as OperationMode)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="distributor">Distributor</SelectItem>
+                  <SelectItem value="wholesaler">Wholesaler</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-gray-500">
+                {addOperationMode === "wholesaler"
+                  ? "Wholesaler companies share the seller's single wholesaler polygon for serviceability — it's inherited automatically."
+                  : "Distributor companies use Delivery Beats for serviceability."}
+              </p>
             </div>
 
             {selectedAddCompany && (
@@ -1776,6 +1958,85 @@ export function SellerCatalogTab({
               })()}
             >
               Add Brands
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Operation-mode change confirmation — Distributor ↔ Wholesaler
+          after setup is an edge case with downstream impact
+          (serviceability, business config), so it always routes
+          through this explicit review step before taking effect. */}
+      <Dialog
+        open={pendingModeChange !== null}
+        onOpenChange={(o) => !o && setPendingModeChange(null)}
+      >
+        <DialogContent showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-amber-600" />
+              Change operation mode?
+            </DialogTitle>
+            <DialogDescription>
+              {(() => {
+                const company = companies.find(
+                  (c) => c.id === pendingModeChange?.companyId,
+                );
+                const nextLabel =
+                  pendingModeChange?.nextMode === "wholesaler"
+                    ? "Wholesaler"
+                    : "Distributor";
+                return (
+                  <>
+                    You're switching <b>{company?.name ?? "this company"}</b>{" "}
+                    to <b>{nextLabel}</b> mode. This impacts serviceability
+                    and business configuration:
+                  </>
+                );
+              })()}
+            </DialogDescription>
+          </DialogHeader>
+          <ul className="text-sm text-gray-700 list-disc list-inside space-y-1 py-2">
+            {pendingModeChange?.nextMode === "wholesaler" ? (
+              <>
+                <li>
+                  The company stops using Delivery Beats and inherits the
+                  seller's shared <b>Wholesaler Polygon</b> automatically.
+                </li>
+                <li>
+                  Existing delivery beats for this company are kept but no
+                  longer drive its serviceability.
+                </li>
+              </>
+            ) : (
+              <>
+                <li>
+                  The company leaves the shared Wholesaler Polygon and needs{" "}
+                  <b>Delivery Beats</b> configured in Serviceability.
+                </li>
+                <li>
+                  Until beats are added, the company has no serviceable area.
+                </li>
+              </>
+            )}
+            <li>The seller type is recalculated automatically.</li>
+            <li className="text-amber-800">
+              In production this change is submitted for <b>approval</b>{" "}
+              before taking effect.
+            </li>
+          </ul>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setPendingModeChange(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmModeChange}
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              Yes, Change Mode
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -23,13 +23,15 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Company, getCompanies, revokeImage, subscribeToCompanies } from "../../lib/admin-catalog";
-import { addSeller } from "../../lib/mock-store";
+import { addSeller, deriveSellerType, type OperationMode } from "../../lib/mock-store";
 import { ImageUploader } from "../../components/ui/image-uploader";
 import { CompanyComboBox } from "../../components/company-combobox";
+import { SellerTypeBadge } from "../../components/seller-type-badge";
 
 interface SellerCompanySelection {
   companyId: string;
   brandIds: string[]; // empty array means "all brands of this company"
+  operationMode: OperationMode;
 }
 
 export function AdminAddUser() {
@@ -39,11 +41,6 @@ export function AdminAddUser() {
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [businessName, setBusinessName] = useState("");
-  // Seller type is a single choice — either "distributor" or
-  // "wholesaler", never both. Defaults to distributor.
-  const [sellerType, setSellerType] = useState<"distributor" | "wholesaler">(
-    "distributor",
-  );
   // Structured address — captured during creation so serviceability and other
   // location-aware modules can reuse the seller's coordinates and pin.
   const [pinCode, setPinCode] = useState("");
@@ -168,8 +165,22 @@ export function AdminAddUser() {
   const [companies, setCompanies] = useState<Company[]>(getCompanies());
   useEffect(() => subscribeToCompanies(() => setCompanies([...getCompanies()])), []);
   const [selections, setSelections] = useState<SellerCompanySelection[]>([
-    { companyId: "", brandIds: [] },
+    { companyId: "", brandIds: [], operationMode: "distributor" },
   ]);
+
+  // Seller type is no longer picked manually — it's calculated live
+  // from the operation modes of the companies added below.
+  const derivedSellerType = useMemo(() => {
+    const complete = selections.filter((s) => s.companyId !== "");
+    if (complete.length === 0) return null;
+    return deriveSellerType({
+      companyBrandSelections: complete.map((s) => ({
+        companyId: s.companyId,
+        brandIds: s.brandIds,
+        operationMode: s.operationMode,
+      })),
+    });
+  }, [selections]);
 
   // ---- Selection helpers ----
   const usedCompanyIds = useMemo(
@@ -178,7 +189,10 @@ export function AdminAddUser() {
   );
 
   const addCompanyRow = () => {
-    setSelections((prev) => [...prev, { companyId: "", brandIds: [] }]);
+    setSelections((prev) => [
+      ...prev,
+      { companyId: "", brandIds: [], operationMode: "distributor" },
+    ]);
   };
 
   const removeCompanyRow = (idx: number) => {
@@ -187,9 +201,19 @@ export function AdminAddUser() {
 
   const setCompanyForRow = (idx: number, companyId: string) => {
     setSelections((prev) =>
-      prev.map((s, i) => (i === idx ? { companyId, brandIds: [] } : s)),
+      prev.map((s, i) =>
+        i === idx
+          ? { companyId, brandIds: [], operationMode: s.operationMode }
+          : s,
+      ),
     );
     clearError("companies");
+  };
+
+  const setOperationModeForRow = (idx: number, operationMode: OperationMode) => {
+    setSelections((prev) =>
+      prev.map((s, i) => (i === idx ? { ...s, operationMode } : s)),
+    );
   };
 
   const toggleBrandForRow = (idx: number, brandId: string) => {
@@ -293,7 +317,6 @@ export function AdminAddUser() {
         name: fullName.trim(),
         phone: phone.trim(),
         businessName: businessName.trim(),
-        sellerType,
         city: city.trim(),
         state: state.trim(),
         pinCode: pinCode.trim(),
@@ -307,6 +330,7 @@ export function AdminAddUser() {
         companyBrandSelections: completeRows.map((r) => ({
           companyId: r.companyId,
           brandIds: r.brandIds,
+          operationMode: r.operationMode,
         })),
       });
       setIsSaving(false);
@@ -424,26 +448,20 @@ export function AdminAddUser() {
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label>
-                    Seller Type <span className="text-red-500">*</span>
-                  </Label>
-                  <Select
-                    value={sellerType}
-                    onValueChange={(v) =>
-                      setSellerType(v as "distributor" | "wholesaler")
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="distributor">Distributor</SelectItem>
-                      <SelectItem value="wholesaler">Wholesaler</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label>Seller Type</Label>
+                  <div className="flex items-center h-9 px-3 rounded-md border border-gray-200 bg-gray-50">
+                    {derivedSellerType ? (
+                      <SellerTypeBadge type={derivedSellerType} />
+                    ) : (
+                      <span className="text-sm text-gray-400">
+                        Link companies below to calculate
+                      </span>
+                    )}
+                  </div>
                   <p className="text-[11px] text-gray-500">
-                    Choose either Distributor or Wholesaler — a seller can be
-                    only one type.
+                    Calculated automatically from the Operation Mode of the
+                    linked companies — a mix of Distributor and Wholesaler
+                    makes the seller <b>Hybrid</b>.
                   </p>
                 </div>
                 {/* Structured address — PIN drives city/state lookup so the
@@ -602,9 +620,11 @@ export function AdminAddUser() {
                 Companies & Brands the Seller Works With
               </CardTitle>
               <p className="text-xs text-gray-500 mt-1">
-                Select at least one company. For each company you can either pick
-                specific brands or use <b>All brands</b> to auto-include any future
-                brands added to that company.
+                Select at least one company and set its <b>Operation Mode</b> —
+                whether the seller acts as that company's Distributor or
+                Wholesaler. For each company you can either pick specific brands
+                or use <b>All brands</b> to auto-include any future brands added
+                to that company.
               </p>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -644,6 +664,29 @@ export function AdminAddUser() {
                             };
                           })}
                         />
+                      </div>
+                      {/* Operation Mode — how the seller serves THIS
+                          company. Drives the calculated Seller Type and
+                          which serviceability model (Beats vs Wholesaler
+                          Polygon) the company uses. */}
+                      <div className="w-[180px] space-y-1">
+                        <Label className="text-xs">
+                          Operation Mode <span className="text-red-500">*</span>
+                        </Label>
+                        <Select
+                          value={sel.operationMode}
+                          onValueChange={(v) =>
+                            setOperationModeForRow(idx, v as OperationMode)
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="distributor">Distributor</SelectItem>
+                            <SelectItem value="wholesaler">Wholesaler</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div className="pt-5">
                         <Button
