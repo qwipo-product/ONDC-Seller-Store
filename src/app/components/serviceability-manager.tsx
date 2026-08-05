@@ -301,7 +301,7 @@ export function PolygonCell({
 // express slot was retired from the UI on June 26, and Sunday was
 // removed on July 8 (Sundays are non-delivery days per Qwipo ops), so
 // the picker now shows Monday → Saturday in a 4-column grid.
-function DayPicker({
+export function DayPicker({
   selected,
   onChange,
 }: {
@@ -443,6 +443,7 @@ export function ServiceabilityManager({
   warehouse,
   seller,
   excludeCompanyIds,
+  title = "Delivery Beats",
 }: {
   /** Distributor's warehouse location — pinned on the Map View. */
   warehouse?: WarehousePoint | null;
@@ -459,6 +460,9 @@ export function ServiceabilityManager({
    * beats for these companies stay visible/editable.
    */
   excludeCompanyIds?: string[];
+  /** Section heading — overridden when rendered as one of the stacked
+   *  "Delivery Beats – Distributor / Wholesaler" sections. */
+  title?: string;
 } = {}) {
   const [allAdminCompanies, setAllAdminCompanies] = useState<
     AdminCatalogCompany[]
@@ -903,7 +907,7 @@ export function ServiceabilityManager({
       <div className="flex items-start justify-between gap-4 mb-4">
         <div>
           <h3 className="text-base font-semibold text-gray-900">
-            Delivery Beats
+            {title}
           </h3>
           <p className="text-sm text-gray-500 max-w-2xl">
             Configure delivery zones once for any number of companies. One

@@ -23,10 +23,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Company, getCompanies, revokeImage, subscribeToCompanies } from "../../lib/admin-catalog";
-import { addSeller, deriveSellerType, type OperationMode } from "../../lib/mock-store";
+import { addSeller, type OperationMode } from "../../lib/mock-store";
 import { ImageUploader } from "../../components/ui/image-uploader";
 import { CompanyComboBox } from "../../components/company-combobox";
-import { SellerTypeBadge } from "../../components/seller-type-badge";
 
 interface SellerCompanySelection {
   companyId: string;
@@ -167,20 +166,6 @@ export function AdminAddUser() {
   const [selections, setSelections] = useState<SellerCompanySelection[]>([
     { companyId: "", brandIds: [], operationMode: "distributor" },
   ]);
-
-  // Seller type is no longer picked manually — it's calculated live
-  // from the operation modes of the companies added below.
-  const derivedSellerType = useMemo(() => {
-    const complete = selections.filter((s) => s.companyId !== "");
-    if (complete.length === 0) return null;
-    return deriveSellerType({
-      companyBrandSelections: complete.map((s) => ({
-        companyId: s.companyId,
-        brandIds: s.brandIds,
-        operationMode: s.operationMode,
-      })),
-    });
-  }, [selections]);
 
   // ---- Selection helpers ----
   const usedCompanyIds = useMemo(
@@ -447,23 +432,9 @@ export function AdminAddUser() {
                     <p className="text-[11px] text-red-600">{errors.businessName}</p>
                   )}
                 </div>
-                <div className="space-y-2">
-                  <Label>Seller Type</Label>
-                  <div className="flex items-center h-9 px-3 rounded-md border border-gray-200 bg-gray-50">
-                    {derivedSellerType ? (
-                      <SellerTypeBadge type={derivedSellerType} />
-                    ) : (
-                      <span className="text-sm text-gray-400">
-                        Link companies below to calculate
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-[11px] text-gray-500">
-                    Calculated automatically from the Operation Mode of the
-                    linked companies — a mix of Distributor and Wholesaler
-                    makes the seller <b>Hybrid</b>.
-                  </p>
-                </div>
+                {/* Seller Type field removed — it's derived from the
+                    Operation Mode of the companies linked below, so
+                    there's nothing to show or pick here. */}
                 {/* Structured address — PIN drives city/state lookup so the
                     seller record stays consistent with the actual postcode. */}
                 <div className="space-y-2">

@@ -43,7 +43,6 @@ import {
   ArrowRight,
   MapPin,
   Truck,
-  Warehouse,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -780,38 +779,28 @@ export function AdminSellerDetail() {
                 Manage Seller view, so admins can configure delivery
                 zones for any seller from a single place. */}
             <TabsContent value="serviceability" className="p-6 mt-0">
-              {/* Sub-tabs — Distributor (Delivery Beats) and Wholesaler
-                  (shared polygon) side by side, both always available so
-                  either configuration is one click away. The default tab
-                  follows the calculated seller type. */}
-              <Tabs
-                defaultValue={
-                  sellerType === "wholesaler" ? "wholesaler" : "distributor"
-                }
-                className="w-full"
-              >
-                <TabsList className="bg-gray-100 p-1 rounded-lg inline-flex gap-1 h-auto mb-5">
-                  <TabsTrigger
-                    value="distributor"
-                    className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2"
-                  >
-                    <Truck className="h-4 w-4 mr-2" />
-                    Distributor Serviceability
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="wholesaler"
-                    className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2"
-                  >
-                    <Warehouse className="h-4 w-4 mr-2" />
-                    Wholesaler Serviceability
-                  </TabsTrigger>
-                </TabsList>
+              {/* Stacked sections (tabs removed) — Delivery Beats –
+                  Distributor on top, Delivery Beats – Wholesaler below,
+                  separated by a divider. Both are always visible, so the
+                  page just scrolls vertically; each section's header row
+                  keeps its CTAs horizontal on the right. */}
+              <div className="flex flex-col gap-8">
+                {/* Delivery Beats – Wholesaler — ONE polygon shared by
+                    all wholesaler-mode companies. Kept compact and on
+                    top per product direction. */}
+                <section>
+                  <WholesalerServiceability
+                    seller={seller}
+                    onChange={setSeller}
+                  />
+                </section>
 
                 {/* Distributor Delivery Beats — unchanged behaviour;
                     wholesaler-mode companies are excluded from the
                     Add-beat picker. */}
-                <TabsContent value="distributor" className="mt-0">
+                <section className="border-t border-gray-200 pt-6">
                   <ServiceabilityManager
+                    title="Delivery Beats – Distributor"
                     seller={{ id: seller.id, name: seller.name }}
                     excludeCompanyIds={wholesalerCompanyIds}
                     warehouse={
@@ -834,17 +823,8 @@ export function AdminSellerDetail() {
                         : undefined
                     }
                   />
-                </TabsContent>
-
-                {/* Wholesaler Serviceability — ONE polygon shared by
-                    all wholesaler-mode companies. */}
-                <TabsContent value="wholesaler" className="mt-0">
-                  <WholesalerServiceability
-                    seller={seller}
-                    onChange={setSeller}
-                  />
-                </TabsContent>
-              </Tabs>
+                </section>
+              </div>
             </TabsContent>
           </Tabs>
         </Card>

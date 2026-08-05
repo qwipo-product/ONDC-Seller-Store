@@ -3,6 +3,7 @@
 // Phase 1 is UI-only, so everything is client-side.
 
 import { PROD_REPLICA_SELLERS } from "./prod-replica-sellers-seed";
+import type { DeliveryDay } from "./customers-data";
 
 export type RequestStatus = "pending" | "approved" | "rejected";
 
@@ -145,13 +146,18 @@ export function deriveSellerType(
   return hasWholesaler ? "wholesaler" : "distributor";
 }
 
-/** The seller's single wholesaler delivery polygon. It applies to
- *  EVERY company mapped as Wholesaler — including companies linked
- *  later — so there is exactly one per seller, not one per company. */
+/** One wholesaler delivery polygon. A seller can hold SEVERAL — e.g.
+ *  one zone for Monday, another for Tuesday — but none is company-
+ *  specific: every polygon applies to EVERY company mapped as
+ *  Wholesaler, including companies linked later. */
 export interface WholesalerPolygon {
+  id: string;
   fileName: string;
   data?: unknown;
   updatedAt: string; // ISO
+  /** Days this zone is served on — picked in the Upload Polygon
+   *  dialog (no beat name / company; days + polygon only). */
+  deliveryDays?: DeliveryDay[];
 }
 
 export interface Seller {
@@ -185,9 +191,12 @@ export interface Seller {
   managedCompanies: string[]; // legacy Qwipo company ids
   /** Companies & brands attached to this seller (added via Add Seller flow) */
   companyBrandSelections?: CompanyBrandSelection[];
-  /** One polygon covering all wholesaler-mode companies. Only present
-   *  once uploaded from the Wholesaler Serviceability section. */
+  /** Legacy single polygon — superseded by wholesalerPolygons; kept
+   *  so records saved before the multi-polygon change still load. */
   wholesalerPolygon?: WholesalerPolygon | null;
+  /** Day-wise wholesaler zones. Each applies to ALL wholesaler-mode
+   *  companies; uploaded from the Delivery Beats – Wholesaler section. */
+  wholesalerPolygons?: WholesalerPolygon[];
   approvedAt?: string;
 }
 
@@ -495,13 +504,59 @@ export function updateCompanyBrandSelections(
   });
 }
 
-// ---- Wholesaler serviceability polygon ----
+// ---- Wholesaler serviceability polygons (day-wise, seller-wide) ----
 
-export function updateSellerWholesalerPolygon(
+/** Read a seller's wholesaler zones, folding a legacy single-polygon
+ *  record (pre multi-polygon) into the array shape. */
+export function getSellerWholesalerPolygons(
+  seller: Pick<Seller, "wholesalerPolygon" | "wholesalerPolygons">,
+): WholesalerPolygon[] {
+  if (seller.wholesalerPolygons) return seller.wholesalerPolygons;
+  if (seller.wholesalerPolygon)
+    return [{ id: "wp-legacy", ...seller.wholesalerPolygon }];
+  return [];
+}
+
+export function makeWholesalerPolygonId(): string {
+  return `wp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+/** Add or replace one wholesaler polygon (matched by id). Clears the
+ *  legacy single-polygon field by migrating it into the array first. */
+export function upsertSellerWholesalerPolygon(
   id: string,
-  polygon: WholesalerPolygon | null,
+  polygon: WholesalerPolygon,
 ): Seller | null {
-  return writeSeller(id, (s) => ({ ...s, wholesalerPolygon: polygon }));
+  return writeSeller(id, (s) => {
+    const list = getSellerWholesalerPolygons(s);
+    const exists = list.some((p) => p.id === polygon.id);
+    const next = exists
+      ? list.map((p) => (p.id === polygon.id ? polygon : p))
+      : [...list, polygon];
+    return { ...s, wholesalerPolygon: null, wholesalerPolygons: next };
+  });
+}
+
+export function removeSellerWholesalerPolygon(
+  id: string,
+  polygonId: string,
+): Seller | null {
+  return writeSeller(id, (s) => ({
+    ...s,
+    wholesalerPolygon: null,
+    wholesalerPolygons: getSellerWholesalerPolygons(s).filter(
+      (p) => p.id !== polygonId,
+    ),
+  }));
+}
+
+/** Delete every wholesaler zone — the card-level trash action. */
+export function clearSellerWholesalerPolygons(id: string): Seller | null {
+  return writeSeller(id, (s) => ({
+    ...s,
+    wholesalerPolygon: null,
+    wholesalerPolygons: [],
+  }));
 }
 
 // Toggle a seller's active flag. Inactive sellers cannot log in or have new
