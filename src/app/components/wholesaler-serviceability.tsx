@@ -153,7 +153,7 @@ export function WholesalerServiceability({
       fileName:
         draftPolygon.file?.name ??
         draftPolygon.existingName ??
-        "wholesaler-zone.geojson",
+        "wholesale-zone.geojson",
       data: draftPolygon.data,
       updatedAt: new Date().toISOString(),
       deliveryDays: sortDeliveryDays(draftDays),
@@ -163,8 +163,8 @@ export function WholesalerServiceability({
       onChange(updated);
       toast.success(
         editingId
-          ? `Wholesaler polygon updated — applies to ${wholesalerCompanies.length} wholesaler compan${wholesalerCompanies.length === 1 ? "y" : "ies"}.`
-          : `Wholesaler polygon added — applies to ${wholesalerCompanies.length} wholesaler compan${wholesalerCompanies.length === 1 ? "y" : "ies"}.`,
+          ? `Wholesale polygon updated — applies to ${wholesalerCompanies.length} wholesale compan${wholesalerCompanies.length === 1 ? "y" : "ies"}.`
+          : `Wholesale polygon added — applies to ${wholesalerCompanies.length} wholesale compan${wholesalerCompanies.length === 1 ? "y" : "ies"}.`,
       );
     }
     setDialogOpen(false);
@@ -199,21 +199,21 @@ export function WholesalerServiceability({
     const updated = removeSellerWholesalerPolygon(seller.id, polygonId);
     if (updated) {
       onChange(updated);
-      toast.success("Wholesaler polygon removed.");
+      toast.success("Wholesale polygon removed.");
     }
   };
 
   const handleRemoveAll = () => {
     if (
       !window.confirm(
-        `Remove all ${polygons.length} wholesaler polygon${polygons.length === 1 ? "" : "s"}? Wholesaler companies will have no serviceable area until a new zone is uploaded. This can't be undone.`,
+        `Remove all ${polygons.length} wholesale polygon${polygons.length === 1 ? "" : "s"}? Wholesale companies will have no serviceable area until a new zone is uploaded. This can't be undone.`,
       )
     )
       return;
     const updated = clearSellerWholesalerPolygons(seller.id);
     if (updated) {
       onChange(updated);
-      toast.success("Cleared wholesaler zones");
+      toast.success("Cleared wholesale zones");
     }
   };
 
@@ -223,12 +223,12 @@ export function WholesalerServiceability({
         <div>
           <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
             <Warehouse className="h-4 w-4 text-amber-600" />
-            Delivery Beats – Wholesaler
+            Delivery Beats – Wholesale
           </h3>
           <p className="text-sm text-gray-500 max-w-2xl">
             Day-wise delivery polygons that cover <b>all</b> companies mapped
-            as Wholesaler — no per-company zones. Companies linked as
-            Wholesaler later inherit every zone automatically.
+            as Wholesale — no per-company zones. Companies linked as
+            Wholesale later inherit every zone automatically.
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -240,7 +240,7 @@ export function WholesalerServiceability({
             onClick={() => setMapPolygonId("all")}
             title={
               polygons.length > 0
-                ? "View every wholesaler zone on a map"
+                ? "View every wholesale zone on a map"
                 : "Upload a polygon first to see it on the map"
             }
           >
@@ -261,7 +261,7 @@ export function WholesalerServiceability({
         </span>
         {wholesalerCompanies.length === 0 ? (
           <span className="text-xs text-gray-500">
-            No companies mapped as Wholesaler yet.
+            No companies mapped as Wholesale yet.
           </span>
         ) : (
           wholesalerCompanies.map((c) => (
@@ -295,7 +295,7 @@ export function WholesalerServiceability({
                 </div>
                 <div className="text-left min-w-0">
                   <div className="font-semibold text-sm text-gray-900 truncate">
-                    Wholesaler Zones
+                    Wholesale Zones
                   </div>
                   <div className="text-[11px] text-gray-500 mt-0.5 flex items-center gap-2 flex-wrap">
                     <Badge
@@ -334,7 +334,7 @@ export function WholesalerServiceability({
                     }
                   }}
                   className="inline-flex items-center gap-1 h-8 px-2.5 rounded-md border border-gray-200 bg-white hover:bg-amber-50 text-xs font-medium text-gray-700 cursor-pointer"
-                  title="View every wholesaler zone on the map"
+                  title="View every wholesale zone on the map"
                 >
                   <MapIcon className="h-3.5 w-3.5" />
                   Map
@@ -373,7 +373,7 @@ export function WholesalerServiceability({
                     }
                   }}
                   className="inline-flex items-center justify-center h-8 w-8 rounded-md border border-gray-200 bg-white hover:bg-red-50 text-red-600 cursor-pointer"
-                  aria-label="Remove all wholesaler zones"
+                  aria-label="Remove all wholesale zones"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </span>
@@ -470,11 +470,11 @@ export function WholesalerServiceability({
         <div className="text-center py-6 border-2 border-dashed rounded-lg">
           <Warehouse className="h-8 w-8 mx-auto text-gray-300 mb-1.5" />
           <p className="text-sm font-medium text-gray-600">
-            No wholesaler polygon uploaded yet
+            No wholesale polygon uploaded yet
           </p>
           <p className="text-xs text-gray-500 mt-0.5">
             Use <b>Upload polygon</b> above — add one zone per set of delivery
-            days; every zone covers all Wholesaler-mode companies.
+            days; every zone covers all Wholesale-mode companies.
           </p>
         </div>
       )}
@@ -493,12 +493,12 @@ export function WholesalerServiceability({
                 <Upload className="h-5 w-5 text-amber-600" />
               )}
               {editingId
-                ? "Edit Wholesaler Polygon"
-                : "Upload Wholesaler Polygon"}
+                ? "Edit Wholesale Polygon"
+                : "Upload Wholesale Polygon"}
             </DialogTitle>
             <DialogDescription>
               One zone per set of delivery days — pick the days and upload the
-              GeoJSON polygon. Every zone applies to all Wholesaler-mode
+              GeoJSON polygon. Every zone applies to all Wholesale-mode
               companies; no beat name or company selection needed.
             </DialogDescription>
           </DialogHeader>
@@ -526,8 +526,8 @@ export function WholesalerServiceability({
               <p className="text-[11px] text-gray-500">
                 Required — the zone applies to{" "}
                 {wholesalerCompanies.length === 0
-                  ? "all wholesaler-mode companies"
-                  : `${wholesalerCompanies.length} wholesaler compan${wholesalerCompanies.length === 1 ? "y" : "ies"}`}{" "}
+                  ? "all wholesale-mode companies"
+                  : `${wholesalerCompanies.length} wholesale compan${wholesalerCompanies.length === 1 ? "y" : "ies"}`}{" "}
                 at once.
               </p>
               {draftPolygon.data != null &&
@@ -567,12 +567,12 @@ export function WholesalerServiceability({
             <DialogTitle className="flex items-center gap-2">
               <MapIcon className="h-5 w-5 text-amber-600" />
               {mapPolygonId === "all"
-                ? "Wholesaler Zones — Map View"
-                : "Wholesaler Zone — Map View"}
+                ? "Wholesale Zones — Map View"
+                : "Wholesale Zone — Map View"}
             </DialogTitle>
             <DialogDescription>
               {mapPolygonId === "all"
-                ? `Every wholesaler zone (${polygons.length}) — all apply to every Wholesaler-mode company.`
+                ? `Every wholesale zone (${polygons.length}) — all apply to every Wholesale-mode company.`
                 : mapPolygon
                   ? `${mapPolygon.fileName}${
                       (mapPolygon.deliveryDays?.length ?? 0) > 0
