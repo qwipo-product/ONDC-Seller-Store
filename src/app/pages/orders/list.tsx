@@ -2517,9 +2517,8 @@ export function Orders() {
       </Dialog>
 
       {/* Request 3PL Logistics Dialog — the hand-off is one-way from
-          the seller's side, so it gets a confirmation step. The copy
-          stays in the seller's language: they're arranging delivery,
-          not dispatching to a named network. */}
+          the seller's side, so it gets a confirmation step. Kept to a
+          plain confirm, matching the other bulk dialogs on this page. */}
       <Dialog
         open={isRequestLogisticsDialogOpen}
         onOpenChange={setIsRequestLogisticsDialogOpen}
@@ -2537,21 +2536,6 @@ export function Orders() {
               to the logistics partner for delivery.
             </DialogDescription>
           </DialogHeader>
-
-          <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-            <p className="font-medium">What happens next</p>
-            <ul className="mt-2 space-y-1 text-blue-800">
-              <li>
-                • These orders leave your Confirmed list — the partner takes over the delivery.
-              </li>
-              <li>
-                • They return under Delivered once the delivery partner completes them.
-              </li>
-              <li>
-                • Any orders you don't send stay here and can still be marked delivered yourself.
-              </li>
-            </ul>
-          </div>
 
           <DialogFooter>
             <Button
