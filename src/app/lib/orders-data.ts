@@ -197,6 +197,21 @@ export interface Order {
    *  seed rows — {@link getOrderType} falls back to `beatName`. */
   orderType?: OrderType;
   /**
+   * Set when the seller has handed this order to the third-party
+   * logistics network. The order keeps `status: "Confirmed"` — the
+   * hand-off is a fulfilment route, not a new order state — but it
+   * leaves the seller's Confirmed tab because the delivery is no
+   * longer theirs to action. It returns to the seller's view in the
+   * Delivered tab once the delivery partner closes it out.
+   *
+   * Only meaningful when the seller has Logistics enabled.
+   */
+  logisticsRequested?: boolean;
+  /** When the 3PL hand-off was raised. ISO 8601. Set alongside
+   *  `logisticsRequested`; shown on the in-transit strip so the
+   *  seller can see how long an order has been with the partner. */
+  logisticsRequestedAt?: string;
+  /**
    * Reason recorded for a cancelled order. For seller-side
    * cancellations this is the option the seller picked in the Cancel
    * popup (Out of Stock / Delivery Issue / Pricing Error / Other);
@@ -1409,6 +1424,65 @@ export function updateOrderStatuses(
     return applyStatusUpdate(o, status, reason, cancelledBy);
   });
   if (mutated) notify();
+}
+
+/**
+ * Hand a batch of confirmed orders to the third-party logistics
+ * network. The orders keep `status: "Confirmed"` — from the buyer's
+ * and the network's point of view nothing about the order changed,
+ * only who is carrying it — but `logisticsRequested` takes them out
+ * of the seller's Confirmed working list so the seller isn't asked
+ * to action a delivery a partner now owns.
+ *
+ * Only orders currently sitting in Confirmed and not already handed
+ * over are affected; anything else in `ids` is ignored. Returns the
+ * number of orders actually handed over so the caller can phrase its
+ * confirmation accurately.
+ */
+export function requestLogisticsForOrders(ids: string[]): number {
+  const set = new Set(ids);
+  const stamp = new Date().toISOString();
+  let count = 0;
+  _orders = _orders.map((o) => {
+    if (!set.has(o.id)) return o;
+    if (o.status !== "Confirmed" || o.logisticsRequested) return o;
+    count++;
+    return { ...o, logisticsRequested: true, logisticsRequestedAt: stamp };
+  });
+  if (count > 0) notify();
+  return count;
+}
+
+/**
+ * Close out orders the delivery partner has completed. This is the
+ * inbound callback from the delivery-partner app via LBNP — it is
+ * deliberately NOT wired to any seller-facing control, because once
+ * an order is with the partner the seller has no say in when it
+ * completes. Clears the in-transit flags and flips the order to
+ * Delivered, which lands it in the seller's Delivered tab.
+ */
+export function completeLogisticsOrders(ids: string[]): number {
+  const set = new Set(ids);
+  let count = 0;
+  _orders = _orders.map((o) => {
+    if (!set.has(o.id) || !o.logisticsRequested) return o;
+    count++;
+    const { logisticsRequested: _lr, logisticsRequestedAt: _la, ...rest } = o;
+    void _lr;
+    void _la;
+    return {
+      ...rest,
+      status: "Delivered" as const,
+      actualDeliveryDate: o.actualDeliveryDate ?? DEMO_TODAY,
+    };
+  });
+  if (count > 0) notify();
+  return count;
+}
+
+/** Every order currently out with the logistics partner. */
+export function getLogisticsInTransitOrders(): Order[] {
+  return _orders.filter((o) => o.logisticsRequested && o.status === "Confirmed");
 }
 
 /** Status-write helper — single source of truth for the cancellation

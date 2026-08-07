@@ -19,8 +19,14 @@ export interface LogisticsSettings {
   enabled: boolean;
 }
 
+// Prototype default: Logistics ON. The 3PL hand-off flow on Orders →
+// Confirmed is the behaviour under review, so a seller who hasn't had
+// the connector explicitly switched on should still land in it rather
+// than in the pre-logistics view. Flip back to `false` to demo the
+// no-logistics case (or turn the connector off for a specific seller
+// from Super Admin → Seller → Logistics, which still wins over this).
 const DEFAULT: LogisticsSettings = {
-  enabled: false,
+  enabled: true,
 };
 
 const storageKey = (sellerId: string) => `${STORAGE_PREFIX}${sellerId}`;

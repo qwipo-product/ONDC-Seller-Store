@@ -107,7 +107,11 @@
       "Skill(run:*)",
       "PowerShell(\\(Get-Command node\\).Source; node -v; \\(Get-Command npm\\).Source)",
       "PowerShell(Get-Process node -ErrorAction SilentlyContinue)",
-      "PowerShell(Get-NetTCPConnection -LocalPort 5180 -State Listen -ErrorAction SilentlyContinue)"
+      "PowerShell(Get-NetTCPConnection -LocalPort 5180 -State Listen -ErrorAction SilentlyContinue)",
+      "Bash(markitdown \"/Users/nehasusanmanoj/Downloads/exported-data.xlsx\")",
+      "Bash(python3 -c ' *)",
+      "Bash(pandoc -t markdown \"/Users/nehasusanmanoj/Downloads/Call with Kiran Karumuri.docx\")",
+      "Bash(brew list *)"
     ]
   }
 }
