@@ -47,6 +47,9 @@ import {
   CalendarDays,
   CalendarPlus,
   MessageCircle,
+  ChevronDown,
+  Warehouse,
+  Layers,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "motion/react";
@@ -72,6 +75,10 @@ import {
   updateOrderStatuses,
   getOrdersToday,
   getOrderType,
+  getOrderOperationMode,
+  getOrderCompanyLabel,
+  getCustomerOrderId,
+  getCustomerGroupKind,
   isConfirmableDeliveryDay,
 } from "../../lib/orders-data";
 
@@ -129,6 +136,14 @@ export function Orders() {
     "all" | "beat" | "non-beat"
   >("all");
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
+  // Customer-order clubbing — orders born from the same buyer-app
+  // checkout share a customerOrderId and render as ONE expandable
+  // group row. Keyed by customer order id; absent → collapsed.
+  const [expandedGroups, setExpandedGroups] = useState<
+    Record<string, boolean>
+  >({});
+  const toggleGroup = (key: string) =>
+    setExpandedGroups((prev) => ({ ...prev, [key]: !prev[key] }));
   const [searchQuery, setSearchQuery] = useState("");
   const [marketplaceFilter, setMarketplaceFilter] = useState<string>("all");
   const [selectedBrandFilters, setSelectedBrandFilters] = useState<string[]>([]);
@@ -269,6 +284,9 @@ export function Orders() {
         tab === "all" ? true : order.status === statusMap[tab];
       const matchesSearch =
         order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        getCustomerOrderId(order)
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase()) ||
         order.retailerName.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesMarketplace =
         marketplaceFilter === "all" || order.marketplace === marketplaceFilter;
@@ -386,6 +404,9 @@ export function Orders() {
       if (o.status !== statusFilter) return false;
       const matchesSearch =
         o.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        getCustomerOrderId(o)
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase()) ||
         o.retailerName.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesMarketplace =
         marketplaceFilter === "all" || o.marketplace === marketplaceFilter;
@@ -462,6 +483,9 @@ export function Orders() {
       if (o.status !== "Cancelled") return false;
       const matchesSearch =
         o.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        getCustomerOrderId(o)
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase()) ||
         o.retailerName.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesMarketplace =
         marketplaceFilter === "all" || o.marketplace === marketplaceFilter;
@@ -840,15 +864,21 @@ export function Orders() {
       return;
     }
 
-    // 26-column layout — one row per line item; order-level fields
+    // 28-column layout — one row per line item; order-level fields
     // (Original Order Value, Order Level Savings, Final Order Value)
     // repeat on every row. The June 2026 review replaced the
     // Expected / Actual Delivery Date pair with a single Delivery
     // Day field, and added Order Type (Beat / Non-Beat) so finance
     // can reconcile by beat route without re-joining against the
     // settings sheet.
+    // "Parent Order No." (the buyer-app checkout's dummy number,
+    // repeated on every split order so finance can pivot a whole
+    // purchase together) sits beside Order ID; "Operation Mode"
+    // follows Company. Wholesale rows mask the company as
+    // "Wholesaler" — same as the list.
     const headers = [
       "Order ID",
+      "Parent Order No.",
       "Order Status",
       "Order Date",
       "Order Type",
@@ -865,6 +895,7 @@ export function Orders() {
       "SKU code",
       "Product Name",
       "Company",
+      "Operation Mode",
       "Brand",
       "Category",
       "QTY",
@@ -888,9 +919,11 @@ export function Orders() {
         0,
       );
       const finalOrderValue = order.orderValue;
+      const isWholesale = getOrderOperationMode(order) === "wholesale";
       lines.forEach((item) => {
         const row = [
           order.id,
+          getCustomerOrderId(order),
           statusLabelFor(order),
           orderDateLabelFor(order),
           getOrderType(order) === "beat" ? "Beat" : "Non-Beat",
@@ -906,7 +939,8 @@ export function Orders() {
           order.orderValue,
           item.skuCode,
           item.productName,
-          item.company,
+          isWholesale ? "Wholesaler" : item.company,
+          isWholesale ? "Wholesale" : "Distribution",
           item.brand,
           item.category,
           item.qty,
@@ -1037,6 +1071,38 @@ export function Orders() {
 
     const isActionable = activeTab === "new" || activeTab === "confirmed";
 
+    // ---- Customer-order clubbing ----
+    // One buyer-app checkout splits into several seller orders (one
+    // per distribution company + one consolidated wholesale order).
+    // Orders sharing a customerOrderId collapse into a single group
+    // band; clicking it drops down the member orders. Singleton
+    // groups render as plain rows — no band, no chevron.
+    type RenderItem =
+      | { type: "group"; key: string; orders: Order[] }
+      | { type: "order"; order: Order; inGroup: boolean };
+    const renderItems: RenderItem[] = [];
+    {
+      const byKey = new Map<string, { key: string; orders: Order[] }>();
+      const seq: { key: string; orders: Order[] }[] = [];
+      for (const o of ordersToRender) {
+        const key = getCustomerOrderId(o);
+        let g = byKey.get(key);
+        if (!g) {
+          g = { key, orders: [] };
+          byKey.set(key, g);
+          seq.push(g);
+        }
+        g.orders.push(o);
+      }
+      for (const g of seq) {
+        renderItems.push({ type: "group", key: g.key, orders: g.orders });
+        if (expandedGroups[g.key]) {
+          for (const o of g.orders) {
+            renderItems.push({ type: "order", order: o, inGroup: true });
+          }
+        }
+      }
+    }
     return (
       <div className="flex-1 overflow-auto">
         <table className="w-full">
@@ -1070,6 +1136,12 @@ export function Orders() {
               <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
                 Company
               </th>
+              {/* Operation Mode — Distribution / Wholesale. Hybrid
+                  sellers fulfil both models, so every row declares
+                  which one the order was placed under. */}
+              <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
+                Operation Mode
+              </th>
               <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
                 Business Name
               </th>
@@ -1102,10 +1174,238 @@ export function Orders() {
             </tr>
           </thead>
           <tbody>
-            {ordersToRender.map((order) => (
+            {renderItems.map((item) => {
+              if (item.type === "group") {
+                const kind = getCustomerGroupKind(item.orders);
+                const total = item.orders.reduce(
+                  (n, o) => n + o.orderValue,
+                  0,
+                );
+                const first = item.orders[0];
+                const expanded = !!expandedGroups[item.key];
+                const many = item.orders.length > 1;
+                // Aggregated cells — a uniform value renders normally,
+                // a mixed one reads "Mixed" until expanded. Company,
+                // Beat Name and Status stay EMPTY on the parent row —
+                // they belong to the individual orders inside it.
+                const uniq = <T,>(vals: T[]) => Array.from(new Set(vals));
+                const orderTypes = uniq(
+                  item.orders.map((o) => getOrderType(o)),
+                );
+                const marketplaces = uniq(
+                  item.orders.map((o) => o.marketplace),
+                );
+                const allSelected = item.orders.every((o) =>
+                  selectedOrders.includes(o.id),
+                );
+                return (
+                  <tr
+                    key={`grp-${item.key}`}
+                    className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors"
+                    onClick={() => toggleGroup(item.key)}
+                  >
+                    {isActionable && (
+                      <td
+                        className="px-3 py-2.5"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Checkbox
+                          checked={allSelected}
+                          onCheckedChange={(checked) => {
+                            const ids = item.orders.map((o) => o.id);
+                            setSelectedOrders((prev) =>
+                              checked
+                                ? [...new Set([...prev, ...ids])]
+                                : prev.filter((id) => !ids.includes(id)),
+                            );
+                          }}
+                        />
+                      </td>
+                    )}
+                    <td
+                      className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700 tabular-nums"
+                      title={
+                        first.orderTime
+                          ? `${first.orderDate} ${first.orderTime}`
+                          : first.orderDate
+                      }
+                    >
+                      {first.orderDate}
+                    </td>
+                    <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700 tabular-nums">
+                      {uniq(item.orders.map((o) => o.expectedDeliveryDate))
+                        .sort()[0] ?? ""}
+                    </td>
+                    {/* Order No. — the dummy number stamped on every
+                        seller order split out of one buyer purchase.
+                        Chevron + ×N flag the drop-down. */}
+                    <td className="px-3 py-2.5 whitespace-nowrap">
+                      <span className="inline-flex items-center gap-1.5">
+                        {expanded ? (
+                          <ChevronDown className="h-3.5 w-3.5 text-gray-500 shrink-0" />
+                        ) : (
+                          <ChevronRight className="h-3.5 w-3.5 text-gray-500 shrink-0" />
+                        )}
+                        <span onClick={(e) => e.stopPropagation()}>
+                          <CopyOnHover value={item.key} label="Order No.">
+                            <code
+                              className="text-[11px] bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded font-mono"
+                              title={item.key}
+                            >
+                              {item.key}
+                            </code>
+                          </CopyOnHover>
+                        </span>
+                        {many && (
+                          <Badge
+                            variant="secondary"
+                            className="bg-indigo-50 border border-indigo-200 text-indigo-700 text-[10px] h-5 px-1.5"
+                          >
+                            {item.orders.length} orders
+                          </Badge>
+                        )}
+                      </span>
+                    </td>
+                    {/* Company — always empty on the parent row; the
+                        member orders carry their own companies. */}
+                    <td className="px-3 py-2.5">
+                      <span className="text-xs text-gray-400">—</span>
+                    </td>
+                    <td className="px-3 py-2.5 whitespace-nowrap">
+                      {kind === "hybrid" ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-violet-200 bg-violet-50 text-[11px] font-medium text-violet-700">
+                          <Layers className="h-3 w-3" />
+                          Hybrid
+                        </span>
+                      ) : kind === "wholesale" ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-amber-200 bg-amber-50 text-[11px] font-medium text-amber-800">
+                          <Warehouse className="h-3 w-3" />
+                          Wholesale
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-indigo-200 bg-indigo-50 text-[11px] font-medium text-indigo-700">
+                          <Truck className="h-3 w-3" />
+                          Distribution
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <CopyOnHover
+                        value={first.retailerName}
+                        label="Business name"
+                      >
+                        <p
+                          className="text-sm font-medium text-gray-900 truncate max-w-[160px]"
+                          title={first.retailerName}
+                        >
+                          {first.retailerName}
+                        </p>
+                      </CopyOnHover>
+                    </td>
+                    <td className="px-3 py-2.5 whitespace-nowrap">
+                      {first.buyerContact ? (
+                        <p className="text-xs text-gray-700 font-mono">
+                          {first.buyerContact}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-gray-400">—</p>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5 whitespace-nowrap">
+                      {orderTypes.length > 1 ? (
+                        <span className="text-xs text-gray-500">Mixed</span>
+                      ) : orderTypes[0] === "beat" ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-emerald-200 bg-emerald-50 text-[11px] font-medium text-emerald-700">
+                          <Route className="h-3 w-3" />
+                          Beat
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-amber-200 bg-amber-50 text-[11px] font-medium text-amber-800">
+                          <Zap className="h-3 w-3" />
+                          Non-Beat
+                        </span>
+                      )}
+                    </td>
+                    {/* Beat Name — empty on the parent row. */}
+                    <td className="px-3 py-2.5 whitespace-nowrap">
+                      <span className="text-xs text-gray-400">—</span>
+                    </td>
+                    <td className="px-3 py-2.5 whitespace-nowrap text-right">
+                      <p className="text-sm font-semibold text-gray-900 tabular-nums">
+                        ₹{total.toFixed(2)}
+                      </p>
+                    </td>
+                    <td className="px-3 py-2.5 whitespace-nowrap">
+                      {marketplaces.length === 1 ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded border border-gray-200 bg-white text-[11px] font-medium text-gray-700">
+                          {marketplaces[0]}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-500">Mixed</span>
+                      )}
+                    </td>
+                    {/* Status — empty on the parent row; each member
+                        order shows its own status chip. */}
+                    <td className="px-3 py-2.5 whitespace-nowrap">
+                      <span className="text-xs text-gray-400">—</span>
+                    </td>
+                    {activeTab === "cancelled" && (
+                      <td className="px-3 py-2.5 max-w-[200px]">
+                        {first.cancellationReason ? (
+                          <p
+                            className="text-xs text-gray-700 truncate"
+                            title={first.cancellationReason}
+                          >
+                            {first.cancellationReason}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-gray-400 italic">—</p>
+                        )}
+                      </td>
+                    )}
+                    <td className="px-3 py-2.5 whitespace-nowrap">
+                      <div className="flex items-center justify-center gap-2">
+                        {many ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleGroup(item.key);
+                            }}
+                            title={expanded ? "Hide orders" : "View orders"}
+                          >
+                            {expanded ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4" />
+                            )}
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/orders/${first.id}`);
+                            }}
+                            title="View Details"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              }
+              const { order, inGroup } = item;
+              return (
               <tr
                 key={order.id}
-                className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${
+                  inGroup ? "bg-gray-50/60" : ""
+                }`}
               >
                 {isActionable && (
                   <td className="px-3 py-2.5">
@@ -1134,8 +1434,11 @@ export function Orders() {
                   {order.expectedDeliveryDate}
                 </td>
                 {/* Order ID — full ID rendered as a code chip with
-                    copy-on-hover. */}
-                <td className="px-3 py-2.5 whitespace-nowrap">
+                    copy-on-hover. Member orders of an expanded group
+                    indent under the group's chevron. */}
+                <td
+                  className={`${inGroup ? "pl-8 pr-3" : "px-3"} py-2.5 whitespace-nowrap`}
+                >
                   <CopyOnHover value={order.id} label="Order ID">
                     <code
                       className="text-[11px] bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded font-mono"
@@ -1145,13 +1448,30 @@ export function Orders() {
                     </code>
                   </CopyOnHover>
                 </td>
+                {/* Company — wholesale orders never show the real
+                    company; the consolidated order reads "Wholesaler". */}
                 <td className="px-3 py-2.5">
                   <p
                     className="text-sm font-medium text-gray-900 truncate max-w-[160px]"
-                    title={order.company}
+                    title={getOrderCompanyLabel(order)}
                   >
-                    {order.company}
+                    {getOrderCompanyLabel(order)}
                   </p>
+                </td>
+                {/* Operation Mode — which business model the order was
+                    placed under. Pairs with the group band's badge. */}
+                <td className="px-3 py-2.5 whitespace-nowrap">
+                  {getOrderOperationMode(order) === "wholesale" ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-amber-200 bg-amber-50 text-[11px] font-medium text-amber-800">
+                      <Warehouse className="h-3 w-3" />
+                      Wholesale
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-indigo-200 bg-indigo-50 text-[11px] font-medium text-indigo-700">
+                      <Truck className="h-3 w-3" />
+                      Distribution
+                    </span>
+                  )}
                 </td>
                 <td className="px-3 py-2.5">
                   <CopyOnHover value={order.retailerName} label="Business name">
@@ -1249,7 +1569,8 @@ export function Orders() {
                   </div>
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>

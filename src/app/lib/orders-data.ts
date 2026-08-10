@@ -77,6 +77,61 @@ export function getOrderType(o: {
   return o.orderType ?? (o.beatName ? "beat" : "standard");
 }
 
+/**
+ * Which business model the order was placed under — hybrid sellers
+ * fulfil both. Distribution orders are per company; wholesale orders
+ * consolidate every wholesale company into one order, so the real
+ * company is never shown for them (see {@link getOrderCompanyLabel}).
+ */
+export type OrderOperationMode = "distribution" | "wholesale";
+
+/** Explicit field wins; every pre-hybrid order is distribution. */
+export function getOrderOperationMode(o: {
+  operationMode?: OrderOperationMode;
+}): OrderOperationMode {
+  return o.operationMode ?? "distribution";
+}
+
+/** Company shown to the seller. Wholesale orders mask the real
+ *  company — list, export and detail all read "Wholesaler". */
+export function getOrderCompanyLabel(o: {
+  operationMode?: OrderOperationMode;
+  company: string;
+}): string {
+  return getOrderOperationMode(o) === "wholesale" ? "Wholesaler" : o.company;
+}
+
+/**
+ * The buyer-app purchase this order came from. One checkout splits
+ * into several seller orders (one per distribution company + one
+ * consolidated wholesale order), all stamped with the same dummy
+ * customer order number so the seller can see them as one purchase.
+ * Orders created before clubbing fall back to their own id — every
+ * order always belongs to exactly one customer group.
+ */
+export function getCustomerOrderId(o: {
+  customerOrderId?: string;
+  id: string;
+}): string {
+  return o.customerOrderId ?? o.id;
+}
+
+/** What a customer group contains — drives the group badge. */
+export type CustomerGroupKind = "distribution" | "wholesale" | "hybrid";
+
+export function getCustomerGroupKind(
+  orders: { operationMode?: OrderOperationMode }[],
+): CustomerGroupKind {
+  const hasDistribution = orders.some(
+    (o) => getOrderOperationMode(o) === "distribution",
+  );
+  const hasWholesale = orders.some(
+    (o) => getOrderOperationMode(o) === "wholesale",
+  );
+  if (hasDistribution && hasWholesale) return "hybrid";
+  return hasWholesale ? "wholesale" : "distribution";
+}
+
 export interface OrderLineItem {
   skuCode: string;
   productName: string;
@@ -175,6 +230,14 @@ export interface Order {
    *  Online/Offline legend on the map. "Online" pins draw blue,
    *  "Offline" pins draw orange. Defaults to "Online" when missing. */
   connectivity?: "Online" | "Offline";
+  /** Business model this order was placed under. Absent on legacy
+   *  rows → distribution (see {@link getOrderOperationMode}). */
+  operationMode?: OrderOperationMode;
+  /** Dummy customer order number stamped on every seller order that
+   *  came from the same buyer-app checkout — the clubbing key for the
+   *  grouped orders view and the export pivot column. Absent on
+   *  legacy rows → the order is its own group. */
+  customerOrderId?: string;
 }
 
 // One distributor for the demo seller. Populates the Seller-*
@@ -204,6 +267,10 @@ export const seedOrders: Order[] = [
     paymentMode: "COD",
     orderDate: "2026-05-20",
     orderTime: "10:30 AM",
+    // One buyer-app checkout split into three seller orders — this
+    // distribution order, M3P6FH (second distribution company) and
+    // WHL9F2 (consolidated wholesale) all share the customer number.
+    customerOrderId: "QWI-ORD-260520-BLJ42K",
     status: "New",
     marketplace: "ONDC",
     expectedDeliveryDate: "2026-05-21",
@@ -306,12 +373,58 @@ export const seedOrders: Order[] = [
     orderValue: 12450,
     paymentMode: "COD",
     orderDate: "2026-05-19",
+    customerOrderId: "QWI-ORD-260519-BLJ7P9",
     status: "Confirmed",
     marketplace: "ONDC",
     expectedDeliveryDate: "2026-05-21",
     deliveryType: "Regular",
     beatName: "Mumbai Metro — North",
     buyerContact: "+91 98765 43211",
+  },
+  // Consolidated wholesale order from the same checkout as K2P7XR —
+  // every wholesale company rides ONE order, so the company is
+  // masked as "Wholesaler" everywhere it renders.
+  {
+    id: "QWI-ONDC-260519-WHL3T7",
+    brand: "Mixed",
+    company: "Aachi Masala Foods",
+    source: "DMS-Bizom",
+    retailerName: "Balaji Kirana",
+    itemsSummary: "45 units Mixed wholesale SKUs",
+    orderValue: 5150,
+    paymentMode: "COD",
+    orderDate: "2026-05-19",
+    operationMode: "wholesale",
+    customerOrderId: "QWI-ORD-260519-BLJ7P9",
+    status: "Confirmed",
+    marketplace: "ONDC",
+    expectedDeliveryDate: "2026-05-21",
+    deliveryType: "Regular",
+    buyerContact: "+91 98765 43211",
+  },
+  // Consolidated wholesale order from the 8F3K92 / M3P6FH checkout —
+  // completes the hybrid customer group on the New tab.
+  {
+    id: "QWI-ONDC-260520-WHL9F2",
+    brand: "Mixed",
+    company: "Sri Krupa Traders",
+    source: "DMS-Bizom",
+    retailerName: "Balaji Kirana Store",
+    itemsSummary: "60 units Mixed wholesale SKUs",
+    orderValue: 6800,
+    paymentMode: "COD",
+    orderDate: "2026-05-20",
+    orderTime: "10:31 AM",
+    operationMode: "wholesale",
+    customerOrderId: "QWI-ORD-260520-BLJ42K",
+    status: "New",
+    marketplace: "ONDC",
+    expectedDeliveryDate: "2026-05-21",
+    deliveryType: "Regular",
+    buyerContact: "+91 98765 43210",
+    buyerAddress:
+      "Shop No. 12, MG Road, Koramangala, Bangalore, Karnataka - 560034",
+    gstNumber: "29ABCDE1234F1Z5",
   },
   {
     id: "QWI-FLPK-260519-Q4M8YE",
@@ -323,6 +436,7 @@ export const seedOrders: Order[] = [
     orderValue: 8750,
     paymentMode: "Prepaid",
     orderDate: "2026-05-19",
+    customerOrderId: "QWI-ORD-260519-Q4M8YE",
     status: "Confirmed",
     marketplace: "Flipkart",
     expectedDeliveryDate: "2026-05-21",
@@ -340,6 +454,7 @@ export const seedOrders: Order[] = [
     orderValue: 24000,
     paymentMode: "Prepaid",
     orderDate: "2026-05-18",
+    customerOrderId: "QWI-ORD-260518-V6T3HN",
     status: "Delivered",
     marketplace: "Amazon",
     expectedDeliveryDate: "2026-05-19",
@@ -358,6 +473,7 @@ export const seedOrders: Order[] = [
     orderValue: 5400,
     paymentMode: "COD",
     orderDate: "2026-05-18",
+    customerOrderId: "QWI-ORD-260518-J5C9BD",
     status: "Cancelled",
     cancellationReason: "Out of Stock",
     cancelledBy: "Seller",
@@ -378,6 +494,7 @@ export const seedOrders: Order[] = [
     orderValue: 6825,
     paymentMode: "Prepaid",
     orderDate: "2026-05-19",
+    customerOrderId: "QWI-ORD-260519-N7W2XK",
     status: "Confirmed",
     marketplace: "Amazon",
     expectedDeliveryDate: "2026-05-22",
@@ -395,6 +512,7 @@ export const seedOrders: Order[] = [
     orderValue: 9200,
     paymentMode: "COD",
     orderDate: "2026-05-19",
+    customerOrderId: "QWI-ORD-260519-R3F4PT",
     status: "Confirmed",
     marketplace: "ONDC",
     expectedDeliveryDate: "2026-05-25",
@@ -412,6 +530,10 @@ export const seedOrders: Order[] = [
     orderValue: 4320,
     paymentMode: "Prepaid",
     orderDate: "2026-05-20",
+    customerOrderId: "QWI-ORD-260520-A6H8WC",
+    // Standalone wholesale order — the list masks the company as
+    // "Wholesaler" and badges the row Wholesale.
+    operationMode: "wholesale",
     status: "New",
     marketplace: "Flipkart",
     expectedDeliveryDate: "2026-05-21",
@@ -432,6 +554,7 @@ export const seedOrders: Order[] = [
     paymentMode: "COD",
     orderDate: "2026-05-20",
     orderTime: "11:45 AM",
+    customerOrderId: "QWI-ORD-260520-BLJ42K",
     status: "New",
     marketplace: "ONDC",
     expectedDeliveryDate: "2026-05-21",
@@ -452,6 +575,7 @@ export const seedOrders: Order[] = [
     orderValue: 10800,
     paymentMode: "COD",
     orderDate: "2026-05-17",
+    customerOrderId: "QWI-ORD-260517-B9D2MZ",
     status: "Delivered",
     marketplace: "Amazon",
     expectedDeliveryDate: "2026-05-18",
@@ -470,6 +594,7 @@ export const seedOrders: Order[] = [
     orderValue: 19800,
     paymentMode: "Prepaid",
     orderDate: "2026-05-20",
+    customerOrderId: "QWI-ORD-260520-E5G7QY",
     status: "New",
     marketplace: "ONDC",
     expectedDeliveryDate: "2026-05-22",
@@ -487,6 +612,7 @@ export const seedOrders: Order[] = [
     orderValue: 6400,
     paymentMode: "COD",
     orderDate: "2026-05-16",
+    customerOrderId: "QWI-ORD-260516-S4U8VK",
     status: "Delivered",
     marketplace: "Flipkart",
     expectedDeliveryDate: "2026-05-17",
@@ -505,6 +631,7 @@ export const seedOrders: Order[] = [
     orderValue: 13500,
     paymentMode: "Prepaid",
     orderDate: "2026-05-15",
+    customerOrderId: "QWI-ORD-260515-T6Y9NF",
     status: "Cancelled",
     cancellationReason: "Pricing Error",
     cancelledBy: "Seller",
@@ -530,6 +657,7 @@ export const seedOrders: Order[] = [
     orderValue: 3600,
     paymentMode: "COD",
     orderDate: "2026-05-20",
+    customerOrderId: "QWI-ORD-260520-H7L4MX",
     orderTime: "09:12 AM",
     status: "Cancelled",
     cancellationReason: "Ordered by mistake",
@@ -551,6 +679,7 @@ export const seedOrders: Order[] = [
     orderValue: 8400,
     paymentMode: "Prepaid",
     orderDate: "2026-05-19",
+    customerOrderId: "QWI-ORD-260519-W2K8PV",
     orderTime: "06:48 PM",
     status: "Cancelled",
     cancellationReason: "Found a better price elsewhere",
@@ -572,6 +701,7 @@ export const seedOrders: Order[] = [
     orderValue: 2800,
     paymentMode: "COD",
     orderDate: "2026-05-18",
+    customerOrderId: "QWI-ORD-260518-D9J3RE",
     orderTime: "02:25 PM",
     status: "Cancelled",
     cancellationReason: "Delivery is too late",
@@ -608,6 +738,7 @@ export const seedOrders: Order[] = [
     orderValue: 9800,
     paymentMode: "Prepaid",
     orderDate: "2026-05-19",
+    customerOrderId: "QWI-ORD-260519-X7B2QC",
     orderTime: "06:48 PM",
     status: "New",
     marketplace: "ONDC",
@@ -632,6 +763,7 @@ export const seedOrders: Order[] = [
     orderValue: 1680,
     paymentMode: "COD",
     orderDate: "2026-05-20",
+    customerOrderId: "QWI-ORD-260520-P3R9KZ",
     orderTime: "11:15 AM",
     status: "New",
     marketplace: "ONDC",
@@ -655,6 +787,7 @@ export const seedOrders: Order[] = [
     orderValue: 1920,
     paymentMode: "Prepaid",
     orderDate: "2026-05-20",
+    customerOrderId: "QWI-ORD-260520-Y6N4HW",
     orderTime: "09:30 AM",
     status: "New",
     marketplace: "Flipkart",
@@ -677,6 +810,7 @@ export const seedOrders: Order[] = [
     orderValue: 7200,
     paymentMode: "COD",
     orderDate: "2026-05-20",
+    customerOrderId: "QWI-ORD-260520-T8K1MR",
     orderTime: "02:18 PM",
     status: "New",
     marketplace: "ONDC",
@@ -699,6 +833,7 @@ export const seedOrders: Order[] = [
     orderValue: 4400,
     paymentMode: "Prepaid",
     orderDate: "2026-05-19",
+    customerOrderId: "QWI-ORD-260519-G4D7VX",
     orderTime: "10:42 AM",
     status: "Confirmed",
     marketplace: "Amazon",
@@ -722,6 +857,7 @@ export const seedOrders: Order[] = [
     orderValue: 5200,
     paymentMode: "Prepaid",
     orderDate: "2026-05-18",
+    customerOrderId: "QWI-ORD-260518-L9F6QJ",
     orderTime: "03:55 PM",
     status: "Confirmed",
     marketplace: "ONDC",
@@ -744,6 +880,7 @@ export const seedOrders: Order[] = [
     orderValue: 2750,
     paymentMode: "COD",
     orderDate: "2026-05-15",
+    customerOrderId: "QWI-ORD-260515-Z2H5BS",
     orderTime: "11:30 AM",
     status: "Delivered",
     marketplace: "Amazon",
@@ -773,6 +910,7 @@ export const seedOrders: Order[] = [
     orderValue: 8400,
     paymentMode: "Prepaid",
     orderDate: "2026-05-20",
+    customerOrderId: "QWI-ORD-260520-MD9F1A",
     orderTime: "10:05 AM",
     status: "New",
     marketplace: "ONDC",
@@ -794,6 +932,7 @@ export const seedOrders: Order[] = [
     orderValue: 5400,
     paymentMode: "Prepaid",
     orderDate: "2026-05-20",
+    customerOrderId: "QWI-ORD-260520-MD9F2B",
     orderTime: "10:08 AM",
     status: "New",
     marketplace: "ONDC",
@@ -815,6 +954,7 @@ export const seedOrders: Order[] = [
     orderValue: 4200,
     paymentMode: "COD",
     orderDate: "2026-05-20",
+    customerOrderId: "QWI-ORD-260520-MD9F3C",
     orderTime: "10:10 AM",
     status: "New",
     marketplace: "Flipkart",
@@ -836,6 +976,7 @@ export const seedOrders: Order[] = [
     orderValue: 3600,
     paymentMode: "COD",
     orderDate: "2026-05-20",
+    customerOrderId: "QWI-ORD-260520-MD9F4D",
     orderTime: "10:13 AM",
     status: "New",
     marketplace: "Amazon",
@@ -861,6 +1002,7 @@ export const seedOrders: Order[] = [
     orderValue: 6750,
     paymentMode: "COD",
     orderDate: "2026-05-17",
+    customerOrderId: "QWI-ORD-260517-A3W8EU",
     orderTime: "04:10 PM",
     status: "Cancelled",
     cancellationReason: "Out of Stock",
@@ -872,8 +1014,7 @@ export const seedOrders: Order[] = [
     orderType: "standard",
     buyerContact: "+91 98765 43231",
     channelOrderId: "ONDC-ORD-911047",
-  },
-];
+  },];
 
 // Hyderabad-area buyer location data per seed order — lat/lng,
 // street address, and Online/Offline connectivity. Kept out of the
