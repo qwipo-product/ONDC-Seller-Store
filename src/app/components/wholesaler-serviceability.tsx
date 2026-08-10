@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
+import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import {
   Dialog,
@@ -12,6 +13,7 @@ import {
   DialogTitle,
 } from "./ui/dialog";
 import {
+  AlertCircle,
   Building2,
   ChevronDown,
   ChevronRight,
@@ -50,6 +52,12 @@ import { PolygonPreviewMap } from "./serviceability-map-view";
 import { sortDeliveryDays } from "../lib/serviceability-data";
 import { type DeliveryDay } from "../lib/customers-data";
 
+/** Display label for a zone — its beat name, falling back to the file
+ *  name for zones saved before beat names were captured. */
+function zoneLabel(p: WholesalerPolygon): string {
+  return p.beatName?.trim() || p.fileName;
+}
+
 /**
  * Delivery Beats – Wholesaler — DAY-WISE polygons for one seller,
  * rendered exactly like a distributor company group: one collapsible
@@ -58,7 +66,9 @@ import { type DeliveryDay } from "../lib/customers-data";
  * for Tuesday), but none is company-specific: every polygon applies
  * to ALL companies mapped with Operation Mode = Wholesaler, including
  * companies linked later. The Upload Polygon dialog mirrors Add
- * Delivery Beat minus beat name + company (days + polygon only).
+ * Delivery Beat minus the company picker: beat name + days + polygon.
+ * Beat names are unique per SELLER here (a distributor's are unique
+ * per company) because no wholesale zone belongs to one company.
  */
 export function WholesalerServiceability({
   seller,
@@ -96,7 +106,7 @@ export function WholesalerServiceability({
         day,
         zones: polygons
           .filter((p) => (p.deliveryDays ?? []).includes(day))
-          .sort((a, b) => a.fileName.localeCompare(b.fileName)),
+          .sort((a, b) => zoneLabel(a).localeCompare(zoneLabel(b))),
       })),
     [uniqueDays, polygons],
   );
@@ -108,6 +118,7 @@ export function WholesalerServiceability({
   // otherwise a chip's edit action pre-fills that zone's days + file.
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [draftBeatName, setDraftBeatName] = useState("");
   const [draftDays, setDraftDays] = useState<DeliveryDay[]>([]);
   const [draftPolygon, setDraftPolygon] = useState<PolygonDraft>(
     emptyPolygonDraft(),
@@ -115,6 +126,7 @@ export function WholesalerServiceability({
 
   const openAdd = () => {
     setEditingId(null);
+    setDraftBeatName("");
     setDraftDays([]);
     setDraftPolygon(emptyPolygonDraft());
     setDialogOpen(true);
@@ -124,6 +136,7 @@ export function WholesalerServiceability({
     const p = polygons.find((x) => x.id === polygonId);
     if (!p) return;
     setEditingId(polygonId);
+    setDraftBeatName(p.beatName?.trim() ?? "");
     setDraftDays(sortDeliveryDays(p.deliveryDays ?? []));
     setDraftPolygon({
       file: null,
@@ -137,9 +150,40 @@ export function WholesalerServiceability({
   const draftPolygonReady =
     draftPolygon.data != null &&
     (draftPolygon.file === null || draftPolygon.valid === true);
-  const canSave = draftDays.length > 0 && draftPolygonReady;
+
+  /** The zone already using the typed beat name, if any. Uniqueness is
+   *  seller-wide across every wholesale zone, case-insensitive, and
+   *  ignores the zone being edited. */
+  const nameCollision = useMemo(() => {
+    const name = draftBeatName.trim().toLowerCase();
+    if (!name) return null;
+    return (
+      polygons.find(
+        (p) =>
+          p.id !== editingId &&
+          (p.beatName?.trim().toLowerCase() ?? "") === name,
+      ) ?? null
+    );
+  }, [draftBeatName, editingId, polygons]);
+
+  const canSave =
+    draftBeatName.trim().length > 0 &&
+    !nameCollision &&
+    draftDays.length > 0 &&
+    draftPolygonReady;
 
   const saveDialog = () => {
+    const beatName = draftBeatName.trim();
+    if (!beatName) {
+      toast.error("Beat name is required.");
+      return;
+    }
+    if (nameCollision) {
+      toast.error(
+        `This seller already has a wholesale beat called "${nameCollision.beatName}". Beat names are unique per seller.`,
+      );
+      return;
+    }
     if (draftDays.length === 0) {
       toast.error("Pick at least one delivery day.");
       return;
@@ -150,6 +194,7 @@ export function WholesalerServiceability({
     }
     const record: WholesalerPolygon = {
       id: editingId ?? makeWholesalerPolygonId(),
+      beatName,
       fileName:
         draftPolygon.file?.name ??
         draftPolygon.existingName ??
@@ -161,10 +206,11 @@ export function WholesalerServiceability({
     const updated = upsertSellerWholesalerPolygon(seller.id, record);
     if (updated) {
       onChange(updated);
+      const scope = `applies to ${wholesalerCompanies.length} wholesale compan${wholesalerCompanies.length === 1 ? "y" : "ies"}`;
       toast.success(
         editingId
-          ? `Wholesale polygon updated — applies to ${wholesalerCompanies.length} wholesale compan${wholesalerCompanies.length === 1 ? "y" : "ies"}.`
-          : `Wholesale polygon added — applies to ${wholesalerCompanies.length} wholesale compan${wholesalerCompanies.length === 1 ? "y" : "ies"}.`,
+          ? `Updated "${beatName}" — ${scope}.`
+          : `Added "${beatName}" — ${scope}.`,
       );
     }
     setDialogOpen(false);
@@ -196,10 +242,15 @@ export function WholesalerServiceability({
       : undefined;
 
   const handleRemove = (polygonId: string) => {
+    const removed = polygons.find((p) => p.id === polygonId);
     const updated = removeSellerWholesalerPolygon(seller.id, polygonId);
     if (updated) {
       onChange(updated);
-      toast.success("Wholesale polygon removed.");
+      toast.success(
+        removed
+          ? `Removed wholesale beat "${zoneLabel(removed)}"`
+          : "Wholesale polygon removed.",
+      );
     }
   };
 
@@ -249,7 +300,7 @@ export function WholesalerServiceability({
           </Button>
           <Button className="gap-2" onClick={openAdd}>
             <Upload className="h-4 w-4" />
-            Upload polygon
+            Add beat
           </Button>
         </div>
       </div>
@@ -356,7 +407,7 @@ export function WholesalerServiceability({
                   className="inline-flex items-center gap-1 h-8 px-2.5 rounded-md border border-gray-200 bg-white hover:bg-gray-50 text-xs font-medium text-gray-700 cursor-pointer"
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  Upload polygon
+                  Add beat
                 </span>
                 <span
                   role="button"
@@ -412,7 +463,7 @@ export function WholesalerServiceability({
                           <div
                             key={p.id}
                             className="group inline-flex items-center gap-1 pl-2 pr-0.5 py-0.5 rounded-full border border-gray-200 bg-gray-50 hover:bg-white hover:border-amber-300 text-xs text-gray-800 transition-colors"
-                            title={`Polygon: ${p.fileName}`}
+                            title={`${zoneLabel(p)} · Polygon: ${p.fileName}`}
                           >
                             <button
                               type="button"
@@ -421,7 +472,7 @@ export function WholesalerServiceability({
                             >
                               <FileJson className="h-3 w-3 text-gray-400" />
                               <span className="font-medium max-w-[260px] truncate">
-                                {p.fileName}
+                                {zoneLabel(p)}
                               </span>
                               {dayCount > 1 && (
                                 <span className="ml-0.5 text-[10px] text-amber-600 font-medium">
@@ -434,7 +485,7 @@ export function WholesalerServiceability({
                                 type="button"
                                 onClick={() => setMapPolygonId(p.id)}
                                 className="inline-flex items-center justify-center h-5 w-5 rounded-full text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
-                                title={`View ${p.fileName} polygon on map`}
+                                title={`View ${zoneLabel(p)} polygon on map`}
                               >
                                 <MapPin className="h-3 w-3" />
                               </button>
@@ -470,11 +521,11 @@ export function WholesalerServiceability({
         <div className="text-center py-6 border-2 border-dashed rounded-lg">
           <Warehouse className="h-8 w-8 mx-auto text-gray-300 mb-1.5" />
           <p className="text-sm font-medium text-gray-600">
-            No wholesale polygon uploaded yet
+            No wholesale beat added yet
           </p>
           <p className="text-xs text-gray-500 mt-0.5">
-            Use <b>Upload polygon</b> above — add one zone per set of delivery
-            days; every zone covers all Wholesale-mode companies.
+            Use <b>Add beat</b> above — one named beat per set of delivery
+            days; every beat covers all Wholesale-mode companies.
           </p>
         </div>
       )}
@@ -492,18 +543,55 @@ export function WholesalerServiceability({
               ) : (
                 <Upload className="h-5 w-5 text-amber-600" />
               )}
-              {editingId
-                ? "Edit Wholesale Polygon"
-                : "Upload Wholesale Polygon"}
+              {editingId ? "Edit Wholesale Beat" : "Add Wholesale Beat"}
             </DialogTitle>
             <DialogDescription>
-              One zone per set of delivery days — pick the days and upload the
-              GeoJSON polygon. Every zone applies to all Wholesale-mode
-              companies; no beat name or company selection needed.
+              Name the beat, pick the delivery days and upload the GeoJSON
+              polygon. Every zone applies to all Wholesale-mode companies, so
+              beat names are unique across this seller — no company selection
+              needed.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>
+                Beat name <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                value={draftBeatName}
+                onChange={(e) => setDraftBeatName(e.target.value)}
+                placeholder="e.g. KPHB 1"
+                maxLength={64}
+                aria-invalid={nameCollision ? true : undefined}
+              />
+              {nameCollision ? (
+                <div className="flex items-start gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-900">
+                  <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-600" />
+                  <span>
+                    <b>{nameCollision.beatName}</b> is already used by another
+                    wholesale zone
+                    {(nameCollision.deliveryDays?.length ?? 0) > 0 && (
+                      <>
+                        {" "}
+                        (
+                        {sortDeliveryDays(
+                          nameCollision.deliveryDays ?? [],
+                        ).join(", ")}
+                        )
+                      </>
+                    )}
+                    . Pick a different name — beat names are unique per seller.
+                  </span>
+                </div>
+              ) : (
+                <p className="text-[11px] text-gray-500">
+                  Unique across this seller&apos;s wholesale zones. Use the
+                  sales route or polygon identifier.
+                </p>
+              )}
+            </div>
+
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label>
@@ -574,7 +662,7 @@ export function WholesalerServiceability({
               {mapPolygonId === "all"
                 ? `Every wholesale zone (${polygons.length}) — all apply to every Wholesale-mode company.`
                 : mapPolygon
-                  ? `${mapPolygon.fileName}${
+                  ? `${zoneLabel(mapPolygon)} · ${mapPolygon.fileName}${
                       (mapPolygon.deliveryDays?.length ?? 0) > 0
                         ? ` · Delivered on ${sortDeliveryDays(mapPolygon.deliveryDays ?? []).join(", ")}`
                         : ""

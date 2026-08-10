@@ -155,8 +155,13 @@ export interface WholesalerPolygon {
   fileName: string;
   data?: unknown;
   updatedAt: string; // ISO
-  /** Days this zone is served on — picked in the Upload Polygon
-   *  dialog (no beat name / company; days + polygon only). */
+  /** Beat name for this zone — same idea as a distributor beat, but
+   *  unique per SELLER (not per company), since a wholesale zone is
+   *  never company-specific. Optional only so zones saved before beat
+   *  names existed still load; the dialog requires one on every save. */
+  beatName?: string;
+  /** Days this zone is served on — picked in the Add Wholesale Beat
+   *  dialog (beat name + days + polygon; no company). */
   deliveryDays?: DeliveryDay[];
 }
 
