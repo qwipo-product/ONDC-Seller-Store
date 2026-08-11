@@ -56,14 +56,18 @@ import { EmptyState } from "../../components/empty-state";
 import { CopyOnHover } from "../../components/copy-on-hover";
 import { ListPagination } from "../../components/ui/list-pagination";
 import { OrdersMapDialog } from "../../components/orders-map-dialog";
+import { useAuth } from "../../lib/auth-context";
+import {
+  getLogisticsSettings,
+  subscribeToLogisticsSettings,
+} from "../../lib/logistics-settings";
 // Shared store — seeds + writers live in lib/orders-data so the
 // detail page can read the same orders by id and writes flow both
-// ways. `Order` / `OrderLineItem` / `OrderStatus` are exported from
-// the lib so we don't redeclare them here.
+// ways. `Order` / `OrderLineItem` are exported from the lib so we
+// don't redeclare them here.
 import {
   type Order,
   type OrderLineItem,
-  type OrderStatus,
   type DeliveryType,
   type CancelledBy,
   SELLER_INFO,
@@ -78,6 +82,7 @@ import {
   getCustomerOrderId,
   getCustomerGroupKind,
   isConfirmableDeliveryDay,
+  requestLogisticsForOrders,
 } from "../../lib/orders-data";
 
 // An order is a "beat" delivery when it rides a configured
@@ -94,10 +99,34 @@ function isBeatOrder(order: Order): boolean {
 // "rejected" tab label is retired alongside the status rename; the
 // tab now shows Cancelled orders. The TabType value stays as
 // "cancelled" so future code reads consistently.
-type TabType = "all" | "new" | "confirmed" | "delivered" | "cancelled";
+// "logistics" holds orders handed to the 3PL network. It isn't an
+// order STATUS — those rows are still Confirmed underneath — it's a
+// fulfilment route, so it gets its own tab rather than a status entry.
+type TabType =
+  | "all"
+  | "new"
+  | "confirmed"
+  | "logistics"
+  | "delivered"
+  | "cancelled";
 
 export function Orders() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  // Read logistics enabled flag for the current seller, and keep it
+  // live across tab — the admin can toggle it without a page reload.
+  const [logisticsEnabled, setLogisticsEnabled] = useState(() =>
+    user ? getLogisticsSettings(user.id).enabled : false,
+  );
+  useEffect(() => {
+    if (!user) return;
+    setLogisticsEnabled(getLogisticsSettings(user.id).enabled);
+    return subscribeToLogisticsSettings(user.id, () =>
+      setLogisticsEnabled(getLogisticsSettings(user.id).enabled),
+    );
+  }, [user]);
+
   // Source of truth lives in lib/orders-data. We mirror it locally
   // and resubscribe so writes from the detail page propagate here.
   const [orders, setOrdersState] = useState<Order[]>(() =>
@@ -195,6 +224,11 @@ export function Orders() {
   // orders' customer locations. Opened from the New + Confirmed
   // bulk action bars.
   const [isMapDialogOpen, setIsMapDialogOpen] = useState(false);
+  // "Request 3PL Logistics" bulk action — Confirmed tab, only when
+  // the seller has Logistics enabled. Confirms the hand-off before
+  // the orders leave the seller's working list.
+  const [isRequestLogisticsDialogOpen, setIsRequestLogisticsDialogOpen] =
+    useState(false);
 
   // Form data
   const [cancelReason, setCancelReason] = useState("");
@@ -247,12 +281,25 @@ export function Orders() {
     return new Date(s.getTime() + 30 * 86400000).toISOString().split("T")[0];
   })();
 
+  // Orders handed to the 3PL network stay Confirmed underneath but
+  // drop out of the seller's working list — the delivery is the
+  // partner's to run, and asking the seller to action it would be
+  // misleading. They come back on the Delivered tab once the partner
+  // closes them out. `isSellerActionable` is the single predicate
+  // every Confirmed-tab count and list runs through.
+  const isWithLogisticsPartner = (o: Order) =>
+    o.status === "Confirmed" && o.logisticsRequested === true;
+  const isSellerActionable = (o: Order) => !isWithLogisticsPartner(o);
+
   // Calculate summary statistics
   const summary = useMemo(() => {
     return {
       all: orders.length,
       new: orders.filter((o) => o.status === "New").length,
-      confirmed: orders.filter((o) => o.status === "Confirmed").length,
+      confirmed: orders.filter(
+        (o) => o.status === "Confirmed" && isSellerActionable(o),
+      ).length,
+      logistics: orders.filter(isWithLogisticsPartner).length,
       delivered: orders.filter((o) => o.status === "Delivered").length,
       cancelled: orders.filter((o) => o.status === "Cancelled").length,
     };
@@ -260,7 +307,10 @@ export function Orders() {
 
   // Get orders for active tab
   const getTabOrders = (tab: TabType): Order[] => {
-    const statusMap: Record<Exclude<TabType, "all">, Order["status"]> = {
+    const statusMap: Record<
+      Exclude<TabType, "all" | "logistics">,
+      Order["status"]
+    > = {
       new: "New",
       confirmed: "Confirmed",
       delivered: "Delivered",
@@ -268,9 +318,21 @@ export function Orders() {
     };
 
     return orders.filter((order) => {
-      // "all" tab bypasses the status filter
+      // "all" bypasses the status filter; "logistics" is keyed off the
+      // hand-off flag rather than a status, since those rows are still
+      // Confirmed underneath.
       const matchesStatus =
-        tab === "all" ? true : order.status === statusMap[tab];
+        tab === "all"
+          ? true
+          : tab === "logistics"
+            ? isWithLogisticsPartner(order)
+            : order.status === statusMap[tab];
+      // Orders out with the 3PL partner leave the seller's Confirmed
+      // working list — they live in the Logistics tab instead. They
+      // stay visible on "All" so the seller can still find an order by
+      // id without hunting.
+      const matchesLogisticsHandoff =
+        tab === "confirmed" ? isSellerActionable(order) : true;
       const matchesSearch =
         order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
         order.retailerName.toLowerCase().includes(searchQuery.toLowerCase());
@@ -305,12 +367,13 @@ export function Orders() {
       }
 
       // Delivery Day pill + Beat/Non-Beat sub-navigation. Same shape
-      // on both the New and Confirmed tabs — the seller plans new
-      // arrivals and already-confirmed deliveries the same way (which
-      // day? which route?), so the filters mirror across both. "all"
-      // on either dimension is a pass-through.
+      // on the New, Confirmed and 3PL Logistics tabs — the seller
+      // plans new arrivals, their own deliveries and the partner's
+      // deliveries the same way (which day? which route?), so the
+      // filters mirror across all three. "all" on either dimension is
+      // a pass-through.
       let matchesConfirmedSub = true;
-      if (tab === "confirmed" || tab === "new") {
+      if (tab === "confirmed" || tab === "new" || tab === "logistics") {
         if (confirmedDeliveryDay !== "all") {
           matchesConfirmedSub =
             matchesConfirmedSub &&
@@ -337,6 +400,7 @@ export function Orders() {
 
       return (
         matchesStatus &&
+        matchesLogisticsHandoff &&
         matchesSearch &&
         matchesMarketplace &&
         matchesBrand &&
@@ -385,9 +449,13 @@ export function Orders() {
   // Both run off the same base filter so a search / marketplace /
   // brand filter is reflected in the counts the user sees on the
   // pills + tabs.
-  const buildBucketCounts = (statusFilter: OrderStatus) => {
+  // `scope` picks the tab's population. It takes a predicate rather
+  // than a status because the 3PL Logistics tab isn't status-backed —
+  // those rows are Confirmed underneath and are selected on
+  // `logisticsRequested` instead.
+  const buildBucketCounts = (scope: (order: Order) => boolean) => {
     const base = orders.filter((o) => {
-      if (o.status !== statusFilter) return false;
+      if (!scope(o)) return false;
       const matchesSearch =
         o.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
         o.retailerName.toLowerCase().includes(searchQuery.toLowerCase());
@@ -433,8 +501,30 @@ export function Orders() {
     };
   };
 
+  // Keeps the day + Beat/Non-Beat pill counts in step with the rows
+  // the seller can actually see — an order out with the 3PL partner
+  // shouldn't inflate a day pill the seller can't action.
   const confirmedBucketCounts = useMemo(
-    () => buildBucketCounts("Confirmed"),
+    () =>
+      buildBucketCounts(
+        (o) => o.status === "Confirmed" && isSellerActionable(o),
+      ),
+    [
+      orders,
+      searchQuery,
+      marketplaceFilter,
+      selectedBrandFilters,
+      selectedDeliveryTypes,
+      confirmedDeliveryDay,
+    ],
+  );
+
+  // Same two chip rows as Confirmed, scoped to what the partner is
+  // carrying. The planning question doesn't change just because
+  // someone else is driving: which day is this going out, and is it
+  // riding a beat?
+  const logisticsBucketCounts = useMemo(
+    () => buildBucketCounts(isWithLogisticsPartner),
     [
       orders,
       searchQuery,
@@ -446,7 +536,7 @@ export function Orders() {
   );
 
   const newBucketCounts = useMemo(
-    () => buildBucketCounts("New"),
+    () => buildBucketCounts((o) => o.status === "New"),
     [
       orders,
       searchQuery,
@@ -500,16 +590,26 @@ export function Orders() {
     }
   };
 
+  // The 3PL Logistics tab only exists while the connector is on. If
+  // the admin turns it off mid-session, fall back to All rather than
+  // leaving the seller on a tab whose trigger has disappeared.
+  useEffect(() => {
+    if (!logisticsEnabled && activeTab === "logistics") {
+      setActiveTab("all");
+      setSelectedOrders([]);
+    }
+  }, [logisticsEnabled, activeTab]);
+
   // Clear selection when changing tabs
   const handleTabChange = (tab: string) => {
     setActiveTab(tab as TabType);
     setSelectedOrders([]);
     setCurrentPage(1); // Reset to first page
     // Reset the Delivery Day + Beat/Non-Beat sub-navigation whenever
-    // we leave New or Confirmed (the two tabs that host the
-    // filters), so a fresh visit always lands on "All days / All
+    // we leave New, Confirmed or 3PL Logistics (the tabs that host
+    // the filters), so a fresh visit always lands on "All days / All
     // orders".
-    if (tab !== "confirmed" && tab !== "new") {
+    if (tab !== "confirmed" && tab !== "new" && tab !== "logistics") {
       setConfirmedDeliveryDay("all");
       setConfirmedBeatMode("all");
     }
@@ -678,6 +778,31 @@ export function Orders() {
     );
     setSelectedOrders([]);
     setIsDeliverDialogOpen(false);
+  };
+
+  // Hand the selected confirmed orders to the third-party logistics
+  // network. The seller doesn't need to know the order is crossing
+  // into LBNP — from their side it simply leaves the Confirmed list
+  // and reappears under Delivered once the partner closes it out.
+  // Anything they didn't hand over stays selectable and can still be
+  // marked delivered by hand, which is the whole point of the split.
+  const handleRequestLogistics = () => {
+    const moved = requestLogisticsForOrders(selectedOrders);
+    if (moved === 0) {
+      toast.error("Nothing to send — the selected orders are already with the logistics partner.");
+      return;
+    }
+    toast.success(
+      `${moved} order${moved === 1 ? "" : "s"} sent for 3PL delivery.`,
+      {
+        description:
+          "Track them under the 3PL Logistics tab until the delivery partner completes them.",
+        icon: <Truck className="h-4 w-4 text-blue-600" />,
+        duration: 5000,
+      },
+    );
+    setSelectedOrders([]);
+    setIsRequestLogisticsDialogOpen(false);
   };
 
   // Clear all filters
@@ -986,12 +1111,16 @@ export function Orders() {
         ? "No orders match your search"
         : activeTab === "all"
           ? "No orders yet"
-          : `No ${activeTab} orders`;
+          : activeTab === "logistics"
+            ? "Nothing with the logistics partner"
+            : `No ${activeTab} orders`;
       const description = hasActiveFilters
         ? "No orders match your current filters. Try clearing them to see everything."
         : activeTab === "all"
           ? "Once retailers start placing orders on ONDC and connected marketplaces, they'll show up here ready for you to confirm and dispatch."
-          : `You don't have any ${activeTab} orders right now — new ones will land here automatically.`;
+          : activeTab === "logistics"
+            ? "Orders you send from Confirmed using Request 3PL Logistics will appear here until the delivery partner completes them."
+            : `You don't have any ${activeTab} orders right now — new ones will land here automatically.`;
       return (
         <div className="flex-1 flex items-center justify-center min-h-0">
           <EmptyState
@@ -1010,6 +1139,10 @@ export function Orders() {
       );
     }
 
+    // Tabs that carry a bulk-action bar need row checkboxes. Logistics
+    // is deliberately excluded — the order belongs to the partner at
+    // that point and completion arrives from their app, so there is
+    // nothing for the seller to select or act on.
     const isActionable = activeTab === "new" || activeTab === "confirmed";
 
     // ---- Customer-order clubbing ----
@@ -1635,6 +1768,18 @@ export function Orders() {
                       <CheckCircle2 className="h-4 w-4 mr-2" />
                       <span className="font-medium">Confirmed ({summary.confirmed})</span>
                     </TabsTrigger>
+                    {/* Only meaningful once the seller can actually
+                        hand orders off, so it's gated on the same flag
+                        as the Request 3PL Logistics action. */}
+                    {logisticsEnabled && (
+                      <TabsTrigger
+                        value="logistics"
+                        className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2 transition-all whitespace-nowrap"
+                      >
+                        <Truck className="h-4 w-4 mr-2" />
+                        <span className="font-medium">3PL Logistics ({summary.logistics})</span>
+                      </TabsTrigger>
+                    )}
                     <TabsTrigger
                       value="delivered"
                       className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2 transition-all whitespace-nowrap"
@@ -1897,8 +2042,15 @@ export function Orders() {
 
                       {/* Bulk Action Buttons — View on Map (route the
                           day's confirmed deliveries) anchors the row,
-                          then Mark Delivered and the destructive
-                          Cancel. */}
+                          then the two fulfilment routes, then the
+                          destructive Cancel.
+
+                          Fulfilment is a choice, not a mode: a seller
+                          with Logistics enabled hands SOME orders to
+                          the 3PL network and still delivers the rest
+                          themselves, so "Request 3PL Logistics" sits
+                          alongside "Mark Delivered" rather than
+                          replacing it. */}
                       {selectedOrders.length > 0 && (
                         <div className="flex items-center gap-2">
                           <span className="text-sm text-gray-600 mr-2">{selectedOrders.length} selected</span>
@@ -1911,12 +2063,22 @@ export function Orders() {
                             <MapPin className="h-4 w-4" />
                             View on Map
                           </Button>
+                          {logisticsEnabled && (
+                            <Button
+                              size="sm"
+                              className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
+                              onClick={() => setIsRequestLogisticsDialogOpen(true)}
+                            >
+                              <Truck className="h-4 w-4" />
+                              Request 3PL Logistics
+                            </Button>
+                          )}
                           <Button
                             size="sm"
                             className="bg-green-600 hover:bg-green-700 text-white gap-2"
                             onClick={() => setIsDeliverDialogOpen(true)}
                           >
-                            <Truck className="h-4 w-4" />
+                            <PackageCheck className="h-4 w-4" />
                             Mark Delivered
                           </Button>
                           <Button
@@ -1937,6 +2099,51 @@ export function Orders() {
 
               {/* Table */}
               {renderOrderTable(paginatedOrders)}
+            </TabsContent>
+
+            {/* 3PL Logistics — orders handed to the delivery partner.
+                Read-only as far as fulfilment goes: the seller can look
+                them up and answer a customer's "where is it?", but they
+                can't deliver or reschedule an order the partner now
+                owns. The one action is the partner-completion callback,
+                which in production arrives from the delivery-partner
+                app via LBNP rather than from a button here. */}
+            <TabsContent value="logistics" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
+              {!isEmpty && renderDayAndBeatFilters(logisticsBucketCounts)}
+              <div className="px-6 py-4 border-b flex-shrink-0">
+                <div className="relative max-w-md">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Search by order ID, retailer name..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10 pr-10"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+                <p className="mt-3 text-xs text-gray-500">
+                  These orders are with the logistics partner. They move to Delivered automatically once the delivery partner completes them.
+                </p>
+              </div>
+
+              {/* Table */}
+              {renderOrderTable(paginatedOrders)}
+              {!isEmpty && (
+                <ListPagination
+                  page={currentPage}
+                  total={currentTabOrders.length}
+                  pageSize={itemsPerPage}
+                  onPageChange={setCurrentPage}
+                  itemLabel="order"
+                />
+              )}
             </TabsContent>
 
             <TabsContent value="delivered" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
@@ -2327,6 +2534,45 @@ export function Orders() {
             >
               <PackageCheck className="h-4 w-4" />
               Mark Delivered
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Request 3PL Logistics Dialog — the hand-off is one-way from
+          the seller's side, so it gets a confirmation step. Kept to a
+          plain confirm, matching the other bulk dialogs on this page. */}
+      <Dialog
+        open={isRequestLogisticsDialogOpen}
+        onOpenChange={setIsRequestLogisticsDialogOpen}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Truck className="h-5 w-5 text-blue-600" />
+              Request 3PL Logistics
+            </DialogTitle>
+            <DialogDescription>
+              Send {selectedOrders.length === 1
+                ? "1 order"
+                : `${selectedOrders.length} orders`}{" "}
+              to the logistics partner for delivery.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsRequestLogisticsDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleRequestLogistics}
+              className="gap-2 bg-blue-600 hover:bg-blue-700"
+            >
+              <Truck className="h-4 w-4" />
+              Send for Delivery
             </Button>
           </DialogFooter>
         </DialogContent>

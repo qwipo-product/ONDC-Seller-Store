@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "seller-store-dev",
-      "runtimeExecutable": "C:\\Program Files\\nodejs\\node.exe",
-      "runtimeArgs": ["node_modules/vite/bin/vite.js", "--port", "5180"],
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "--port", "5180"],
       "port": 5180,
       "autoPort": false
     }
