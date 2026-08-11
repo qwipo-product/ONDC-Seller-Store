@@ -367,6 +367,7 @@ export const seedOrders: Order[] = [
         lineTotal: 300,
       },
     ],
+    orderType: "beat",
   },
   {
     id: "QWI-ONDC-260519-K2P7XR",
@@ -385,6 +386,11 @@ export const seedOrders: Order[] = [
     deliveryType: "Regular",
     beatName: "Mumbai Metro — North",
     buyerContact: "+91 98765 43211",
+    orderTime: "12:20 PM",
+    orderType: "beat",
+    buyerCode: "BUYER-BLK-208",
+    channelOrderId: "ONDC-ORD-742218",
+    gstNumber: "36AAACB2894G1ZL",
   },
   // Consolidated wholesale order from the same checkout as K2P7XR —
   // every wholesale company rides ONE order, so the company is
@@ -406,6 +412,11 @@ export const seedOrders: Order[] = [
     expectedDeliveryDate: "2026-05-21",
     deliveryType: "Regular",
     buyerContact: "+91 98765 43211",
+    orderTime: "12:20 PM",
+    orderType: "standard",
+    buyerCode: "BUYER-BLK-208",
+    channelOrderId: "ONDC-ORD-742219",
+    gstNumber: "36AAACB2894G1ZL",
   },
   // Consolidated wholesale order from the 8F3K92 / M3P6FH checkout —
   // completes the hybrid customer group on the New tab.
@@ -430,6 +441,9 @@ export const seedOrders: Order[] = [
     buyerAddress:
       "Shop No. 12, MG Road, Koramangala, Bangalore, Karnataka - 560034",
     gstNumber: "29ABCDE1234F1Z5",
+    orderType: "standard",
+    buyerCode: "BUYER-BAL-456",
+    channelOrderId: "ONDC-ORD-789458",
   },
   {
     id: "QWI-FLPK-260519-Q4M8YE",
@@ -448,6 +462,11 @@ export const seedOrders: Order[] = [
     deliveryType: "Regular",
     beatName: "Madhapur",
     buyerContact: "+91 98765 43212",
+    orderTime: "11:05 AM",
+    orderType: "beat",
+    buyerCode: "BUYER-CSM-101",
+    channelOrderId: "FLPK-ORD-518274",
+    gstNumber: "36AABCC4521E1ZC",
   },
   {
     id: "QWI-AMZN-260518-V6T3HN",
@@ -467,6 +486,11 @@ export const seedOrders: Order[] = [
     deliveryType: "Regular",
     beatName: "Pune Central",
     buyerContact: "+91 98765 43213",
+    orderTime: "01:40 PM",
+    orderType: "beat",
+    buyerCode: "BUYER-MRC-514",
+    channelOrderId: "AMZN-ORD-694105",
+    gstNumber: "36AADCM8265F1ZP",
   },
   {
     id: "QWI-ONDC-260518-J5C9BD",
@@ -488,6 +512,11 @@ export const seedOrders: Order[] = [
     deliveryType: "Urgent",
     beatName: "Banjara Hills",
     buyerContact: "+91 98765 43214",
+    orderTime: "10:55 AM",
+    orderType: "beat",
+    buyerCode: "BUYER-QMT-092",
+    channelOrderId: "ONDC-ORD-628341",
+    gstNumber: "36AAECQ1937H1ZT",
   },
   {
     id: "QWI-AMZN-260519-N7W2XK",
@@ -506,6 +535,11 @@ export const seedOrders: Order[] = [
     deliveryType: "Regular",
     beatName: "Mumbai Metro — South",
     buyerContact: "+91 98765 43215",
+    orderTime: "04:32 PM",
+    orderType: "beat",
+    buyerCode: "BUYER-SUN-233",
+    channelOrderId: "AMZN-ORD-517296",
+    gstNumber: "36AAFCS7412K1ZB",
   },
   {
     id: "QWI-ONDC-260519-R3F4PT",
@@ -524,6 +558,11 @@ export const seedOrders: Order[] = [
     deliveryType: "Regular",
     beatName: "Ameerpet",
     buyerContact: "+91 98765 43216",
+    orderTime: "12:47 PM",
+    orderType: "beat",
+    buyerCode: "BUYER-LKY-347",
+    channelOrderId: "ONDC-ORD-806412",
+    gstNumber: "36AAGCL5628M1ZD",
   },
   {
     id: "QWI-FLPK-260520-A6H8WC",
@@ -545,6 +584,11 @@ export const seedOrders: Order[] = [
     deliveryType: "Regular",
     beatName: "Bengaluru East",
     buyerContact: "+91 98765 43217",
+    orderTime: "09:58 AM",
+    orderType: "beat",
+    buyerCode: "BUYER-NER-405",
+    channelOrderId: "FLPK-ORD-590148",
+    gstNumber: "36AAHCN3971P1ZF",
   },
   // Demo order — shares exact lat/lng with QWI-ONDC-260330-8F3K92 so
   // "View on Map" on the New tab shows one multi-order pin (BR-3).
@@ -569,6 +613,7 @@ export const seedOrders: Order[] = [
     buyerCode: "BUYER-BAL-456",
     channelOrderId: "ONDC-ORD-789457",
     gstNumber: "29ABCDE1234F1Z5",
+    orderType: "beat",
   },
   {
     id: "QWI-AMZN-260517-B9D2MZ",
@@ -588,6 +633,11 @@ export const seedOrders: Order[] = [
     deliveryType: "Regular",
     beatName: "SR Nagar",
     buyerContact: "+91 98765 43218",
+    orderTime: "05:22 PM",
+    orderType: "beat",
+    buyerCode: "BUYER-HIM-129",
+    channelOrderId: "AMZN-ORD-463870",
+    gstNumber: "36AAJCH6084R1ZH",
   },
   {
     id: "QWI-ONDC-260520-E5G7QY",
@@ -606,6 +656,11 @@ export const seedOrders: Order[] = [
     deliveryType: "Regular",
     beatName: "Hyderabad North",
     buyerContact: "+91 98765 43219",
+    orderTime: "08:47 AM",
+    orderType: "beat",
+    buyerCode: "BUYER-AGS-286",
+    channelOrderId: "ONDC-ORD-731529",
+    gstNumber: "36AAKCA2749T1ZJ",
   },
   {
     id: "QWI-FLPK-260516-S4U8VK",
@@ -625,6 +680,11 @@ export const seedOrders: Order[] = [
     deliveryType: "Regular",
     beatName: "Mumbai Metro — North",
     buyerContact: "+91 98765 43220",
+    orderTime: "03:15 PM",
+    orderType: "beat",
+    buyerCode: "BUYER-PRM-058",
+    channelOrderId: "FLPK-ORD-402965",
+    gstNumber: "36AALCP8156V1ZL",
   },
   {
     id: "QWI-AMZN-260515-T6Y9NF",
@@ -646,6 +706,11 @@ export const seedOrders: Order[] = [
     deliveryType: "Urgent",
     beatName: "Hyderabad West",
     buyerContact: "+91 98765 43221",
+    orderTime: "09:05 AM",
+    orderType: "beat",
+    buyerCode: "BUYER-VIN-663",
+    channelOrderId: "AMZN-ORD-385214",
+    gstNumber: "36AAMCV4392X1ZN",
   },
   // Buyer-cancelled examples. Both arrived via the buyer app's
   // ONDC /cancel call while the order was still in "New" status —
@@ -673,6 +738,9 @@ export const seedOrders: Order[] = [
     deliveryType: "Regular",
     buyerContact: "+91 98765 43222",
     channelOrderId: "ONDC-ORD-784512",
+    orderType: "standard",
+    buyerCode: "BUYER-SKP-174",
+    gstNumber: "36AANCS9517Z1ZQ",
   },
   {
     id: "QWI-ONDC-260519-W2K8PV",
@@ -695,6 +763,9 @@ export const seedOrders: Order[] = [
     deliveryType: "Regular",
     buyerContact: "+91 98765 43223",
     channelOrderId: "ONDC-ORD-861247",
+    orderType: "standard",
+    buyerCode: "BUYER-GFM-521",
+    gstNumber: "36AAPCG6873B1ZS",
   },
   {
     id: "QWI-FLPK-260518-D9J3RE",
@@ -717,6 +788,9 @@ export const seedOrders: Order[] = [
     deliveryType: "Regular",
     buyerContact: "+91 98765 43224",
     channelOrderId: "FLPK-ORD-552031",
+    orderType: "standard",
+    buyerCode: "BUYER-SLS-390",
+    gstNumber: "36AAQCS3248D1ZU",
   },
 
   // ---- June 2026 workflow showcase rows ----------------------------
@@ -754,6 +828,7 @@ export const seedOrders: Order[] = [
     buyerContact: "+91 98765 43224",
     buyerCode: "BUYER-ANP-712",
     channelOrderId: "ONDC-ORD-987541",
+    gstNumber: "36AARCA7591F1ZW",
   },
 
   // [New · Standard · tomorrow]. Non-beat ad-hoc — lands in the
@@ -778,6 +853,7 @@ export const seedOrders: Order[] = [
     buyerContact: "+91 98765 43225",
     buyerCode: "BUYER-QME-301",
     channelOrderId: "ONDC-ORD-784123",
+    gstNumber: "36AASCQ1826H1ZY",
   },
 
   // [New · Standard · today]. Non-beat same-day request — lands in
@@ -801,6 +877,8 @@ export const seedOrders: Order[] = [
     orderType: "standard",
     buyerContact: "+91 98765 43226",
     channelOrderId: "FLPK-ORD-661204",
+    buyerCode: "BUYER-CSM-101",
+    gstNumber: "36AABCC4521E1ZC",
   },
 
   // [New · Standard · beyond tomorrow]. Non-beat with a future date —
@@ -824,6 +902,8 @@ export const seedOrders: Order[] = [
     orderType: "standard",
     buyerContact: "+91 98765 43227",
     channelOrderId: "ONDC-ORD-451890",
+    buyerCode: "BUYER-PPS-218",
+    gstNumber: "36AATCP5964J1ZA",
   },
 
   // [Confirmed · Standard · tomorrow]. Already confirmed for
@@ -847,6 +927,8 @@ export const seedOrders: Order[] = [
     orderType: "standard",
     buyerContact: "+91 98765 43228",
     channelOrderId: "AMZN-ORD-303912",
+    buyerCode: "BUYER-SSK-441",
+    gstNumber: "36AAUCS2137L1ZC",
   },
 
   // [Confirmed · Standard · 25 May]. Future-dated non-beat — Confirmed
@@ -871,6 +953,8 @@ export const seedOrders: Order[] = [
     orderType: "standard",
     buyerContact: "+91 98765 43229",
     channelOrderId: "ONDC-ORD-562118",
+    buyerCode: "BUYER-MRC-514",
+    gstNumber: "36AADCM8265F1ZP",
   },
 
   // [Delivered · Standard · on time]. Non-beat delivered example —
@@ -895,6 +979,8 @@ export const seedOrders: Order[] = [
     orderType: "standard",
     buyerContact: "+91 98765 43230",
     channelOrderId: "AMZN-ORD-770521",
+    buyerCode: "BUYER-GFM-521",
+    gstNumber: "36AAPCG6873B1ZS",
   },
 
   // ---- Same-day, same-customer, FOUR companies (showcase) ----------
@@ -927,6 +1013,7 @@ export const seedOrders: Order[] = [
     buyerContact: "+91 98765 43226",
     buyerCode: "BUYER-CSM-101",
     channelOrderId: "ONDC-ORD-450201",
+    gstNumber: "36AABCC4521E1ZC",
   },
   {
     id: "QWI-ONDC-260520-MD9F2B",
@@ -949,6 +1036,7 @@ export const seedOrders: Order[] = [
     buyerContact: "+91 98765 43226",
     buyerCode: "BUYER-CSM-101",
     channelOrderId: "ONDC-ORD-450202",
+    gstNumber: "36AABCC4521E1ZC",
   },
   {
     id: "QWI-FLPK-260520-MD9F3C",
@@ -971,6 +1059,7 @@ export const seedOrders: Order[] = [
     buyerContact: "+91 98765 43226",
     buyerCode: "BUYER-CSM-101",
     channelOrderId: "FLPK-ORD-450203",
+    gstNumber: "36AABCC4521E1ZC",
   },
   {
     id: "QWI-AMZN-260520-MD9F4D",
@@ -993,6 +1082,7 @@ export const seedOrders: Order[] = [
     buyerContact: "+91 98765 43226",
     buyerCode: "BUYER-CSM-101",
     channelOrderId: "AMZN-ORD-450204",
+    gstNumber: "36AABCC4521E1ZC",
   },
 
   // [Cancelled · Standard · seller-side, out of stock]. Non-beat
@@ -1020,6 +1110,8 @@ export const seedOrders: Order[] = [
     orderType: "standard",
     buyerContact: "+91 98765 43231",
     channelOrderId: "ONDC-ORD-911047",
+    buyerCode: "BUYER-SKP-174",
+    gstNumber: "36AANCS9517Z1ZQ",
   },];
 
 // Hyderabad-area buyer location data per seed order — lat/lng,
@@ -1138,6 +1230,99 @@ const ORDER_GEO: Record<
     lng: 78.4942,
     address: "Shop 19, Tarnaka Main Road, Tarnaka, Hyderabad, Telangana 500017",
     connectivity: "Offline",
+  },
+  // Wholesale legs of clubbed checkouts — same shop as their
+  // distribution siblings, so the map shows one multi-order pin
+  // per customer purchase.
+  "QWI-ONDC-260519-WHL3T7": {
+    lat: 17.4485,
+    lng: 78.3908,
+    address: "Plot 47, Inorbit Mall Road, Madhapur, Hyderabad, Telangana 500081",
+    connectivity: "Online",
+  },
+  "QWI-ONDC-260520-WHL9F2": {
+    lat: 17.4483,
+    lng: 78.3915,
+    address: "Shop 12, Cyber Towers Road, HITEC City, Madhapur, Hyderabad, Telangana 500081",
+    connectivity: "Online",
+  },
+  // June 2026 workflow showcase rows
+  "QWI-ONDC-260519-X7B2QC": {
+    lat: 17.4132,
+    lng: 78.4382,
+    address: "Shop 2, Road No. 10, Banjara Hills, Hyderabad, Telangana 500034",
+    connectivity: "Online",
+  },
+  "QWI-ONDC-260520-P3R9KZ": {
+    lat: 17.4622,
+    lng: 78.3568,
+    address: "Shop 15, Kothaguda Junction, Kondapur, Hyderabad, Telangana 500084",
+    connectivity: "Online",
+  },
+  "QWI-ONDC-260520-T8K1MR": {
+    lat: 17.4931,
+    lng: 78.3216,
+    address: "Shop 27, Chanda Nagar Main Road, Chanda Nagar, Hyderabad, Telangana 500050",
+    connectivity: "Online",
+  },
+  "QWI-AMZN-260519-G4D7VX": {
+    lat: 17.4022,
+    lng: 78.4871,
+    address: "Shop 10, Himayatnagar Main Road, Himayatnagar, Hyderabad, Telangana 500029",
+    connectivity: "Online",
+  },
+  "QWI-ONDC-260518-L9F6QJ": {
+    lat: 17.3891,
+    lng: 78.4741,
+    address: "Shop 44, GPO Road, Abids, Hyderabad, Telangana 500001",
+    connectivity: "Offline",
+  },
+  // Greenfield Mart delivered order — same store as W2K8PV.
+  "QWI-AMZN-260515-Z2H5BS": {
+    lat: 17.4256,
+    lng: 78.4521,
+    address: "Plot 28, Somajiguda Circle, Somajiguda, Hyderabad, Telangana 500082",
+    connectivity: "Online",
+  },
+  // Sai Krishna Provisions cancelled order — same store as H7L4MX.
+  "QWI-ONDC-260517-A3W8EU": {
+    lat: 17.4188,
+    lng: 78.4587,
+    address: "Shop 4, Punjagutta Cross Roads, Punjagutta, Hyderabad, Telangana 500082",
+    connectivity: "Online",
+  },
+  // City Supermart (Madhapur branch) — the four-company clubbed
+  // purchase plus the separate same-day Flipkart order all pin to
+  // one storefront.
+  "QWI-FLPK-260520-Y6N4HW": {
+    lat: 17.4504,
+    lng: 78.3937,
+    address: "Shop 3, Ayyappa Society Main Road, Madhapur, Hyderabad, Telangana 500081",
+    connectivity: "Online",
+  },
+  "QWI-ONDC-260520-MD9F1A": {
+    lat: 17.4504,
+    lng: 78.3937,
+    address: "Shop 3, Ayyappa Society Main Road, Madhapur, Hyderabad, Telangana 500081",
+    connectivity: "Online",
+  },
+  "QWI-ONDC-260520-MD9F2B": {
+    lat: 17.4504,
+    lng: 78.3937,
+    address: "Shop 3, Ayyappa Society Main Road, Madhapur, Hyderabad, Telangana 500081",
+    connectivity: "Online",
+  },
+  "QWI-FLPK-260520-MD9F3C": {
+    lat: 17.4504,
+    lng: 78.3937,
+    address: "Shop 3, Ayyappa Society Main Road, Madhapur, Hyderabad, Telangana 500081",
+    connectivity: "Online",
+  },
+  "QWI-AMZN-260520-MD9F4D": {
+    lat: 17.4504,
+    lng: 78.3937,
+    address: "Shop 3, Ayyappa Society Main Road, Madhapur, Hyderabad, Telangana 500081",
+    connectivity: "Online",
   },
 };
 
