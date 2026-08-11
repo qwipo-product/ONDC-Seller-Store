@@ -104,10 +104,14 @@ export function getOrderCompanyLabel(o: {
 /**
  * The buyer-app purchase this order came from. One checkout splits
  * into several seller orders (one per distribution company + one
- * consolidated wholesale order), all stamped with the same dummy
- * customer order number so the seller can see them as one purchase.
- * Orders created before clubbing fall back to their own id — every
- * order always belongs to exactly one customer group.
+ * consolidated wholesale order), all stamped with the same clubbing
+ * key so the seller sees them as one purchase. The key is INTERNAL
+ * — never rendered anywhere (a dummy "customer order number" was
+ * rejected because real order IDs come from the buyer app and a
+ * fabricated one reads like a real ID). The UI shows an "N orders
+ * clubbed" count instead. Orders created before clubbing fall back
+ * to their own id — every order always belongs to exactly one
+ * customer group.
  */
 export function getCustomerOrderId(o: {
   customerOrderId?: string;
@@ -233,10 +237,11 @@ export interface Order {
   /** Business model this order was placed under. Absent on legacy
    *  rows → distribution (see {@link getOrderOperationMode}). */
   operationMode?: OrderOperationMode;
-  /** Dummy customer order number stamped on every seller order that
-   *  came from the same buyer-app checkout — the clubbing key for the
-   *  grouped orders view and the export pivot column. Absent on
-   *  legacy rows → the order is its own group. */
+  /** Internal clubbing key stamped on every seller order that came
+   *  from the same buyer-app checkout — drives the grouped orders
+   *  view and the export's Clubbed Orders count. Never displayed
+   *  (see {@link getCustomerOrderId}). Absent on legacy rows → the
+   *  order is its own group. */
   customerOrderId?: string;
 }
 
@@ -899,7 +904,8 @@ export const seedOrders: Order[] = [
   // (Madhapur beat, Thu 21 May), proving the June 2026 rule: one beat
   // per area applies to every company the distributor handles. Useful
   // for explaining "what changes when a 5th company is linked later"
-  // without setting it up live.
+  // without setting it up live. One purchase → one clubbing key: the
+  // list shows them as a single "4 orders clubbed" row.
   {
     id: "QWI-ONDC-260520-MD9F1A",
     brand: "ITC",
@@ -910,7 +916,7 @@ export const seedOrders: Order[] = [
     orderValue: 8400,
     paymentMode: "Prepaid",
     orderDate: "2026-05-20",
-    customerOrderId: "QWI-ORD-260520-MD9F1A",
+    customerOrderId: "QWI-ORD-260520-MD9F0X",
     orderTime: "10:05 AM",
     status: "New",
     marketplace: "ONDC",
@@ -932,7 +938,7 @@ export const seedOrders: Order[] = [
     orderValue: 5400,
     paymentMode: "Prepaid",
     orderDate: "2026-05-20",
-    customerOrderId: "QWI-ORD-260520-MD9F2B",
+    customerOrderId: "QWI-ORD-260520-MD9F0X",
     orderTime: "10:08 AM",
     status: "New",
     marketplace: "ONDC",
@@ -954,7 +960,7 @@ export const seedOrders: Order[] = [
     orderValue: 4200,
     paymentMode: "COD",
     orderDate: "2026-05-20",
-    customerOrderId: "QWI-ORD-260520-MD9F3C",
+    customerOrderId: "QWI-ORD-260520-MD9F0X",
     orderTime: "10:10 AM",
     status: "New",
     marketplace: "Flipkart",
@@ -976,7 +982,7 @@ export const seedOrders: Order[] = [
     orderValue: 3600,
     paymentMode: "COD",
     orderDate: "2026-05-20",
-    customerOrderId: "QWI-ORD-260520-MD9F4D",
+    customerOrderId: "QWI-ORD-260520-MD9F0X",
     orderTime: "10:13 AM",
     status: "New",
     marketplace: "Amazon",

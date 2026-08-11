@@ -284,9 +284,6 @@ export function Orders() {
         tab === "all" ? true : order.status === statusMap[tab];
       const matchesSearch =
         order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        getCustomerOrderId(order)
-          .toLowerCase()
-          .includes(searchQuery.toLowerCase()) ||
         order.retailerName.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesMarketplace =
         marketplaceFilter === "all" || order.marketplace === marketplaceFilter;
@@ -404,9 +401,6 @@ export function Orders() {
       if (o.status !== statusFilter) return false;
       const matchesSearch =
         o.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        getCustomerOrderId(o)
-          .toLowerCase()
-          .includes(searchQuery.toLowerCase()) ||
         o.retailerName.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesMarketplace =
         marketplaceFilter === "all" || o.marketplace === marketplaceFilter;
@@ -483,9 +477,6 @@ export function Orders() {
       if (o.status !== "Cancelled") return false;
       const matchesSearch =
         o.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        getCustomerOrderId(o)
-          .toLowerCase()
-          .includes(searchQuery.toLowerCase()) ||
         o.retailerName.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesMarketplace =
         marketplaceFilter === "all" || o.marketplace === marketplaceFilter;
@@ -871,14 +862,16 @@ export function Orders() {
     // Day field, and added Order Type (Beat / Non-Beat) so finance
     // can reconcile by beat route without re-joining against the
     // settings sheet.
-    // "Parent Order No." (the buyer-app checkout's dummy number,
-    // repeated on every split order so finance can pivot a whole
-    // purchase together) sits beside Order ID; "Operation Mode"
-    // follows Company. Wholesale rows mask the company as
-    // "Wholesaler" — same as the list.
+    // "Clubbed Orders" (how many seller orders were split out of the
+    // same buyer-app checkout — blank for standalone orders) sits
+    // beside Order ID. The earlier dummy "Parent Order No." was
+    // rejected: order IDs come from the buyer app, and a fabricated
+    // number read like a real ID. "Operation Mode" follows Company.
+    // Wholesale rows mask the company as "Wholesaler" — same as the
+    // list.
     const headers = [
       "Order ID",
-      "Parent Order No.",
+      "Clubbed Orders",
       "Order Status",
       "Order Date",
       "Order Type",
@@ -909,6 +902,15 @@ export function Orders() {
 
     const csvRows = [headers.join(",")];
 
+    // Clubbed-order counts — how many exported orders share each
+    // checkout. Counted within the export window so the sheet is
+    // self-consistent.
+    const clubSizes = new Map<string, number>();
+    for (const o of ordersToExport) {
+      const k = getCustomerOrderId(o);
+      clubSizes.set(k, (clubSizes.get(k) ?? 0) + 1);
+    }
+
     ordersToExport.forEach((order) => {
       const lines =
         order.lineItems && order.lineItems.length > 0
@@ -921,9 +923,10 @@ export function Orders() {
       const finalOrderValue = order.orderValue;
       const isWholesale = getOrderOperationMode(order) === "wholesale";
       lines.forEach((item) => {
+        const clubSize = clubSizes.get(getCustomerOrderId(order)) ?? 1;
         const row = [
           order.id,
-          getCustomerOrderId(order),
+          clubSize > 1 ? clubSize : "",
           statusLabelFor(order),
           orderDateLabelFor(order),
           getOrderType(order) === "beat" ? "Beat" : "Non-Beat",
@@ -1095,6 +1098,12 @@ export function Orders() {
         g.orders.push(o);
       }
       for (const g of seq) {
+        // Singleton groups render as plain rows — no band, no chevron,
+        // real order ID.
+        if (g.orders.length === 1) {
+          renderItems.push({ type: "order", order: g.orders[0], inGroup: false });
+          continue;
+        }
         renderItems.push({ type: "group", key: g.key, orders: g.orders });
         if (expandedGroups[g.key]) {
           for (const o of g.orders) {
@@ -1183,7 +1192,6 @@ export function Orders() {
                 );
                 const first = item.orders[0];
                 const expanded = !!expandedGroups[item.key];
-                const many = item.orders.length > 1;
                 // Aggregated cells — a uniform value renders normally,
                 // a mixed one reads "Mixed" until expanded. Company,
                 // Beat Name and Status stay EMPTY on the parent row —
@@ -1236,9 +1244,13 @@ export function Orders() {
                       {uniq(item.orders.map((o) => o.expectedDeliveryDate))
                         .sort()[0] ?? ""}
                     </td>
-                    {/* Order No. — the dummy number stamped on every
-                        seller order split out of one buyer purchase.
-                        Chevron + ×N flag the drop-down. */}
+                    {/* Order ID — the parent row shows NO order number.
+                        Real order IDs come from the buyer app, and the
+                        dummy clubbing number was rejected (it read like
+                        a real ID and confused sellers). Clubbed groups
+                        show a chevron + "N orders clubbed" count
+                        instead; the member rows underneath carry the
+                        real IDs. */}
                     <td className="px-3 py-2.5 whitespace-nowrap">
                       <span className="inline-flex items-center gap-1.5">
                         {expanded ? (
@@ -1246,24 +1258,12 @@ export function Orders() {
                         ) : (
                           <ChevronRight className="h-3.5 w-3.5 text-gray-500 shrink-0" />
                         )}
-                        <span onClick={(e) => e.stopPropagation()}>
-                          <CopyOnHover value={item.key} label="Order No.">
-                            <code
-                              className="text-[11px] bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded font-mono"
-                              title={item.key}
-                            >
-                              {item.key}
-                            </code>
-                          </CopyOnHover>
-                        </span>
-                        {many && (
-                          <Badge
-                            variant="secondary"
-                            className="bg-indigo-50 border border-indigo-200 text-indigo-700 text-[10px] h-5 px-1.5"
-                          >
-                            {item.orders.length} orders
-                          </Badge>
-                        )}
+                        <Badge
+                          variant="secondary"
+                          className="bg-indigo-50 border border-indigo-200 text-indigo-700 text-[10px] h-5 px-1.5"
+                        >
+                          {item.orders.length} orders clubbed
+                        </Badge>
                       </span>
                     </td>
                     {/* Company — always empty on the parent row; the
@@ -1365,35 +1365,21 @@ export function Orders() {
                     )}
                     <td className="px-3 py-2.5 whitespace-nowrap">
                       <div className="flex items-center justify-center gap-2">
-                        {many ? (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleGroup(item.key);
-                            }}
-                            title={expanded ? "Hide orders" : "View orders"}
-                          >
-                            {expanded ? (
-                              <ChevronDown className="h-4 w-4" />
-                            ) : (
-                              <ChevronRight className="h-4 w-4" />
-                            )}
-                          </Button>
-                        ) : (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate(`/orders/${first.id}`);
-                            }}
-                            title="View Details"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleGroup(item.key);
+                          }}
+                          title={expanded ? "Hide orders" : "View orders"}
+                        >
+                          {expanded ? (
+                            <ChevronDown className="h-4 w-4" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4" />
+                          )}
+                        </Button>
                       </div>
                     </td>
                   </tr>
