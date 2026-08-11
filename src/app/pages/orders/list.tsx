@@ -45,8 +45,6 @@ import {
   Route,
   MapPin,
   CalendarDays,
-  CalendarPlus,
-  MessageCircle,
   ChevronDown,
   Warehouse,
   Layers,
@@ -197,15 +195,6 @@ export function Orders() {
   // orders' customer locations. Opened from the New + Confirmed
   // bulk action bars.
   const [isMapDialogOpen, setIsMapDialogOpen] = useState(false);
-  // "Update Expected Delivery Date" bulk action — Confirmed tab.
-  // The seller picks one or more confirmed orders, opens the
-  // dialog, chooses a new date, and on save we mutate
-  // expectedDeliveryDate across the selection. A WhatsApp
-  // notification banner in the success toast tells the seller
-  // their customers were informed about the schedule change.
-  const [isUpdateDeliveryDialogOpen, setIsUpdateDeliveryDialogOpen] =
-    useState(false);
-  const [newExpectedDeliveryDate, setNewExpectedDeliveryDate] = useState("");
 
   // Form data
   const [cancelReason, setCancelReason] = useState("");
@@ -671,57 +660,6 @@ export function Orders() {
     setSelectedOrders([]);
     setIsCancelDialogOpen(false);
     setCancelReason("");
-  };
-
-  // Bulk reschedule — Confirmed tab. Rewrites expectedDeliveryDate on
-  // every selected order to the date the seller picked in the
-  // dialog, then surfaces two notifications: a primary toast
-  // confirming the update, and a description line telling the
-  // seller a WhatsApp notification went out to each affected
-  // customer. (The WhatsApp send is mocked at this layer — in
-  // production this would queue against the messaging backend.)
-  const handleUpdateDeliveryDate = () => {
-    if (!newExpectedDeliveryDate) {
-      toast.error("Please pick a new expected delivery date.");
-      return;
-    }
-    // Block past-dated reschedules — picking yesterday makes no
-    // operational sense and would confuse the customer message.
-    const today = new Date().toISOString().slice(0, 10);
-    if (newExpectedDeliveryDate < today) {
-      toast.error("New delivery date can't be in the past.");
-      return;
-    }
-    const count = selectedOrders.length;
-    setOrders((prev) =>
-      prev.map((order) =>
-        selectedOrders.includes(order.id)
-          ? { ...order, expectedDeliveryDate: newExpectedDeliveryDate }
-          : order,
-      ),
-    );
-    // Friendly date for the toast — same format the column uses.
-    const t = Date.parse(newExpectedDeliveryDate + "T00:00:00Z");
-    const friendly = Number.isNaN(t)
-      ? newExpectedDeliveryDate
-      : new Date(t).toLocaleDateString("en-GB", {
-          weekday: "short",
-          day: "2-digit",
-          month: "short",
-          timeZone: "UTC",
-        });
-    toast.success(
-      `${count} order${count === 1 ? "" : "s"} rescheduled to ${friendly}.`,
-      {
-        description:
-          "WhatsApp notification sent to inform customers about the delayed delivery.",
-        icon: <MessageCircle className="h-4 w-4 text-emerald-600" />,
-        duration: 5000,
-      },
-    );
-    setSelectedOrders([]);
-    setIsUpdateDeliveryDialogOpen(false);
-    setNewExpectedDeliveryDate("");
   };
 
   // Mark as delivered (Confirmed → Delivered). No metadata to capture
@@ -1959,9 +1897,7 @@ export function Orders() {
 
                       {/* Bulk Action Buttons — View on Map (route the
                           day's confirmed deliveries) anchors the row,
-                          then Mark Delivered, the May 2026 Update
-                          Delivery Date reschedule flow (with WhatsApp
-                          customer notification), and the destructive
+                          then Mark Delivered and the destructive
                           Cancel. */}
                       {selectedOrders.length > 0 && (
                         <div className="flex items-center gap-2">
@@ -1982,15 +1918,6 @@ export function Orders() {
                           >
                             <Truck className="h-4 w-4" />
                             Mark Delivered
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="border-amber-300 text-amber-800 hover:bg-amber-50 hover:text-amber-900 gap-2"
-                            onClick={() => setIsUpdateDeliveryDialogOpen(true)}
-                          >
-                            <CalendarPlus className="h-4 w-4" />
-                            Update Delivery Date
                           </Button>
                           <Button
                             size="sm"
@@ -2365,88 +2292,6 @@ export function Orders() {
             >
               <XCircle className="h-4 w-4" />
               Cancel {selectedOrders.length} Order(s)
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Update Expected Delivery Date Dialog — bulk-reschedule
-          flow. The seller picks a new date in the input below;
-          on save we rewrite expectedDeliveryDate across the
-          selection and a mocked WhatsApp notification message is
-          surfaced in the success toast. Closing the dialog clears
-          the picked date so the next open starts blank. */}
-      <Dialog
-        open={isUpdateDeliveryDialogOpen}
-        onOpenChange={(open) => {
-          setIsUpdateDeliveryDialogOpen(open);
-          if (!open) setNewExpectedDeliveryDate("");
-        }}
-      >
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <CalendarPlus className="h-5 w-5 text-amber-600" />
-              Update Expected Delivery Date
-            </DialogTitle>
-            <DialogDescription>
-              Reschedule{" "}
-              {selectedOrders.length === 1
-                ? "1 order"
-                : `${selectedOrders.length} orders`}{" "}
-              to a new expected delivery date. Customers will be
-              notified on WhatsApp about the change.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="new-delivery-date">
-                New Expected Delivery Date
-              </Label>
-              <Input
-                id="new-delivery-date"
-                type="date"
-                value={newExpectedDeliveryDate}
-                min={new Date().toISOString().slice(0, 10)}
-                onChange={(e) =>
-                  setNewExpectedDeliveryDate(e.target.value)
-                }
-                className="w-full"
-              />
-              <p className="text-[11px] text-gray-500">
-                The same date will be applied to every selected
-                order. Past dates aren&apos;t allowed.
-              </p>
-            </div>
-
-            <div className="flex items-start gap-2 p-3 rounded border border-emerald-100 bg-emerald-50/60 text-[12px] text-emerald-900">
-              <MessageCircle className="h-4 w-4 mt-0.5 shrink-0 text-emerald-700" />
-              <p>
-                A WhatsApp message will be sent to each affected
-                customer with the new expected delivery date so they
-                know about the delay.
-              </p>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsUpdateDeliveryDialogOpen(false);
-                setNewExpectedDeliveryDate("");
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleUpdateDeliveryDate}
-              disabled={!newExpectedDeliveryDate}
-              className="gap-2 bg-amber-600 hover:bg-amber-700"
-            >
-              <CalendarPlus className="h-4 w-4" />
-              Update &amp; Notify
             </Button>
           </DialogFooter>
         </DialogContent>
