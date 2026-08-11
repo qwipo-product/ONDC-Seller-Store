@@ -63,12 +63,11 @@ import {
 } from "../../lib/logistics-settings";
 // Shared store — seeds + writers live in lib/orders-data so the
 // detail page can read the same orders by id and writes flow both
-// ways. `Order` / `OrderLineItem` / `OrderStatus` are exported from
-// the lib so we don't redeclare them here.
+// ways. `Order` / `OrderLineItem` are exported from the lib so we
+// don't redeclare them here.
 import {
   type Order,
   type OrderLineItem,
-  type OrderStatus,
   type DeliveryType,
   type CancelledBy,
   SELLER_INFO,
@@ -368,12 +367,13 @@ export function Orders() {
       }
 
       // Delivery Day pill + Beat/Non-Beat sub-navigation. Same shape
-      // on both the New and Confirmed tabs — the seller plans new
-      // arrivals and already-confirmed deliveries the same way (which
-      // day? which route?), so the filters mirror across both. "all"
-      // on either dimension is a pass-through.
+      // on the New, Confirmed and 3PL Logistics tabs — the seller
+      // plans new arrivals, their own deliveries and the partner's
+      // deliveries the same way (which day? which route?), so the
+      // filters mirror across all three. "all" on either dimension is
+      // a pass-through.
       let matchesConfirmedSub = true;
-      if (tab === "confirmed" || tab === "new") {
+      if (tab === "confirmed" || tab === "new" || tab === "logistics") {
         if (confirmedDeliveryDay !== "all") {
           matchesConfirmedSub =
             matchesConfirmedSub &&
@@ -449,13 +449,13 @@ export function Orders() {
   // Both run off the same base filter so a search / marketplace /
   // brand filter is reflected in the counts the user sees on the
   // pills + tabs.
-  const buildBucketCounts = (statusFilter: OrderStatus) => {
+  // `scope` picks the tab's population. It takes a predicate rather
+  // than a status because the 3PL Logistics tab isn't status-backed —
+  // those rows are Confirmed underneath and are selected on
+  // `logisticsRequested` instead.
+  const buildBucketCounts = (scope: (order: Order) => boolean) => {
     const base = orders.filter((o) => {
-      if (o.status !== statusFilter) return false;
-      // Keep the day + Beat/Non-Beat pill counts in step with the
-      // rows the seller can actually see — an order out with the 3PL
-      // partner shouldn't inflate a day pill the seller can't action.
-      if (statusFilter === "Confirmed" && !isSellerActionable(o)) return false;
+      if (!scope(o)) return false;
       const matchesSearch =
         o.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
         o.retailerName.toLowerCase().includes(searchQuery.toLowerCase());
@@ -501,8 +501,30 @@ export function Orders() {
     };
   };
 
+  // Keeps the day + Beat/Non-Beat pill counts in step with the rows
+  // the seller can actually see — an order out with the 3PL partner
+  // shouldn't inflate a day pill the seller can't action.
   const confirmedBucketCounts = useMemo(
-    () => buildBucketCounts("Confirmed"),
+    () =>
+      buildBucketCounts(
+        (o) => o.status === "Confirmed" && isSellerActionable(o),
+      ),
+    [
+      orders,
+      searchQuery,
+      marketplaceFilter,
+      selectedBrandFilters,
+      selectedDeliveryTypes,
+      confirmedDeliveryDay,
+    ],
+  );
+
+  // Same two chip rows as Confirmed, scoped to what the partner is
+  // carrying. The planning question doesn't change just because
+  // someone else is driving: which day is this going out, and is it
+  // riding a beat?
+  const logisticsBucketCounts = useMemo(
+    () => buildBucketCounts(isWithLogisticsPartner),
     [
       orders,
       searchQuery,
@@ -514,7 +536,7 @@ export function Orders() {
   );
 
   const newBucketCounts = useMemo(
-    () => buildBucketCounts("New"),
+    () => buildBucketCounts((o) => o.status === "New"),
     [
       orders,
       searchQuery,
@@ -584,10 +606,10 @@ export function Orders() {
     setSelectedOrders([]);
     setCurrentPage(1); // Reset to first page
     // Reset the Delivery Day + Beat/Non-Beat sub-navigation whenever
-    // we leave New or Confirmed (the two tabs that host the
-    // filters), so a fresh visit always lands on "All days / All
+    // we leave New, Confirmed or 3PL Logistics (the tabs that host
+    // the filters), so a fresh visit always lands on "All days / All
     // orders".
-    if (tab !== "confirmed" && tab !== "new") {
+    if (tab !== "confirmed" && tab !== "new" && tab !== "logistics") {
       setConfirmedDeliveryDay("all");
       setConfirmedBeatMode("all");
     }
@@ -2087,6 +2109,7 @@ export function Orders() {
                 which in production arrives from the delivery-partner
                 app via LBNP rather than from a button here. */}
             <TabsContent value="logistics" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
+              {!isEmpty && renderDayAndBeatFilters(logisticsBucketCounts)}
               <div className="px-6 py-4 border-b flex-shrink-0">
                 <div className="relative max-w-md">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
