@@ -27,8 +27,47 @@ import {
   CalendarOff,
   Save,
   Plus,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  getHolidays,
+  getShopHours,
+  getWeekOff,
+  setHolidays as persistHolidays,
+  setShopHours as persistShopHours,
+  setWeekOff as persistWeekOff,
+  WEEK_DAY_ORDER,
+  type FixedHoliday,
+  type WeekDay,
+} from "../../lib/store-settings-data";
+
+const WEEK_DAY_LABELS: Record<WeekDay, string> = {
+  mon: "Mon",
+  tue: "Tue",
+  wed: "Wed",
+  thu: "Thu",
+  fri: "Fri",
+  sat: "Sat",
+  sun: "Sun",
+};
+
+function todayIso(): string {
+  const d = new Date();
+  const pad = (n: number) => (n < 10 ? `0${n}` : String(n));
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function formatHolidayDate(iso: string): string {
+  const [y, m, day] = iso.split("-").map(Number);
+  const d = new Date(y, (m ?? 1) - 1, day ?? 1);
+  return d.toLocaleDateString("en-IN", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
 
 // ---------- Warehouses ----------
 // Phase 1 rule: warehouses are append-only. Once created they can't
@@ -55,6 +94,79 @@ export function StoreSettings() {
   // new orders stop until they manually flip it back on.
   const [acceptOrders, setAcceptOrders] = useState(true);
   const [pendingAcceptOrders, setPendingAcceptOrders] = useState<boolean | null>(null);
+
+  // ---- Working Hours + Weekly Off ----
+  // Draft state seeded from the persisted store; committed together
+  // via the card's Save button so a half-edited pair of times never
+  // leaks into the delivery-date predictor.
+  const [shopOpen, setShopOpen] = useState(() => getShopHours().open);
+  const [shopClose, setShopClose] = useState(() => getShopHours().close);
+  const [weekOff, setWeekOffDraft] = useState<WeekDay[]>(() => getWeekOff());
+
+  // ---- Holidays ----
+  // Named calendar entries (Diwali, Republic Day…). They feed the
+  // delivery-date walk; adds/removes persist immediately.
+  const [holidays, setHolidaysState] = useState<FixedHoliday[]>(() =>
+    getHolidays(),
+  );
+  const [holidayDraft, setHolidayDraft] = useState({ name: "", date: "" });
+
+  const toggleWeekOffDay = (day: WeekDay) => {
+    setWeekOffDraft((prev) => {
+      if (prev.includes(day)) return prev.filter((d) => d !== day);
+      if (prev.length >= 6) {
+        toast.error("At least one working day is required.");
+        return prev;
+      }
+      return [...prev, day];
+    });
+  };
+
+  const handleSaveWorkingHours = () => {
+    if (!shopOpen || !shopClose) {
+      toast.error("Set both opening and closing time.");
+      return;
+    }
+    if (shopClose <= shopOpen) {
+      toast.error("Closing time must be after opening time.");
+      return;
+    }
+    persistShopHours({ open: shopOpen, close: shopClose });
+    persistWeekOff(weekOff);
+    toast.success(
+      `Working hours saved — open ${shopOpen} to ${shopClose}, ${
+        weekOff.length === 0
+          ? "no weekly off"
+          : `weekly off on ${weekOff.map((d) => WEEK_DAY_LABELS[d]).join(", ")}`
+      }.`,
+    );
+  };
+
+  const holidayDateTaken = (date: string) =>
+    holidays.some((h) => h.date === date);
+
+  const handleAddFixedHoliday = () => {
+    const name = holidayDraft.name.trim();
+    const date = holidayDraft.date;
+    if (!name || !date) return;
+    if (holidayDateTaken(date)) {
+      toast.error("That date is already marked as a holiday.");
+      return;
+    }
+    const next = [...holidays, { id: `h-${Date.now()}`, name, date }];
+    setHolidaysState(next.sort((a, b) => a.date.localeCompare(b.date)));
+    persistHolidays(next);
+    setHolidayDraft({ name: "", date: "" });
+    toast.success(`Added "${name}" (${formatHolidayDate(date)}).`);
+  };
+
+  const handleRemoveFixedHoliday = (id: string) => {
+    const gone = holidays.find((h) => h.id === id);
+    const next = holidays.filter((h) => h.id !== id);
+    setHolidaysState(next);
+    persistHolidays(next);
+    if (gone) toast.success(`Removed "${gone.name}".`);
+  };
 
   // ---- Warehouses ----
   const [warehouses, setWarehouses] = useState<Warehouse[]>([
@@ -285,60 +397,61 @@ export function StoreSettings() {
           </Card>
         </div>
 
-        {/* Working Hours + Fixed Holidays — Phase 1 stubs. Both
-            cards render the final UI shape (so onboarding screenshots
-            line up with the eventual feature) but are pointer-locked
-            and visually muted, with a "Coming soon" pill called out
-            over each editable region. The persistence layer in
-            store-settings-data still feeds the delivery-date
-            predictor from its defaults; only the seller-facing edit
-            UI is parked. */}
+        {/* Working Hours + Holidays — live. Working Hours commits via
+            its Save button; holiday adds/removes persist immediately.
+            Everything feeds the delivery-date predictor through
+            store-settings-data. */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          <Card className="opacity-60 select-none">
+          <Card>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between gap-2">
                 <CardTitle className="text-sm flex items-center gap-2">
                   <Clock className="h-4 w-4 text-blue-600" />
                   Working Hours
                   <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-[10px]">
-                    1 weekly off
+                    {weekOff.length} weekly off
                   </Badge>
                 </CardTitle>
-                <Button size="sm" className="h-7 gap-1 text-xs" disabled>
+                <Button
+                  size="sm"
+                  className="h-7 gap-1 text-xs"
+                  onClick={handleSaveWorkingHours}
+                >
                   <Save className="h-3.5 w-3.5" />
                   Save
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="pt-0 space-y-3 pointer-events-none">
-              <div className="relative flex items-end gap-3">
+            <CardContent className="pt-0 space-y-3">
+              <div className="flex items-end gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs">Open</Label>
+                  <Label className="text-xs">Shop Opening Time</Label>
                   <Input
                     type="time"
-                    defaultValue="09:00"
+                    value={shopOpen}
+                    onChange={(e) => setShopOpen(e.target.value)}
                     className="w-28 h-8 text-sm"
-                    disabled
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Close</Label>
+                  <Label className="text-xs">Shop Closing Time</Label>
                   <Input
                     type="time"
-                    defaultValue="20:00"
+                    value={shopClose}
+                    onChange={(e) => setShopClose(e.target.value)}
                     className="w-28 h-8 text-sm"
-                    disabled
                   />
                 </div>
                 <p className="text-[11px] text-gray-500 pb-1.5">
                   Buyers will see the store based on the configured working
                   days.
                 </p>
-                <span className="absolute left-1/2 -translate-x-1/2 -bottom-2 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white border border-gray-200 shadow-sm text-[11px] font-medium text-gray-700">
-                  <Clock className="h-3 w-3" />
-                  Coming soon
-                </span>
               </div>
+              {shopClose <= shopOpen && (
+                <p className="text-[11px] text-red-600">
+                  Closing time must be after opening time.
+                </p>
+              )}
               <div className="space-y-1.5 pt-3 border-t border-gray-100">
                 <Label className="text-xs flex items-center gap-1.5 text-gray-700 pt-2">
                   <CalendarOff className="h-3.5 w-3.5 text-amber-600" />
@@ -348,27 +461,22 @@ export function StoreSettings() {
                   Tap the days the store is always closed.
                 </p>
                 <div className="flex flex-wrap gap-1.5">
-                  {[
-                    { key: "mon", short: "Mon" },
-                    { key: "tue", short: "Tue" },
-                    { key: "wed", short: "Wed" },
-                    { key: "thu", short: "Thu" },
-                    { key: "fri", short: "Fri" },
-                    { key: "sat", short: "Sat" },
-                    { key: "sun", short: "Sun" },
-                  ].map((d) => {
-                    const on = d.key === "sun";
+                  {WEEK_DAY_ORDER.map((d) => {
+                    const on = weekOff.includes(d);
                     return (
-                      <span
-                        key={d.key}
-                        className={`px-2.5 py-1 rounded-md text-xs font-medium border ${
+                      <button
+                        key={d}
+                        type="button"
+                        onClick={() => toggleWeekOffDay(d)}
+                        aria-pressed={on}
+                        className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-colors cursor-pointer ${
                           on
                             ? "bg-amber-50 border-amber-300 text-amber-800"
-                            : "bg-white border-gray-200 text-gray-700"
+                            : "bg-white border-gray-200 text-gray-700 hover:border-gray-300"
                         }`}
                       >
-                        {d.short}
-                      </span>
+                        {WEEK_DAY_LABELS[d]}
+                      </button>
                     );
                   })}
                 </div>
@@ -376,45 +484,90 @@ export function StoreSettings() {
             </CardContent>
           </Card>
 
-          <Card className="opacity-60 select-none">
+          <Card>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between gap-2">
                 <CardTitle className="text-sm flex items-center gap-2">
                   <Calendar className="h-4 w-4 text-rose-600" />
-                  Fixed Holidays
+                  Holidays
                   <Badge className="bg-rose-50 text-rose-700 border-rose-200 text-[10px]">
-                    0
+                    {holidays.length}
                   </Badge>
                 </CardTitle>
               </div>
             </CardHeader>
-            <CardContent className="pt-0 space-y-2 pointer-events-none">
-              <div className="grid grid-cols-1 gap-1.5">
-                <div className="p-2 text-center text-xs text-gray-500 border border-gray-200 rounded-md">
-                  No fixed holidays configured.
+            <CardContent className="pt-0 space-y-3">
+              {/* --- Fixed holidays: named calendar entries --- */}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-gray-700">Fixed Holidays</Label>
+                <p className="text-[11px] text-gray-500">
+                  Planned calendar holidays — festivals, national days.
+                </p>
+                {/* Capped height with scroll — a long holiday calendar
+                    shouldn't stretch the card and push the add form
+                    out of reach. */}
+                <div className="grid grid-cols-1 gap-1.5 max-h-44 overflow-y-auto pr-1">
+                  {holidays.length === 0 ? (
+                    <div className="p-2 text-center text-xs text-gray-500 border border-gray-200 rounded-md">
+                      No fixed holidays configured.
+                    </div>
+                  ) : (
+                    holidays.map((h) => (
+                      <div
+                        key={h.id}
+                        className="flex items-center justify-between gap-2 border border-gray-200 rounded-md px-2 py-1.5"
+                      >
+                        <div className="min-w-0 flex-1 flex items-center gap-2">
+                          <p className="text-xs font-medium text-gray-900 truncate">
+                            {h.name}
+                          </p>
+                          <p className="text-[11px] text-gray-500 shrink-0">
+                            {formatHolidayDate(h.date)}
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-gray-400 hover:text-red-600"
+                          onClick={() => handleRemoveFixedHoliday(h.id)}
+                          title={`Remove ${h.name}`}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <div className="border border-dashed border-gray-300 rounded-md p-2 grid grid-cols-[1fr_140px_auto] gap-1.5 items-end">
+                  <Input
+                    placeholder="Holiday name"
+                    className="h-8 text-sm"
+                    value={holidayDraft.name}
+                    onChange={(e) =>
+                      setHolidayDraft((p) => ({ ...p, name: e.target.value }))
+                    }
+                  />
+                  <Input
+                    type="date"
+                    className="h-8 text-sm"
+                    min={todayIso()}
+                    value={holidayDraft.date}
+                    onChange={(e) =>
+                      setHolidayDraft((p) => ({ ...p, date: e.target.value }))
+                    }
+                  />
+                  <Button
+                    size="sm"
+                    className="h-8 gap-1"
+                    onClick={handleAddFixedHoliday}
+                    disabled={!holidayDraft.name.trim() || !holidayDraft.date}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Add
+                  </Button>
                 </div>
               </div>
 
-              <div className="relative border border-dashed border-gray-300 rounded-md p-2 grid grid-cols-[1fr_140px_auto] gap-1.5 items-end">
-                <Input
-                  placeholder="Holiday name"
-                  className="h-8 text-sm"
-                  disabled
-                />
-                <Input
-                  type="date"
-                  className="h-8 text-sm"
-                  disabled
-                />
-                <Button size="sm" className="h-8 gap-1" disabled>
-                  <Plus className="h-3.5 w-3.5" />
-                  Add
-                </Button>
-                <span className="absolute left-1/2 -translate-x-1/2 -top-3 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white border border-gray-200 shadow-sm text-[11px] font-medium text-gray-700">
-                  <Clock className="h-3 w-3" />
-                  Coming soon
-                </span>
-              </div>
             </CardContent>
           </Card>
         </div>

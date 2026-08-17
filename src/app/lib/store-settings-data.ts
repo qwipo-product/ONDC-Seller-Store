@@ -8,6 +8,7 @@
 
 const WEEK_OFF_KEY = "qwipo.storeSettings.weekOff";
 const HOLIDAYS_KEY = "qwipo.storeSettings.holidays";
+const SHOP_HOURS_KEY = "qwipo.storeSettings.shopHours";
 
 export type WeekDay =
   | "mon"
@@ -37,7 +38,18 @@ export interface FixedHoliday {
   date: string;
 }
 
+export interface ShopHours {
+  /** `HH:mm`, 24-hour. */
+  open: string;
+  /** `HH:mm`, 24-hour. */
+  close: string;
+}
+
 const DEFAULT_WEEK_OFF: WeekDay[] = ["sun"];
+
+const DEFAULT_SHOP_HOURS: ShopHours = { open: "09:00", close: "20:00" };
+
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 // Same seed list the old store-settings.tsx hardcoded — moved here so
 // the holiday calendar starts populated rather than empty on first
@@ -108,8 +120,42 @@ export function setWeekOff(next: WeekDay[]): void {
   }
 }
 
+function readShopHours(): ShopHours {
+  try {
+    const raw = localStorage.getItem(SHOP_HOURS_KEY);
+    if (!raw) return { ...DEFAULT_SHOP_HOURS };
+    const parsed = JSON.parse(raw);
+    if (
+      parsed &&
+      typeof parsed.open === "string" &&
+      TIME_RE.test(parsed.open) &&
+      typeof parsed.close === "string" &&
+      TIME_RE.test(parsed.close)
+    ) {
+      return { open: parsed.open, close: parsed.close };
+    }
+    return { ...DEFAULT_SHOP_HOURS };
+  } catch {
+    return { ...DEFAULT_SHOP_HOURS };
+  }
+}
+
 export function getHolidays(): FixedHoliday[] {
   return readHolidays();
+}
+
+export function getShopHours(): ShopHours {
+  return readShopHours();
+}
+
+export function setShopHours(next: ShopHours): void {
+  try {
+    if (!TIME_RE.test(next.open) || !TIME_RE.test(next.close)) return;
+    localStorage.setItem(SHOP_HOURS_KEY, JSON.stringify(next));
+    notify();
+  } catch {
+    /* localStorage unavailable — no-op */
+  }
 }
 
 export function setHolidays(next: FixedHoliday[]): void {

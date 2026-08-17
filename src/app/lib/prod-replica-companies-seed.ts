@@ -406,5 +406,29 @@ export const PROD_REPLICA_COMPANIES: { id: string; name: string }[] = [
   {
     "id": "co-prod-ushodaya-enterprises-private-limited",
     "name": "Ushodaya Enterprises Private Limited"
+  },
+  {
+    "id": "co-prod-bambino-agro-industries-ltd",
+    "name": "Bambino Agro Industries Ltd"
+  },
+  {
+    "id": "co-prod-gh-industries",
+    "name": "GH Industries"
+  },
+  {
+    "id": "co-prod-msr-products",
+    "name": "MSR Products"
+  },
+  {
+    "id": "co-prod-rajam-industries-private-limited",
+    "name": "Rajam Industries Private Limited"
+  },
+  {
+    "id": "co-prod-v-r-enterprises",
+    "name": "V R Enterprises"
+  },
+  {
+    "id": "co-prod-ava-cholayil-health-care-private-limited",
+    "name": "AVA Cholayil Health Care Private Limited"
   }
 ];

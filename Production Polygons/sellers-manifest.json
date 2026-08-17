@@ -172,5 +172,17 @@
   "business": "Internal Catalog Seller",
   "phone": "9182855346",
   "status": "Active"
+ },
+ {
+  "seller": "KURA SRINIVAS",
+  "business": "HANUMAN ENTERPRISES",
+  "phone": "9704626876",
+  "status": "Active"
+ },
+ {
+  "seller": "MYDHILI KAIPU",
+  "business": "RASVITHA TRADERS",
+  "phone": "9247241176",
+  "status": "Active"
  }
 ]

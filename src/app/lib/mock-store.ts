@@ -213,7 +213,7 @@ const REQUESTS_KEY = "qwipo.mock.requests";
 // v9 (2026-07-30): production roster refresh — 4 new sellers (Banjara,
 // SKM, Balaji Trading, Silpatwal), CHASWI re-activated, Lakshmi Saai
 // deactivated.
-const SELLERS_KEY = "qwipo.mock.sellers.v9";
+const SELLERS_KEY = "qwipo.mock.sellers.v10";
 
 // ---- Default factory helpers ----
 
