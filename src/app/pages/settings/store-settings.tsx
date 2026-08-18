@@ -28,6 +28,8 @@ import {
   Save,
   Plus,
   X,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -56,6 +58,22 @@ function todayIso(): string {
   const d = new Date();
   const pad = (n: number) => (n < 10 ? `0${n}` : String(n));
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+// Month grid for the holiday calendar. Returns 7-column-friendly cells:
+// leading `null`s pad to the first weekday, then one ISO date per day.
+function buildCalendarCells(base: Date): (string | null)[] {
+  const year = base.getFullYear();
+  const month = base.getMonth();
+  const pad = (n: number) => (n < 10 ? `0${n}` : String(n));
+  const firstWeekday = new Date(year, month, 1).getDay(); // 0 = Sunday
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const cells: (string | null)[] = [];
+  for (let i = 0; i < firstWeekday; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) {
+    cells.push(`${year}-${pad(month + 1)}-${pad(d)}`);
+  }
+  return cells;
 }
 
 function formatHolidayDate(iso: string): string {
@@ -110,6 +128,19 @@ export function StoreSettings() {
     getHolidays(),
   );
   const [holidayDraft, setHolidayDraft] = useState({ name: "", date: "" });
+  // Add / View (calendar) popups. `calMonth` is the first-of-month the
+  // calendar is showing; it defaults to the current month.
+  const [addHolidayOpen, setAddHolidayOpen] = useState(false);
+  const [viewHolidayOpen, setViewHolidayOpen] = useState(false);
+  const [calMonth, setCalMonth] = useState<Date>(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1);
+  });
+  // Fast date → holiday lookup for the calendar. Rebuilt on each render so
+  // adds/removes reflect instantly on both the list and the calendar.
+  const holidayByDate = new Map(
+    holidays.map((h) => [h.date, h] as [string, FixedHoliday]),
+  );
 
   const toggleWeekOffDay = (day: WeekDay) => {
     setWeekOffDraft((prev) => {
@@ -157,7 +188,15 @@ export function StoreSettings() {
     setHolidaysState(next.sort((a, b) => a.date.localeCompare(b.date)));
     persistHolidays(next);
     setHolidayDraft({ name: "", date: "" });
+    setAddHolidayOpen(false);
     toast.success(`Added "${name}" (${formatHolidayDate(date)}).`);
+  };
+
+  // Open the Add popup, optionally pre-filling a date (used when a free day
+  // is clicked in the calendar).
+  const openAddHoliday = (presetDate?: string) => {
+    setHolidayDraft({ name: "", date: presetDate ?? "" });
+    setAddHolidayOpen(true);
   };
 
   const handleRemoveFixedHoliday = (id: string) => {
@@ -494,6 +533,25 @@ export function StoreSettings() {
                     {holidays.length}
                   </Badge>
                 </CardTitle>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 gap-1 text-xs"
+                    onClick={() => setViewHolidayOpen(true)}
+                  >
+                    <Calendar className="h-3.5 w-3.5" />
+                    View
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="h-7 gap-1 text-xs"
+                    onClick={() => openAddHoliday()}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Add
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="pt-0 space-y-3">
@@ -538,36 +596,7 @@ export function StoreSettings() {
                     ))
                   )}
                 </div>
-                <div className="border border-dashed border-gray-300 rounded-md p-2 grid grid-cols-[1fr_140px_auto] gap-1.5 items-end">
-                  <Input
-                    placeholder="Holiday name"
-                    className="h-8 text-sm"
-                    value={holidayDraft.name}
-                    onChange={(e) =>
-                      setHolidayDraft((p) => ({ ...p, name: e.target.value }))
-                    }
-                  />
-                  <Input
-                    type="date"
-                    className="h-8 text-sm"
-                    min={todayIso()}
-                    value={holidayDraft.date}
-                    onChange={(e) =>
-                      setHolidayDraft((p) => ({ ...p, date: e.target.value }))
-                    }
-                  />
-                  <Button
-                    size="sm"
-                    className="h-8 gap-1"
-                    onClick={handleAddFixedHoliday}
-                    disabled={!holidayDraft.name.trim() || !holidayDraft.date}
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    Add
-                  </Button>
-                </div>
               </div>
-
             </CardContent>
           </Card>
         </div>
@@ -857,6 +886,195 @@ export function StoreSettings() {
             </Button>
             <Button onClick={handleSaveWarehouse} disabled={!isDraftValid}>
               Add Warehouse
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Holiday — name + date. Opened from the header CTA or by
+          clicking a free day in the calendar (date pre-filled). */}
+      <Dialog open={addHolidayOpen} onOpenChange={setAddHolidayOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-rose-600" />
+              Add Holiday
+            </DialogTitle>
+            <DialogDescription>
+              Name the holiday and pick its date.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Holiday name</Label>
+              <Input
+                placeholder="e.g. Diwali"
+                className="h-9 text-sm"
+                value={holidayDraft.name}
+                onChange={(e) =>
+                  setHolidayDraft((p) => ({ ...p, name: e.target.value }))
+                }
+                autoFocus
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Date</Label>
+              <Input
+                type="date"
+                className="h-9 text-sm"
+                min={todayIso()}
+                value={holidayDraft.date}
+                onChange={(e) =>
+                  setHolidayDraft((p) => ({ ...p, date: e.target.value }))
+                }
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddHolidayOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAddFixedHoliday}
+              disabled={!holidayDraft.name.trim() || !holidayDraft.date}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Holiday calendar — month view. Holidays render in the primary
+          colour; other days are muted. Click a free (future) day to add a
+          holiday, or a highlighted day to remove it. Reads from `holidays`,
+          so adds/removes reflect immediately. */}
+      <Dialog open={viewHolidayOpen} onOpenChange={setViewHolidayOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-rose-600" />
+              Holiday Calendar
+            </DialogTitle>
+            <DialogDescription>
+              Tap a free day to add a holiday, or a highlighted day to remove
+              it.
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Month switcher */}
+          <div className="flex items-center justify-between">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() =>
+                setCalMonth(
+                  (m) => new Date(m.getFullYear(), m.getMonth() - 1, 1),
+                )
+              }
+              title="Previous month"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <div className="text-sm font-medium text-gray-900">
+              {calMonth.toLocaleDateString("en-US", {
+                month: "long",
+                year: "numeric",
+              })}
+            </div>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() =>
+                setCalMonth(
+                  (m) => new Date(m.getFullYear(), m.getMonth() + 1, 1),
+                )
+              }
+              title="Next month"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {/* Weekday header */}
+          <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-medium text-gray-500">
+            {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d) => (
+              <div key={d}>{d}</div>
+            ))}
+          </div>
+
+          {/* Day grid */}
+          <div className="grid grid-cols-7 gap-1">
+            {buildCalendarCells(calMonth).map((iso, i) => {
+              if (!iso) return <div key={`blank-${i}`} />;
+              const day = Number(iso.slice(8, 10));
+              const hol = holidayByDate.get(iso);
+              const isPast = iso < todayIso();
+              if (hol) {
+                return (
+                  <button
+                    key={iso}
+                    type="button"
+                    title={`${hol.name} — click to remove`}
+                    onClick={() => handleRemoveFixedHoliday(hol.id)}
+                    className="relative aspect-square rounded-md bg-blue-600 text-white text-xs font-medium flex items-center justify-center hover:bg-blue-700 transition-colors"
+                  >
+                    {day}
+                    <X className="h-2.5 w-2.5 absolute top-0.5 right-0.5 opacity-80" />
+                  </button>
+                );
+              }
+              return (
+                <button
+                  key={iso}
+                  type="button"
+                  disabled={isPast}
+                  onClick={() => {
+                    setViewHolidayOpen(false);
+                    openAddHoliday(iso);
+                  }}
+                  title={isPast ? undefined : "Add holiday"}
+                  className={`aspect-square rounded-md text-xs flex items-center justify-center border transition-colors ${
+                    isPast
+                      ? "text-gray-300 border-transparent cursor-not-allowed"
+                      : "text-gray-500 border-gray-100 hover:border-blue-300 hover:text-blue-600 cursor-pointer"
+                  }`}
+                >
+                  {day}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Legend */}
+          <div className="flex items-center gap-4 text-[11px] text-gray-500 pt-1">
+            <span className="flex items-center gap-1.5">
+              <span className="h-3 w-3 rounded bg-blue-600 inline-block" />
+              Holiday
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="h-3 w-3 rounded border border-gray-200 inline-block" />
+              Available
+            </span>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setViewHolidayOpen(false)}
+            >
+              Close
+            </Button>
+            <Button
+              onClick={() => {
+                setViewHolidayOpen(false);
+                openAddHoliday();
+              }}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add Holiday
             </Button>
           </DialogFooter>
         </DialogContent>
