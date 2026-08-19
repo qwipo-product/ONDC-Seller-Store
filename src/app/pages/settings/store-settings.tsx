@@ -136,6 +136,13 @@ export function StoreSettings() {
   const [shopOpen, setShopOpen] = useState(() => getShopHours().open);
   const [shopClose, setShopClose] = useState(() => getShopHours().close);
   const [weekOff, setWeekOffDraft] = useState<WeekDay[]>(() => getWeekOff());
+  // Baseline to diff the draft against for the Save button's enabled
+  // state — starts as whatever's persisted, and is re-synced after
+  // every successful save so Save disables again until the next edit.
+  const [savedHours, setSavedHours] = useState(() => getShopHours());
+  const [savedWeekOff, setSavedWeekOff] = useState<WeekDay[]>(() =>
+    getWeekOff(),
+  );
 
   // ---- Holidays ----
   // Named calendar entries (Diwali, Republic Day…). They feed the
@@ -175,6 +182,23 @@ export function StoreSettings() {
     });
   };
 
+  // Order doesn't carry meaning for a set of days off, so compare as
+  // sets rather than arrays — toggling two days off and back on in a
+  // different order shouldn't read as "still dirty".
+  const sameDaySet = (a: WeekDay[], b: WeekDay[]) => {
+    if (a.length !== b.length) return false;
+    const bSet = new Set(b);
+    return a.every((d) => bSet.has(d));
+  };
+
+  // Save stays disabled until the draft actually differs from what's
+  // persisted — nothing to save yet on first load, and nothing to
+  // save again right after a save.
+  const workingHoursDirty =
+    shopOpen !== savedHours.open ||
+    shopClose !== savedHours.close ||
+    !sameDaySet(weekOff, savedWeekOff);
+
   const handleSaveWorkingHours = () => {
     if (!shopOpen || !shopClose) {
       toast.error("Set both opening and closing time.");
@@ -186,6 +210,8 @@ export function StoreSettings() {
     }
     persistShopHours({ open: shopOpen, close: shopClose });
     persistWeekOff(weekOff);
+    setSavedHours({ open: shopOpen, close: shopClose });
+    setSavedWeekOff(weekOff);
     toast.success(
       `Working hours saved — open ${shopOpen} to ${shopClose}, ${
         weekOff.length === 0
@@ -477,6 +503,7 @@ export function StoreSettings() {
                   size="sm"
                   className="h-7 gap-1 text-xs"
                   onClick={handleSaveWorkingHours}
+                  disabled={!workingHoursDirty}
                 >
                   <Save className="h-3.5 w-3.5" />
                   Save
