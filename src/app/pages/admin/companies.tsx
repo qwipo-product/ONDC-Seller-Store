@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type DragEvent } from "react";
 import { useNavigate } from "react-router";
 import { Card, CardContent } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
@@ -189,6 +189,10 @@ export function AdminCompanies() {
     setDrafts((prev) => [...prev, { id: makeId("br"), name: "", imageUrl: null }]);
     markDirty();
   };
+
+  // Gap index (0..N) where a dragged brand will land — drives the drop
+  // indicator line shown between rows while dragging.
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
 
   // Reorder brands by drag-and-drop. Array order is the saved order, so the
   // top row becomes the company's first/top brand.
@@ -517,7 +521,10 @@ export function AdminCompanies() {
                         key={b.id}
                         brand={b}
                         index={i}
+                        count={drafts.length}
                         moveBrand={moveBrand}
+                        dropIndex={dropIndex}
+                        onSetDropIndex={setDropIndex}
                         onName={(v) => updateBrandName(i, v)}
                         onImage={(f) => handleBrandImage(i, f)}
                         onRemove={() => removeBrandRow(i)}
@@ -644,7 +651,10 @@ export function AdminCompanies() {
 function BrandRow({
   brand,
   index,
+  count,
   moveBrand,
+  dropIndex,
+  onSetDropIndex,
   onName,
   onImage,
   onRemove,
@@ -653,7 +663,10 @@ function BrandRow({
 }: {
   brand: DraftBrand;
   index: number;
+  count: number;
   moveBrand: (from: number, to: number) => void;
+  dropIndex: number | null;
+  onSetDropIndex: (gap: number | null) => void;
   onName: (v: string) => void;
   onImage: (f: File | null) => void;
   onRemove: () => void;
@@ -663,26 +676,47 @@ function BrandRow({
   // Native HTML5 drag-and-drop. Only the grip handle is draggable, so the
   // name field stays freely editable; the whole row is the drop target.
   const [dragging, setDragging] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
+
+  // Which side of this row the cursor is on → the gap (0..count) a drop
+  // would insert into. A line is drawn at that gap so the user can see
+  // exactly where the brand will sit.
+  const gapFor = (e: DragEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const bottomHalf = e.clientY - rect.top > rect.height / 2;
+    return bottomHalf ? index + 1 : index;
+  };
+
+  const showTopLine = dropIndex === index;
+  const showBottomLine = index === count - 1 && dropIndex === count;
 
   return (
     <div
       onDragOver={(e) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = "move";
-        if (!dragOver) setDragOver(true);
+        onSetDropIndex(gapFor(e));
       }}
-      onDragLeave={() => setDragOver(false)}
       onDrop={(e) => {
         e.preventDefault();
-        setDragOver(false);
         const from = Number(e.dataTransfer.getData("text/plain"));
-        if (!Number.isNaN(from)) moveBrand(from, index);
+        const gap = gapFor(e);
+        if (!Number.isNaN(from)) {
+          // Removing `from` first shifts later indices down by one.
+          const to = gap > from ? gap - 1 : gap;
+          if (to !== from) moveBrand(from, to);
+        }
+        onSetDropIndex(null);
       }}
-      className={`grid grid-cols-[24px_64px_1fr_36px_28px] gap-3 items-center p-3 bg-white transition-colors ${
+      className={`relative grid grid-cols-[24px_64px_1fr_36px_28px] gap-3 items-center p-3 bg-white transition-opacity ${
         dragging ? "opacity-40" : ""
-      } ${dragOver ? "bg-blue-50" : ""}`}
+      }`}
     >
+      {showTopLine && (
+        <span className="pointer-events-none absolute -top-px left-2 right-2 h-0.5 rounded-full bg-blue-600" />
+      )}
+      {showBottomLine && (
+        <span className="pointer-events-none absolute -bottom-px left-2 right-2 h-0.5 rounded-full bg-blue-600" />
+      )}
       <span className="text-xs font-medium text-gray-500 text-center tabular-nums">
         {index + 1}
       </span>
@@ -733,7 +767,7 @@ function BrandRow({
         }}
         onDragEnd={() => {
           setDragging(false);
-          setDragOver(false);
+          onSetDropIndex(null);
         }}
         aria-label="Drag to reorder brand"
         title="Drag to reorder"
