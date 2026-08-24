@@ -3,6 +3,7 @@
 // Phase 1 is UI-only, so everything is client-side.
 
 import { PROD_REPLICA_SELLERS } from "./prod-replica-sellers-seed";
+import { getCompanies } from "./admin-catalog";
 import type { DeliveryDay } from "./customers-data";
 
 export type RequestStatus = "pending" | "approved" | "rejected";
@@ -213,7 +214,9 @@ const REQUESTS_KEY = "qwipo.mock.requests";
 // v9 (2026-07-30): production roster refresh — 4 new sellers (Banjara,
 // SKM, Balaji Trading, Silpatwal), CHASWI re-activated, Lakshmi Saai
 // deactivated.
-const SELLERS_KEY = "qwipo.mock.sellers.v10";
+// v11 (2026-08-24): added a demo "Test Seller" linked to every company in
+// the master catalog to showcase company/brand preference ordering.
+const SELLERS_KEY = "qwipo.mock.sellers.v11";
 
 // ---- Default factory helpers ----
 
@@ -285,7 +288,36 @@ const SEED_REQUESTS: SellerRequest[] = [
 // mobile numbers, GST, addresses and warehouse lat/long live in the
 // generated module prod-replica-sellers-seed.ts (rebuild it with
 // build-prod-replica-seed.cjs at the repo root).
-const SEED_SELLERS: Seller[] = PROD_REPLICA_SELLERS;
+// Demo seller linked to EVERY company in the master catalog — used to
+// showcase company/brand preference ordering (drag-to-reorder). Based on a
+// real replica seller so its KYC/connector/permission shape stays valid;
+// identity, address and company links are overridden.
+const TEST_SELLER: Seller = {
+  ...PROD_REPLICA_SELLERS[0],
+  id: "seller-test-all",
+  name: "Test Seller",
+  businessName: "Test Distributors",
+  email: "test.seller@qwipo.com",
+  phone: "9000000009",
+  city: "Hyderabad",
+  pinCode: "500001",
+  state: "Telangana",
+  latitude: 17.385,
+  longitude: 78.4867,
+  fullAddress: "Plot 1, Test Nagar, Hyderabad, Telangana, 500001",
+  imageUrl: null,
+  isActive: true,
+  managedCompanies: [],
+  wholesalerPolygon: null,
+  wholesalerPolygons: [],
+  companyBrandSelections: getCompanies().map((c) => ({
+    companyId: c.id,
+    brandIds: [] as string[],
+    operationMode: "distributor" as OperationMode,
+  })),
+};
+
+const SEED_SELLERS: Seller[] = [TEST_SELLER, ...PROD_REPLICA_SELLERS];
 
 
 
