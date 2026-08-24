@@ -123,6 +123,12 @@ export interface Company {
    * already reference them) but are hidden from new assignments.
    */
   isActive?: boolean;
+  /**
+   * Which image represents this company where a single logo is shown:
+   * "company" → the uploaded company logo, "brand" → the brand images.
+   * Defaults to "company" when unset (legacy records).
+   */
+  logoPreference?: "company" | "brand";
 }
 
 export interface AdminCategory {
