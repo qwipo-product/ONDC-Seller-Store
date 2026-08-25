@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type DragEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { Card, CardContent } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
@@ -42,7 +42,6 @@ import {
   X,
   MapPin,
   Truck,
-  GripVertical,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -1279,11 +1278,6 @@ export function SellerCatalogTab({
   // Inactive sellers can't have new companies linked to them.
   const isInactive = seller.isActive === false;
 
-  // Drag-to-reorder companies. Array order is the seller's preference order
-  // (top = highest priority), which is what the buyer app shows.
-  const [dragIndex, setDragIndex] = useState<number | null>(null);
-  const [dropIndex, setDropIndex] = useState<number | null>(null);
-
   // ---- Add Company dialog ----
   const [addOpen, setAddOpen] = useState(false);
   const [addCompanyId, setAddCompanyId] = useState<string>("");
@@ -1408,22 +1402,6 @@ export function SellerCatalogTab({
     }
   };
 
-  // Reorder companies by drag-and-drop and persist the new order.
-  const moveCompany = (from: number, to: number) => {
-    if (to < 0 || to >= selections.length || from === to) return;
-    const next = [...selections];
-    const [moved] = next.splice(from, 1);
-    next.splice(to, 0, moved);
-    persistSelections(next);
-  };
-
-  // Which gap (0..N) a drop would land in, based on the hovered card's half.
-  const gapFor = (e: DragEvent<HTMLDivElement>, index: number) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const bottomHalf = e.clientY - rect.top > rect.height / 2;
-    return bottomHalf ? index + 1 : index;
-  };
-
   const handleAddSubmit = () => {
     if (!addCompanyId) {
       toast.error("Please select a company");
@@ -1466,8 +1444,7 @@ export function SellerCatalogTab({
           <p className="text-sm text-gray-500">
             Companies and brands this seller works with, each mapped as
             Distributor or Wholesaler. The seller type is calculated from
-            these operation modes. Drag the handle to reorder — the top
-            company is shown first in the buyer app.
+            these operation modes.
           </p>
         </div>
         <Button
@@ -1525,7 +1502,7 @@ export function SellerCatalogTab({
         </div>
       ) : (
         <div className="space-y-3">
-          {selections.map((sel, index) => {
+          {selections.map((sel) => {
             const company = companies.find((c) => c.id === sel.companyId);
             if (!company) return null;
             const allBrands = sel.brandIds.length === 0;
@@ -1537,64 +1514,12 @@ export function SellerCatalogTab({
             const isCompanyInactive = company.isActive === false;
             const isInactiveSeller = isInactive;
             const mode: OperationMode = sel.operationMode ?? "distributor";
-            const showTopLine = dropIndex === index;
-            const showBottomLine =
-              index === selections.length - 1 &&
-              dropIndex === selections.length;
             return (
               <div
                 key={sel.companyId}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  e.dataTransfer.dropEffect = "move";
-                  setDropIndex(gapFor(e, index));
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  const from = Number(e.dataTransfer.getData("text/plain"));
-                  const gap = gapFor(e, index);
-                  if (!Number.isNaN(from)) {
-                    const to = gap > from ? gap - 1 : gap;
-                    moveCompany(from, to);
-                  }
-                  setDropIndex(null);
-                }}
-                className={`relative border border-gray-200 rounded-lg p-4 bg-white transition-opacity ${
-                  dragIndex === index ? "opacity-40" : ""
-                }`}
+                className="border border-gray-200 rounded-lg p-4 bg-white"
               >
-                {showTopLine && (
-                  <span className="pointer-events-none absolute -top-px left-3 right-3 h-0.5 rounded-full bg-blue-600" />
-                )}
-                {showBottomLine && (
-                  <span className="pointer-events-none absolute -bottom-px left-3 right-3 h-0.5 rounded-full bg-blue-600" />
-                )}
                 <div className="flex items-start gap-3 flex-wrap">
-                  {/* Order number + drag handle — the array order is the
-                      seller's buyer-app preference order (top shown first). */}
-                  <div className="flex items-center gap-1.5 shrink-0 pt-1">
-                    <span className="w-4 text-center text-xs font-medium text-gray-500 tabular-nums">
-                      {index + 1}
-                    </span>
-                    <button
-                      type="button"
-                      draggable
-                      onDragStart={(e) => {
-                        e.dataTransfer.effectAllowed = "move";
-                        e.dataTransfer.setData("text/plain", String(index));
-                        setDragIndex(index);
-                      }}
-                      onDragEnd={() => {
-                        setDragIndex(null);
-                        setDropIndex(null);
-                      }}
-                      aria-label={`Drag to reorder ${company.name}`}
-                      title="Drag to reorder"
-                      className="flex h-8 w-6 items-center justify-center text-gray-400 hover:text-gray-600 cursor-grab active:cursor-grabbing"
-                    >
-                      <GripVertical className="h-4 w-4" />
-                    </button>
-                  </div>
                   <div className="w-12 h-12 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden shrink-0">
                     {company.imageUrl ? (
                       <img
