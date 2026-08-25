@@ -126,8 +126,7 @@ export interface Company {
   /**
    * Which image represents this company where a single logo is shown:
    * "company" → the uploaded company logo, "brand" → the brand images.
-   * Defaults to "brand" when unset (legacy records) — the company logo is
-   * used only when explicitly selected.
+   * Defaults to "company" when unset (legacy records).
    */
   logoPreference?: "company" | "brand";
 }
