@@ -49,6 +49,8 @@ import {
   ChevronDown,
   Warehouse,
   Layers,
+  Clock,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "motion/react";
@@ -82,8 +84,11 @@ import {
   getOrderCompanyLabel,
   getCustomerOrderId,
   getCustomerGroupKind,
-  isConfirmableDeliveryDay,
   requestLogisticsForOrders,
+  getStalePendingOrders,
+  getPendingAgeDays,
+  isStalePendingOrder,
+  STALE_PENDING_NUDGE_DAYS,
 } from "../../lib/orders-data";
 
 // An order is a "beat" delivery when it rides a configured
@@ -239,6 +244,15 @@ export function Orders() {
   // the orders leave the seller's working list.
   const [isRequestLogisticsDialogOpen, setIsRequestLogisticsDialogOpen] =
     useState(false);
+  // Pending Orders Review — VIW-2026-06911 soft nudge. Opened from the
+  // New-tab banner; lets the seller pick which stale orders to act on
+  // (not all-or-nothing) and route the picked subset to either the
+  // existing Confirm or Cancel dialog.
+  const [isStaleReviewDialogOpen, setIsStaleReviewDialogOpen] =
+    useState(false);
+  const [staleReviewSelection, setStaleReviewSelection] = useState<string[]>(
+    [],
+  );
 
   // Form data
   const [cancelReason, setCancelReason] = useState("");
@@ -557,6 +571,39 @@ export function Orders() {
     ],
   );
 
+  // VIW-2026-06911 — Soft nudge only (Stage 1). New orders the seller
+  // has sat on past the threshold, across the whole list — not just
+  // the current page/filters — so the banner doesn't disappear just
+  // because a search or filter hides the stale rows. Nothing here
+  // disables the Accept/Confirm actions for newer orders; it's purely
+  // advisory, per the call to drop Stage 2's hard restriction.
+  const stalePendingOrders = useMemo(
+    () => getStalePendingOrders(orders),
+    [orders],
+  );
+
+  // Opens the review picker with every stale order pre-checked — the
+  // seller can then uncheck the ones they don't want to act on yet
+  // before routing the rest to Confirm or Cancel.
+  const handleReviewStaleOrders = () => {
+    setStaleReviewSelection(stalePendingOrders.map((o) => o.id));
+    setIsStaleReviewDialogOpen(true);
+  };
+
+  // Hands the review picker's checked subset off to the existing
+  // Confirm / Cancel dialogs — same handlers the bulk action bar
+  // uses, so eligibility rules and toasts stay identical.
+  const handleStaleReviewConfirm = () => {
+    setSelectedOrders(staleReviewSelection);
+    setIsStaleReviewDialogOpen(false);
+    setIsConfirmDialogOpen(true);
+  };
+  const handleStaleReviewCancel = () => {
+    setSelectedOrders(staleReviewSelection);
+    setIsStaleReviewDialogOpen(false);
+    setIsCancelDialogOpen(true);
+  };
+
   // Counts for the Cancelled tab's "Cancelled By" quick filter.
   // Counts respect the search box + global filters, but not the
   // cancelled-by chip itself, so each chip always shows the size
@@ -711,47 +758,29 @@ export function Orders() {
     setIsMapDialogOpen(true);
   };
 
-  // Confirm orders (New → Confirmed). The June 25 review settled that
-  // a seller can only confirm orders whose committed Delivery Day is
-  // today, tomorrow, or in the past — anything further out has to
-  // wait until the day-before window. We filter the selection to the
-  // eligible subset, flip just those to Confirmed, and leave the
-  // ineligible ones selected so the seller can revisit them later.
-  // The confirm dialog body already calls this out per-row; the toast
-  // copy mirrors the split so the action's outcome is unambiguous.
+  // Confirm orders (New → Confirmed). There's no delivery-day gate —
+  // any selected New order can be confirmed regardless of how far out
+  // its committed Delivery Day is. (The earlier today/tomorrow-only
+  // rule was dropped — it didn't reflect an actual business
+  // requirement.)
   const handleConfirmOrders = () => {
     const allSelected = orders.filter((o) => selectedOrders.includes(o.id));
-    const eligible = allSelected.filter((o) =>
-      isConfirmableDeliveryDay(o.expectedDeliveryDate),
-    );
-    if (eligible.length === 0) {
-      toast.error(
-        "Nothing to confirm — every selected order delivers more than 1 day out.",
-      );
+    if (allSelected.length === 0) {
+      toast.error("Nothing to confirm — no orders selected.");
       return;
     }
-    const eligibleIds = new Set(eligible.map((o) => o.id));
+    const selectedIds = new Set(allSelected.map((o) => o.id));
     setOrders((prev) =>
       prev.map((order) =>
-        eligibleIds.has(order.id)
+        selectedIds.has(order.id)
           ? { ...order, status: "Confirmed" as const }
           : order,
       ),
     );
-    const skipped = allSelected.length - eligible.length;
-    if (skipped > 0) {
-      toast.success(
-        `Confirmed ${eligible.length} order${eligible.length === 1 ? "" : "s"}. Skipped ${skipped} that deliver more than 1 day out.`,
-      );
-    } else {
-      toast.success(
-        `Confirmed ${eligible.length} order${eligible.length === 1 ? "" : "s"}.`,
-      );
-    }
-    // Drop the confirmed ids from the selection; keep the ineligible
-    // ones selected so the seller can act on them later (or unselect
-    // by hand).
-    setSelectedOrders((prev) => prev.filter((id) => !eligibleIds.has(id)));
+    toast.success(
+      `Confirmed ${allSelected.length} order${allSelected.length === 1 ? "" : "s"}.`,
+    );
+    setSelectedOrders((prev) => prev.filter((id) => !selectedIds.has(id)));
     setIsConfirmDialogOpen(false);
   };
 
@@ -1537,6 +1566,17 @@ export function Orders() {
                   title={order.orderTime ? `${order.orderDate} ${order.orderTime}` : order.orderDate}
                 >
                   {order.orderDate}
+                  {/* Stale-pending flag — VIW-2026-06911 soft nudge.
+                      Visual only; the row stays fully actionable. */}
+                  {isStalePendingOrder(order) && (
+                    <span
+                      className="mt-1 flex items-center gap-1 text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded px-1 py-0.5 w-fit"
+                      title={`Placed ${getPendingAgeDays(order)} days ago — please confirm or cancel it before piling on new orders.`}
+                    >
+                      <Clock className="h-2.5 w-2.5" />
+                      {getPendingAgeDays(order)}d pending
+                    </span>
+                  )}
                 </td>
                 {/* Order ID — full ID rendered as a code chip with
                     copy-on-hover. */}
@@ -1919,6 +1959,37 @@ export function Orders() {
             </TabsContent>
 
             <TabsContent value="new" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
+              {/* Soft nudge — VIW-2026-06911, Stage 1 only. Purely
+                  advisory: new orders stay fully visible and
+                  actionable underneath, nothing is disabled. Just a
+                  reminder to clear the backlog first. */}
+              {!isEmpty && stalePendingOrders.length > 0 && (
+                <div className="mx-6 mt-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+                  <AlertTriangle className="h-4.5 w-4.5 text-amber-600 mt-0.5 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-amber-900">
+                      {stalePendingOrders.length} order
+                      {stalePendingOrders.length === 1 ? "" : "s"} placed more
+                      than {STALE_PENDING_NUDGE_DAYS} days ago{" "}
+                      {stalePendingOrders.length === 1 ? "is" : "are"} still
+                      unconfirmed.
+                    </p>
+                    <p className="text-xs text-amber-800 mt-0.5">
+                      Please update the status of your previous pending
+                      orders before processing new ones — you can still
+                      view and act on everything below.
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    className="bg-amber-600 hover:bg-amber-700 text-white gap-1.5 shrink-0"
+                    onClick={handleReviewStaleOrders}
+                  >
+                    <Clock className="h-3.5 w-3.5" />
+                    Review pending orders
+                  </Button>
+                </div>
+              )}
               {!isEmpty && renderDayAndBeatFilters(newBucketCounts)}
               {!isEmpty && (
               <div className="px-6 py-4 border-b flex-shrink-0">
@@ -2253,6 +2324,111 @@ export function Orders() {
         }
       />
 
+      {/* Pending Orders Review — VIW-2026-06911 soft nudge. Opened
+          from the New-tab banner. Lets the seller pick which stale
+          orders to act on (defaults to all checked) and route the
+          picked subset to either Confirm or Cancel — the ticket's
+          Stage 1 nudge is advisory, so partial action + either
+          outcome both have to stay available, not just "confirm all
+          or ignore". */}
+      <Dialog
+        open={isStaleReviewDialogOpen}
+        onOpenChange={setIsStaleReviewDialogOpen}
+      >
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-amber-600" />
+              Review Pending Orders
+            </DialogTitle>
+            <DialogDescription>
+              These New orders have been sitting for more than{" "}
+              {STALE_PENDING_NUDGE_DAYS} days. Pick the ones you want to
+              act on now, then Confirm or Cancel — anything left
+              unchecked stays as-is.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2 py-2 max-h-[60vh] overflow-y-auto pr-1">
+            <div className="flex items-center gap-2 px-2 py-1.5">
+              <Checkbox
+                checked={
+                  staleReviewSelection.length === stalePendingOrders.length &&
+                  stalePendingOrders.length > 0
+                }
+                onCheckedChange={(checked) =>
+                  setStaleReviewSelection(
+                    checked ? stalePendingOrders.map((o) => o.id) : [],
+                  )
+                }
+              />
+              <span className="text-xs font-medium text-gray-600">
+                {staleReviewSelection.length} of {stalePendingOrders.length}{" "}
+                selected
+              </span>
+            </div>
+            <ul className="space-y-1.5">
+              {stalePendingOrders.map((o) => (
+                <li
+                  key={o.id}
+                  className="flex items-center gap-3 text-xs bg-white rounded px-2 py-2 border border-gray-100"
+                >
+                  <Checkbox
+                    checked={staleReviewSelection.includes(o.id)}
+                    onCheckedChange={(checked) =>
+                      setStaleReviewSelection((prev) =>
+                        checked
+                          ? [...prev, o.id]
+                          : prev.filter((id) => id !== o.id),
+                      )
+                    }
+                  />
+                  <div className="flex flex-col min-w-0 flex-1">
+                    <span className="font-medium text-gray-900 truncate">
+                      {o.retailerName}
+                    </span>
+                    <span className="text-[10px] text-gray-500">{o.id}</span>
+                  </div>
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap border border-amber-200 bg-amber-50 text-amber-800">
+                    <Clock className="h-3 w-3" />
+                    {getPendingAgeDays(o)}d pending
+                  </span>
+                  <span className="text-[10px] text-gray-600 whitespace-nowrap">
+                    ₹{o.orderValue.toLocaleString()}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsStaleReviewDialogOpen(false)}
+            >
+              Close
+            </Button>
+            <Button
+              variant="outline"
+              className="border-red-300 text-red-700 hover:bg-red-50 gap-2"
+              disabled={staleReviewSelection.length === 0}
+              onClick={handleStaleReviewCancel}
+            >
+              <XCircle className="h-4 w-4" />
+              Cancel {staleReviewSelection.length || ""}
+            </Button>
+            <Button
+              className="bg-green-600 hover:bg-green-700 text-white gap-2"
+              disabled={staleReviewSelection.length === 0}
+              onClick={handleStaleReviewConfirm}
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              Confirm {staleReviewSelection.length || ""}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Confirm Orders Dialog — pure confirmation surface, no
           dispatch metadata captured here. The selection is grouped
           by Delivery Day (the concrete committed date) so the
@@ -2267,9 +2443,8 @@ export function Orders() {
               Confirm Orders
             </DialogTitle>
             <DialogDescription>
-              Sellers can confirm orders delivering <b>today, tomorrow, or
-              earlier</b>. Orders further out have to wait until the day
-              before delivery.
+              Review the selected orders, grouped by Delivery Day, then
+              confirm.
             </DialogDescription>
           </DialogHeader>
 
@@ -2278,12 +2453,7 @@ export function Orders() {
               selectedOrders.includes(o.id),
             );
             const today = getOrdersToday();
-            const eligible = selectedOrderObjects.filter((o) =>
-              isConfirmableDeliveryDay(o.expectedDeliveryDate),
-            );
-            const ineligible = selectedOrderObjects.filter(
-              (o) => !isConfirmableDeliveryDay(o.expectedDeliveryDate),
-            );
+            const eligible = selectedOrderObjects;
 
             const groupByDay = (rows: Order[]) => {
               const map = new Map<string, Order[]>();
@@ -2381,13 +2551,45 @@ export function Orders() {
                 {eligible.length === 0 && (
                   <div className="flex items-start gap-2 p-2.5 rounded border border-amber-200 bg-amber-50 text-[11px] text-amber-900">
                     <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                    <p>
-                      None of the selected orders is eligible to confirm
-                      yet. Confirm window opens 1 day before each
-                      order&apos;s Delivery Day.
-                    </p>
+                    <p>No orders selected.</p>
                   </div>
                 )}
+              </div>
+            );
+          })()}
+
+          {/* Soft nudge — VIW-2026-06911. Doesn't block this confirm;
+              just flags older orders left behind so the seller can
+              fold them into the same batch. */}
+          {(() => {
+            const leftBehind = stalePendingOrders.filter(
+              (o) => !selectedOrders.includes(o.id),
+            );
+            if (leftBehind.length === 0) return null;
+            return (
+              <div className="flex items-start gap-2 p-2.5 rounded border border-amber-200 bg-amber-50 text-[11px] text-amber-900">
+                <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                <p className="flex-1">
+                  You also have {leftBehind.length} order
+                  {leftBehind.length === 1 ? "" : "s"} pending for more than{" "}
+                  {STALE_PENDING_NUDGE_DAYS} days that {leftBehind.length === 1 ? "isn't" : "aren't"} in
+                  this batch. Consider confirming{" "}
+                  {leftBehind.length === 1 ? "it" : "them"} too.
+                </p>
+                <button
+                  type="button"
+                  className="shrink-0 underline font-medium hover:text-amber-950"
+                  onClick={() =>
+                    setSelectedOrders((prev) => [
+                      ...prev,
+                      ...leftBehind
+                        .map((o) => o.id)
+                        .filter((id) => !prev.includes(id)),
+                    ])
+                  }
+                >
+                  Add to batch
+                </button>
               </div>
             );
           })()}
@@ -2400,21 +2602,17 @@ export function Orders() {
               Cancel
             </Button>
             {(() => {
-              const eligibleCount = orders.filter(
-                (o) =>
-                  selectedOrders.includes(o.id) &&
-                  isConfirmableDeliveryDay(o.expectedDeliveryDate),
-              ).length;
+              const count = selectedOrders.length;
               return (
                 <Button
                   onClick={handleConfirmOrders}
-                  disabled={eligibleCount === 0}
+                  disabled={count === 0}
                   className="gap-2"
                 >
                   <CheckCircle2 className="h-4 w-4" />
-                  {eligibleCount === 0
+                  {count === 0
                     ? "Nothing to confirm"
-                    : `Confirm ${eligibleCount} order${eligibleCount === 1 ? "" : "s"}`}
+                    : `Confirm ${count} order${count === 1 ? "" : "s"}`}
                 </Button>
               );
             })()}

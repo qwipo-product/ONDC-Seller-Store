@@ -47,7 +47,6 @@ import {
   updateOrderStatus,
   subscribeToOrders,
   synthesizeProducts,
-  isConfirmableDeliveryDay,
   SELLER_INFO,
   type Order,
   type CancelledBy,
@@ -423,29 +422,7 @@ export function OrderDetail() {
     setIsConfirmModalOpen(true);
   };
 
-  // Confirm-eligibility gate. The seller can only confirm orders
-  // whose committed Delivery Day is today, tomorrow, or earlier.
-  // We read the live shared-store record (instead of trusting an
-  // older snapshot in `orderData`) so the gate stays in sync with
-  // any list-page rescheduling. Returns the order + a verdict so the
-  // modal body can branch on it without re-querying.
-  const liveOrder = orderData.orderId
-    ? getOrderById(orderData.orderId)
-    : undefined;
-  const canConfirmNow = liveOrder
-    ? isConfirmableDeliveryDay(liveOrder.expectedDeliveryDate)
-    : true;
-
   const handleConfirm = () => {
-    if (!canConfirmNow) {
-      // Defence in depth — the modal's primary CTA is already hidden
-      // when the order is ineligible, so this only fires if a stray
-      // call slips through.
-      toast.error(
-        "Delivery day is more than 1 day out. Come back the day before to confirm.",
-      );
-      return;
-    }
     setOrderData((prev) => ({ ...prev, status: "Confirmed" }));
     // Write the new status back to the shared store so the list
     // page (and any other subscriber) sees the change.
@@ -907,29 +884,17 @@ export function OrderDetail() {
         </Card>
       </div>
 
-      {/* Confirm Order Modal — gated by isConfirmableDeliveryDay. When
-          the order's Delivery Day is more than 1 day out, the body
-          swaps to an information panel and the primary CTA is hidden,
-          mirroring the bulk dialog's "Cannot confirm yet" treatment. */}
+      {/* Confirm Order Modal — no delivery-day gate; any New order can
+          be confirmed regardless of how far out its Delivery Day is. */}
       <Dialog open={isConfirmModalOpen} onOpenChange={setIsConfirmModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle
-              className={`flex items-center gap-2 ${
-                canConfirmNow ? "text-green-600" : "text-amber-600"
-              }`}
-            >
-              {canConfirmNow ? (
-                <CheckCircle2 className="h-5 w-5" />
-              ) : (
-                <AlertCircle className="h-5 w-5" />
-              )}
-              {canConfirmNow ? "Confirm Order" : "Cannot confirm yet"}
+            <DialogTitle className="flex items-center gap-2 text-green-600">
+              <CheckCircle2 className="h-5 w-5" />
+              Confirm Order
             </DialogTitle>
             <DialogDescription>
-              {canConfirmNow
-                ? "Are you sure you want to confirm this order?"
-                : "Sellers can confirm orders delivering today, tomorrow, or earlier. This order's Delivery Day is further out."}
+              Are you sure you want to confirm this order?
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
@@ -946,36 +911,18 @@ export function OrderDetail() {
               <p className="text-sm">
                 <strong>Order Value:</strong> ₹{orderData.orderValue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
               </p>
-              {liveOrder && (
-                <p className="text-sm">
-                  <strong>Delivery Day:</strong> {liveOrder.expectedDeliveryDate}
-                </p>
-              )}
             </div>
-            {canConfirmNow ? (
-              <p className="text-sm text-gray-600 mt-4">
-                After confirmation, the buyer will be notified and you can proceed with fulfillment.
-              </p>
-            ) : (
-              <div className="mt-4 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                <AlertCircle className="h-4 w-4 mt-0.5 shrink-0 text-amber-600" />
-                <p>
-                  Confirmation window opens <b>1 day before</b> the
-                  Delivery Day. Come back closer to the date — the order
-                  stays in <b>New</b> in the meantime.
-                </p>
-              </div>
-            )}
+            <p className="text-sm text-gray-600 mt-4">
+              After confirmation, the buyer will be notified and you can proceed with fulfillment.
+            </p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsConfirmModalOpen(false)}>
-              {canConfirmNow ? "Cancel" : "Close"}
+              Cancel
             </Button>
-            {canConfirmNow && (
-              <Button onClick={handleConfirm} className="bg-green-600 hover:bg-green-700">
-                Yes, Confirm Order
-              </Button>
-            )}
+            <Button onClick={handleConfirm} className="bg-green-600 hover:bg-green-700">
+              Yes, Confirm Order
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
