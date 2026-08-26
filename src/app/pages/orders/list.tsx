@@ -253,6 +253,12 @@ export function Orders() {
   const [staleReviewSelection, setStaleReviewSelection] = useState<string[]>(
     [],
   );
+  // Stale-pending nudge popup — VIW-2026-06911. A banner that sits in
+  // the page permanently pushes the order rows down and eats into
+  // scroll budget, which was the opposite of the goal (keep New
+  // orders visible). A pop-up interrupts once, forces an explicit
+  // close, and then gets out of the way entirely.
+  const [isStaleNudgePopupOpen, setIsStaleNudgePopupOpen] = useState(false);
 
   // Form data
   const [cancelReason, setCancelReason] = useState("");
@@ -588,6 +594,41 @@ export function Orders() {
   const handleReviewStaleOrders = () => {
     setStaleReviewSelection(stalePendingOrders.map((o) => o.id));
     setIsStaleReviewDialogOpen(true);
+  };
+
+  // Nudge popup dismissal — once-per-day, not once-per-exact-backlog.
+  // Re-showing it every time the stale set changes even slightly (e.g.
+  // the seller clears 3 of 5) felt like nagging for a problem they'd
+  // already started fixing. Instead: show it once when they first hit
+  // New each day, stay quiet for the rest of the day while they work
+  // through the picker, and only interrupt again *that same day* if
+  // the backlog gets worse than what they already saw (more stale
+  // orders than last time), not merely different.
+  const staleNudgeStorageKey = "stalePendingNudgeLastSeen";
+  useEffect(() => {
+    if (activeTab !== "new" || stalePendingOrders.length === 0) return;
+    let lastSeen: { date: string; count: number } | null = null;
+    try {
+      lastSeen = JSON.parse(
+        localStorage.getItem(staleNudgeStorageKey) ?? "null",
+      );
+    } catch {
+      lastSeen = null;
+    }
+    const isNewDay = lastSeen?.date !== todayIso;
+    const backlogGrew =
+      !isNewDay && stalePendingOrders.length > (lastSeen?.count ?? 0);
+    if (isNewDay || backlogGrew) {
+      setIsStaleNudgePopupOpen(true);
+    }
+  }, [activeTab, stalePendingOrders, todayIso]);
+
+  const dismissStaleNudgePopup = () => {
+    localStorage.setItem(
+      staleNudgeStorageKey,
+      JSON.stringify({ date: todayIso, count: stalePendingOrders.length }),
+    );
+    setIsStaleNudgePopupOpen(false);
   };
 
   // Hands the review picker's checked subset off to the existing
@@ -1959,37 +2000,6 @@ export function Orders() {
             </TabsContent>
 
             <TabsContent value="new" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
-              {/* Soft nudge — VIW-2026-06911, Stage 1 only. Purely
-                  advisory: new orders stay fully visible and
-                  actionable underneath, nothing is disabled. Just a
-                  reminder to clear the backlog first. */}
-              {!isEmpty && stalePendingOrders.length > 0 && (
-                <div className="mx-6 mt-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
-                  <AlertTriangle className="h-4.5 w-4.5 text-amber-600 mt-0.5 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-amber-900">
-                      {stalePendingOrders.length} order
-                      {stalePendingOrders.length === 1 ? "" : "s"} placed more
-                      than {STALE_PENDING_NUDGE_DAYS} days ago{" "}
-                      {stalePendingOrders.length === 1 ? "is" : "are"} still
-                      unconfirmed.
-                    </p>
-                    <p className="text-xs text-amber-800 mt-0.5">
-                      Please update the status of your previous pending
-                      orders before processing new ones — you can still
-                      view and act on everything below.
-                    </p>
-                  </div>
-                  <Button
-                    size="sm"
-                    className="bg-amber-600 hover:bg-amber-700 text-white gap-1.5 shrink-0"
-                    onClick={handleReviewStaleOrders}
-                  >
-                    <Clock className="h-3.5 w-3.5" />
-                    Review pending orders
-                  </Button>
-                </div>
-              )}
               {!isEmpty && renderDayAndBeatFilters(newBucketCounts)}
               {!isEmpty && (
               <div className="px-6 py-4 border-b flex-shrink-0">
@@ -2324,11 +2334,57 @@ export function Orders() {
         }
       />
 
+      {/* Stale-pending nudge pop-up — VIW-2026-06911. Interrupts once
+          on landing in New with a stale backlog, instead of sitting
+          in the page as a permanent banner. Must be explicitly
+          closed (X, "Not now", clicking outside, or Escape all route
+          through the same dismiss handler) — the seller has to
+          actually register it before it goes away, which was the
+          point of moving off the sticky banner. */}
+      <Dialog
+        open={isStaleNudgePopupOpen}
+        onOpenChange={(open) => {
+          if (!open) dismissStaleNudgePopup();
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-600" />
+              Pending orders need attention
+            </DialogTitle>
+            <DialogDescription>
+              {stalePendingOrders.length} order
+              {stalePendingOrders.length === 1 ? "" : "s"} placed more than{" "}
+              {STALE_PENDING_NUDGE_DAYS} days ago{" "}
+              {stalePendingOrders.length === 1 ? "is" : "are"} still
+              unconfirmed. Please update their status before processing new
+              ones — you can still view and act on everything in the list.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="outline" onClick={dismissStaleNudgePopup}>
+              Not now
+            </Button>
+            <Button
+              className="bg-amber-600 hover:bg-amber-700 text-white gap-1.5"
+              onClick={() => {
+                dismissStaleNudgePopup();
+                handleReviewStaleOrders();
+              }}
+            >
+              <Clock className="h-3.5 w-3.5" />
+              Review pending orders
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Pending Orders Review — VIW-2026-06911 soft nudge. Opened
-          from the New-tab banner. Lets the seller pick which stale
-          orders to act on (defaults to all checked) and route the
-          picked subset to either Confirm or Cancel — the ticket's
-          Stage 1 nudge is advisory, so partial action + either
+          from the stale-pending nudge pop-up. Lets the seller pick
+          which stale orders to act on (defaults to all checked) and
+          route the picked subset to either Confirm or Cancel — the
+          ticket's Stage 1 nudge is advisory, so partial action + either
           outcome both have to stay available, not just "confirm all
           or ignore". */}
       <Dialog
