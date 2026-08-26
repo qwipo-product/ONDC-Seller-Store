@@ -921,6 +921,127 @@ export const seedOrders: Order[] = [
     gstNumber: "36AATCP5964J1ZA",
   },
 
+  // [New · Standard · stale/pending — cluster]. Five orders placed
+  // 3 to 7 days before DEMO_TODAY (2026-05-20) and never confirmed —
+  // feeds the New-tab soft nudge from VIW-2026-06911 (Stage 1 only;
+  // Stage 2's hard restriction was dropped before launch). A single
+  // stale row was too easy to miss on the tab; this cluster gives the
+  // banner, the per-row badge, and the Confirm-dialog "left behind"
+  // nudge a realistic-sized backlog to render against. Ages are
+  // deliberately spread (3/3/4/5/7 days) so the badge's day-count
+  // renders more than one value during testing. See
+  // `isStalePendingOrder` / `getStalePendingOrders`.
+  {
+    id: "QWI-ONDC-260517-N4WQ2S",
+    brand: "Britannia",
+    company: "Britannia Industries",
+    source: "DMS-Bizom",
+    retailerName: "Ganesh General Store",
+    itemsSummary: "Britannia Good Day + 3 more",
+    orderValue: 3260,
+    paymentMode: "COD",
+    orderDate: "2026-05-17",
+    customerOrderId: "QWI-ORD-260517-N4WQ2S",
+    orderTime: "04:05 PM",
+    status: "New",
+    marketplace: "ONDC",
+    expectedDeliveryDate: "2026-05-18",
+    deliveryType: "Regular",
+    orderType: "standard",
+    buyerContact: "+91 98765 43230",
+    channelOrderId: "ONDC-ORD-118823",
+    buyerCode: "BUYER-GGS-441",
+    gstNumber: "36AAJCG2210K1ZP",
+  },
+  {
+    id: "QWI-ONDC-260517-R8T3LM",
+    brand: "Dabur",
+    company: "Dabur India",
+    source: "DMS-Bizom",
+    retailerName: "Lakshmi Super Bazaar",
+    itemsSummary: "Dabur Honey + 2 more",
+    orderValue: 2140,
+    paymentMode: "Prepaid",
+    orderDate: "2026-05-17",
+    customerOrderId: "QWI-ORD-260517-R8T3LM",
+    orderTime: "11:20 AM",
+    status: "New",
+    marketplace: "ONDC",
+    expectedDeliveryDate: "2026-05-18",
+    deliveryType: "Regular",
+    orderType: "standard",
+    buyerContact: "+91 98765 43231",
+    channelOrderId: "ONDC-ORD-118902",
+    buyerCode: "BUYER-LSB-552",
+    gstNumber: "36AADCD1140M1ZQ",
+  },
+  {
+    id: "QWI-ONDC-260516-H5V9PK",
+    brand: "Marico",
+    company: "Marico Limited",
+    source: "DMS-Botery",
+    retailerName: "Krishna Kirana Store",
+    itemsSummary: "Parachute Coconut Oil + 1 more",
+    orderValue: 1860,
+    paymentMode: "COD",
+    orderDate: "2026-05-16",
+    customerOrderId: "QWI-ORD-260516-H5V9PK",
+    orderTime: "09:50 AM",
+    status: "New",
+    marketplace: "ONDC",
+    expectedDeliveryDate: "2026-05-17",
+    deliveryType: "Regular",
+    orderType: "standard",
+    buyerContact: "+91 98765 43232",
+    channelOrderId: "ONDC-ORD-119014",
+    buyerCode: "BUYER-KKS-663",
+    gstNumber: "36AAECK9021N1ZR",
+  },
+  {
+    id: "QWI-ONDC-260515-Q2X6BN",
+    brand: "PepsiCo",
+    company: "PepsiCo India",
+    source: "DMS-Bizom",
+    retailerName: "New Bombay Mart",
+    itemsSummary: "Lay's Chips + 4 more",
+    orderValue: 4720,
+    paymentMode: "COD",
+    orderDate: "2026-05-15",
+    customerOrderId: "QWI-ORD-260515-Q2X6BN",
+    orderTime: "03:35 PM",
+    status: "New",
+    marketplace: "Flipkart",
+    expectedDeliveryDate: "2026-05-16",
+    deliveryType: "Regular",
+    orderType: "standard",
+    buyerContact: "+91 98765 43233",
+    channelOrderId: "FLPK-ORD-661377",
+    buyerCode: "BUYER-NBM-774",
+    gstNumber: "36AAFCN5502P1ZS",
+  },
+  {
+    id: "QWI-ONDC-260513-W7C1DZ",
+    brand: "ITC",
+    company: "ITC Limited",
+    source: "DMS-Bizom",
+    retailerName: "Sai Ram Traders",
+    itemsSummary: "Aashirvaad Atta + Sunfeast Biscuits",
+    orderValue: 5380,
+    paymentMode: "Prepaid",
+    orderDate: "2026-05-13",
+    customerOrderId: "QWI-ORD-260513-W7C1DZ",
+    orderTime: "01:10 PM",
+    status: "New",
+    marketplace: "ONDC",
+    expectedDeliveryDate: "2026-05-14",
+    deliveryType: "Regular",
+    orderType: "standard",
+    buyerContact: "+91 98765 43234",
+    channelOrderId: "ONDC-ORD-119203",
+    buyerCode: "BUYER-SRT-885",
+    gstNumber: "36AAGCS7734Q1ZT",
+  },
+
   // [Confirmed · Standard · tomorrow]. Already confirmed for
   // tomorrow — visible on the Confirmed tab when filtering Non-Beat.
   {
@@ -1587,18 +1708,34 @@ export function getDeliveryBucket(order: Order): DeliveryBucket {
 }
 
 /**
- * Confirm-eligibility gate. Sellers can confirm orders whose committed
- * Delivery Day is today, tomorrow, or in the past — anything two or
- * more days out has to wait until the day-before window. Keeps the
- * dispatch desk from over-committing on routes that may still shift.
- *
- * Rule lives here so the bulk list, the single-order detail page, and
- * any future automation share the same definition.
+ * Soft-nudge threshold for VIW-2026-06911 (Implement Soft and Hard
+ * Restriction for Pending Order Status Updates). Only Stage 1 — the
+ * soft nudge — shipped; Stage 2's hard block on new-order access was
+ * dropped before launch as it risked hurting the vendor experience.
+ * A New order older than this many days gets flagged so the seller
+ * notices it, but nothing about accepting newer orders is disabled.
  */
-export function isConfirmableDeliveryDay(iso: string): boolean {
-  const today = getOrdersToday();
-  const tomorrow = addDays(today, 1);
-  return iso <= tomorrow;
+export const STALE_PENDING_NUDGE_DAYS = 2;
+
+/** Days between an order's `orderDate` and "today" (module clock). */
+export function getPendingAgeDays(order: Order): number {
+  const placed = Date.parse(order.orderDate + "T00:00:00Z");
+  const today = Date.parse(getOrdersToday() + "T00:00:00Z");
+  if (Number.isNaN(placed) || Number.isNaN(today)) return 0;
+  return Math.round((today - placed) / 86400000);
+}
+
+/** A New order the seller has sat on past the nudge threshold. */
+export function isStalePendingOrder(order: Order): boolean {
+  return (
+    order.status === "New" &&
+    getPendingAgeDays(order) > STALE_PENDING_NUDGE_DAYS
+  );
+}
+
+/** All stale-pending orders in a list — powers the New-tab banner. */
+export function getStalePendingOrders(orders: Order[]): Order[] {
+  return orders.filter(isStalePendingOrder);
 }
 
 /** Day-of-week label for a YYYY-MM-DD date. Used by the
