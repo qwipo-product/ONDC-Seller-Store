@@ -423,7 +423,19 @@ export function getSellerById(id: string): Seller | undefined {
 
 export function getSellerByEmail(email: string): Seller | undefined {
   const normalized = email.trim().toLowerCase();
-  return getSellers().find((s) => s.email.toLowerCase() === normalized);
+  if (!normalized) return undefined;
+  return getSellers().find(
+    (s) => (s.email ?? "").trim().toLowerCase() === normalized,
+  );
+}
+
+/** Mobile numbers are login identifiers too, so lookups compare bare digits. */
+export function getSellerByPhone(phone: string): Seller | undefined {
+  const normalized = phone.replace(/\D/g, "").slice(-10);
+  if (normalized.length !== 10) return undefined;
+  return getSellers().find(
+    (s) => (s.phone ?? "").replace(/\D/g, "").slice(-10) === normalized,
+  );
 }
 
 function writeSeller(id: string, update: (s: Seller) => Seller): Seller | null {
@@ -672,7 +684,28 @@ export function applyDataMode(mode: "demo" | "empty") {
       localStorage.setItem(SELLERS_KEY, JSON.stringify([]));
     } else {
       localStorage.setItem(REQUESTS_KEY, JSON.stringify(SEED_REQUESTS));
-      localStorage.setItem(SELLERS_KEY, JSON.stringify(SEED_SELLERS));
+      // Demo mode restores the seeded roster, but sellers added through
+      // Add Seller (or an approved request) are the operator's own data —
+      // carry them over. Without this, a seller created in one session is
+      // wiped by the very next login, and the mobile / email ID captured
+      // on that record would stop resolving at sign-in.
+      const seededIds = new Set(SEED_SELLERS.map((s) => s.id));
+      let created: Seller[] = [];
+      try {
+        const raw = localStorage.getItem(SELLERS_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw) as Seller[];
+          if (Array.isArray(parsed)) {
+            created = parsed.filter((s) => s && !seededIds.has(s.id));
+          }
+        }
+      } catch {
+        /* unreadable roster — fall back to the plain seed */
+      }
+      localStorage.setItem(
+        SELLERS_KEY,
+        JSON.stringify([...created, ...SEED_SELLERS]),
+      );
     }
   } catch {
     /* localStorage may be unavailable in SSR — silent no-op */

@@ -23,7 +23,13 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Company, getCompanies, revokeImage, subscribeToCompanies } from "../../lib/admin-catalog";
-import { addSeller, type OperationMode } from "../../lib/mock-store";
+import {
+  addSeller,
+  getSellerByEmail,
+  getSellerByPhone,
+  type OperationMode,
+} from "../../lib/mock-store";
+import { isValidEmail, isValidMobile } from "../../lib/auth-credentials";
 import { ImageUploader } from "../../components/ui/image-uploader";
 import { CompanyComboBox } from "../../components/company-combobox";
 
@@ -39,6 +45,10 @@ export function AdminAddUser() {
 
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
+  // Login identifier #2. The seller can sign in with either the mobile number
+  // above or this email ID — the OTP is delivered to whichever they use — so
+  // both are mandatory and both have to be unique across the roster.
+  const [email, setEmail] = useState("");
   const [businessName, setBusinessName] = useState("");
   // Structured address — captured during creation so serviceability and other
   // location-aware modules can reuse the seller's coordinates and pin.
@@ -122,6 +132,7 @@ export function AdminAddUser() {
   type FieldErrors = Partial<Record<
     | "fullName"
     | "phone"
+    | "email"
     | "businessName"
     | "pinCode"
     | "latitude"
@@ -139,7 +150,8 @@ export function AdminAddUser() {
   // checks in handleSave — the handler still runs full validation.
   const isFormShapeValid = () => {
     if (!fullName.trim()) return false;
-    if (!phone.trim()) return false;
+    if (!isValidMobile(phone)) return false;
+    if (!isValidEmail(email)) return false;
     if (!businessName.trim()) return false;
     if (!/^\d{6}$/.test(pinCode.trim())) return false;
     if (!city.trim() || !state.trim()) return false;
@@ -242,9 +254,22 @@ export function AdminAddUser() {
     if (!fullName.trim()) next.fullName = "Full Name is required.";
     if (!phone.trim()) {
       next.phone = "Mobile Number is required.";
-    } else if (!/^\d{10}$/.test(phone.trim())) {
+    } else if (!isValidMobile(phone)) {
       next.phone = "Please enter a valid 10-digit mobile number.";
+    } else if (getSellerByPhone(phone)) {
+      // Both identifiers sign the seller in, so a duplicate would make the
+      // login ambiguous. Block it at creation instead.
+      next.phone = "This mobile number is already registered to another seller.";
     }
+
+    if (!email.trim()) {
+      next.email = "Email ID is required.";
+    } else if (!isValidEmail(email)) {
+      next.email = "Please enter a valid email ID (e.g. name@company.com).";
+    } else if (getSellerByEmail(email)) {
+      next.email = "This email ID is already registered to another seller.";
+    }
+
     if (!businessName.trim()) next.businessName = "Business Name is required.";
 
     if (!pinCode.trim()) {
@@ -301,6 +326,9 @@ export function AdminAddUser() {
       addSeller({
         name: fullName.trim(),
         phone: phone.trim(),
+        // Stored lower-cased so the email login lookup is a plain equality
+        // check regardless of how the seller types it.
+        email: email.trim().toLowerCase(),
         businessName: businessName.trim(),
         city: city.trim(),
         state: state.trim(),
@@ -411,8 +439,35 @@ export function AdminAddUser() {
                     placeholder="+91 98765 43210"
                     aria-invalid={!!errors.phone}
                   />
-                  {errors.phone && (
+                  {errors.phone ? (
                     <p className="text-[11px] text-red-600">{errors.phone}</p>
+                  ) : (
+                    <p className="text-[11px] text-gray-500">
+                      Used to sign in — OTP is sent over SMS.
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label>
+                    Email ID <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    type="email"
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      clearError("email");
+                    }}
+                    placeholder="name@company.com"
+                    aria-invalid={!!errors.email}
+                  />
+                  {errors.email ? (
+                    <p className="text-[11px] text-red-600">{errors.email}</p>
+                  ) : (
+                    <p className="text-[11px] text-gray-500">
+                      Also a sign-in ID — the seller can log in with this email
+                      and verify the OTP sent to it.
+                    </p>
                   )}
                 </div>
                 <div className="space-y-2">
