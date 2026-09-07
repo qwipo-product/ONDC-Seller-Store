@@ -52,6 +52,8 @@ import { AdminCustomerDetail } from "./pages/admin/customer-detail";
 import { AdminServiceabilityReport } from "./pages/admin/serviceability-report";
 import { AdminCompanies } from "./pages/admin/companies";
 import { AdminCategories } from "./pages/admin/categories";
+import { AdminCharges } from "./pages/admin/charges";
+import { AdminChargeConfigure } from "./pages/admin/charge-configure";
 import { ErrorScreensDemo } from "./pages/demos/error-screens";
 import { LoadingScreensDemo } from "./pages/demos/loading-screens";
 
@@ -103,6 +105,10 @@ export const router = createBrowserRouter([
       { path: "companies", Component: AdminCompanies },
       // Category Master — hierarchical taxonomy (37 ONDC roots + add/sub)
       { path: "categories", Component: AdminCategories },
+      // Charges & Fees — per-company commerce / logistics / beat charges
+      { path: "charges", Component: AdminCharges },
+      { path: "charges/configure", Component: AdminChargeConfigure },
+      { path: "charges/configure/:companyId", Component: AdminChargeConfigure },
       // Error Screens demo gallery — only surfaced in the empty-mode
       // sidebar but routable for both admin paths.
       { path: "error-screens", Component: ErrorScreensDemo },
