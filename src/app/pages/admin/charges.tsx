@@ -252,8 +252,8 @@ export function AdminCharges() {
                   <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
                     <tr>
                       <Th title="Company" />
-                      <Th title="Commerce Fee" />
-                      <Th title="Logistics Fee" />
+                      <Th title="Commercial Fees" sub="Qwipo / Retailer" />
+                      <Th title="Logistics Fee" sub="Qwipo / Retailer" />
                       <Th title="Beat Small Order" />
                       <Th title="Status" />
                       <Th title="Last Updated" />
