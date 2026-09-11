@@ -28,15 +28,19 @@ import {
   X,
 } from "lucide-react";
 import { getCompanies, makeId } from "../../lib/admin-catalog";
+import { getSellerById } from "../../lib/mock-store";
 import {
-  getChargeConfig,
+  getSellerDistributorConfig,
+  getSellerWholesaleConfig,
   emptyChargeConfig,
   upsertChargeConfig,
   commerceRetailerPct,
   logisticsRetailerPerKg,
   logisticsRetailerPct,
+  getBeatThresholds,
   MAX_COMMERCE_TARGET_PCT,
   type ChargeConfig,
+  type ChargeScope,
 } from "../../lib/charges-data";
 
 const STEPS = [
@@ -63,30 +67,73 @@ const fmtDate = (iso: string) =>
 
 export function AdminChargeConfigure() {
   const navigate = useNavigate();
-  const { companyId } = useParams<{ companyId: string }>();
-  const company = useMemo(
-    () => getCompanies().find((c) => c.id === companyId),
-    [companyId],
-  );
+  const params = useParams<{
+    sellerId: string;
+    scope: string;
+    companyId: string;
+  }>();
+  const sellerId = params.sellerId;
+  const scope: ChargeScope =
+    params.scope === "wholesaler" ? "wholesaler" : "distributor";
+  const companyId = params.companyId;
 
-  const [draft, setDraft] = useState<ChargeConfig>(() =>
-    companyId
-      ? getChargeConfig(companyId) ?? emptyChargeConfig(companyId)
-      : emptyChargeConfig("__none__"),
+  const seller = useMemo(
+    () => (sellerId ? getSellerById(sellerId) : undefined),
+    [sellerId],
   );
+  // Distributor: the single company being configured.
+  const company = useMemo(
+    () =>
+      scope === "distributor" && companyId
+        ? getCompanies().find((c) => c.id === companyId)
+        : undefined,
+    [scope, companyId],
+  );
+  // Wholesale: every wholesaler-mode company linked to this seller — they all
+  // share the one config being edited.
+  const wholesalerCompanies = useMemo(() => {
+    if (scope !== "wholesaler" || !seller) return [];
+    const ids = new Set(
+      (seller.companyBrandSelections ?? [])
+        .filter((s) => s.operationMode === "wholesaler")
+        .map((s) => s.companyId),
+    );
+    return getCompanies().filter((c) => ids.has(c.id));
+  }, [scope, seller]);
+
+  const backTo = `/admin/users/${sellerId ?? ""}?tab=charges`;
+
+  const targetName = scope === "wholesaler" ? "Wholesale" : company?.name ?? "";
+  const targetLogo = scope === "distributor" ? company?.imageUrl : undefined;
+
+  const [draft, setDraft] = useState<ChargeConfig>(() => {
+    if (!sellerId) return emptyChargeConfig("__none__", "distributor", "__none__");
+    if (scope === "wholesaler")
+      return (
+        getSellerWholesaleConfig(sellerId) ??
+        emptyChargeConfig(sellerId, "wholesaler", "_all")
+      );
+    return (
+      getSellerDistributorConfig(sellerId, companyId ?? "") ??
+      emptyChargeConfig(sellerId, "distributor", companyId ?? "")
+    );
+  });
   const [step, setStep] = useState(0);
 
-  if (!company) {
+  // Guard: need a seller, and for distributor scope a resolvable company.
+  if (!seller || (scope === "distributor" && !company)) {
     return (
       <div className="p-8">
         <button
-          onClick={() => navigate("/admin/charges")}
+          onClick={() => navigate(backTo)}
           className="text-sm text-blue-600 flex items-center gap-1.5 mb-4"
         >
-          <ArrowLeft className="h-4 w-4" /> Back to Brand List
+          <ArrowLeft className="h-4 w-4" /> Back to Charges &amp; Fees
         </button>
         <p className="text-gray-600">
-          Company not found. Pick a brand from the Charges &amp; Fees list.
+          {!seller
+            ? "Seller not found."
+            : "Company not found. Pick a company from the seller's Charges & Fees tab."}
         </p>
       </div>
     );
@@ -139,7 +186,7 @@ export function AdminChargeConfigure() {
     setStep((s) => Math.min(3, s + 1));
   };
   const goBack = () => {
-    if (step === 0) navigate("/admin/charges");
+    if (step === 0) navigate(backTo);
     else setStep((s) => s - 1);
   };
 
@@ -149,8 +196,8 @@ export function AdminChargeConfigure() {
       return;
     }
     upsertChargeConfig({ ...draft, status: "active" });
-    toast.success(`Charges saved for ${company.name}`);
-    navigate("/admin/charges");
+    toast.success(`Charges saved for ${targetName}`);
+    navigate(backTo);
   };
 
   return (
@@ -159,17 +206,17 @@ export function AdminChargeConfigure() {
         {/* Header */}
         <div>
           <button
-            onClick={() => navigate("/admin/charges")}
+            onClick={() => navigate(backTo)}
             className="text-sm text-blue-600 flex items-center gap-1.5 mb-3"
           >
-            <ArrowLeft className="h-4 w-4" /> Back to Brand List
+            <ArrowLeft className="h-4 w-4" /> Back to Charges &amp; Fees
           </button>
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-lg border border-gray-200 bg-white overflow-hidden flex items-center justify-center shrink-0">
-              {company.imageUrl ? (
+              {targetLogo ? (
                 <img
-                  src={company.imageUrl}
-                  alt={company.name}
+                  src={targetLogo}
+                  alt={targetName}
                   className="w-full h-full object-contain"
                 />
               ) : (
@@ -177,13 +224,25 @@ export function AdminChargeConfigure() {
               )}
             </div>
             <div>
-              <h1 className="text-xl font-semibold text-gray-900">
-                {company.name}
-              </h1>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-xl font-semibold text-gray-900">
+                  {targetName}
+                </h1>
+                {scope === "wholesaler" && (
+                  <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-[11px]">
+                    Shared · all wholesaler companies
+                  </Badge>
+                )}
+              </div>
               <p className="text-sm text-gray-500">
-                {step === 3
-                  ? "Review your configuration before saving"
-                  : "Set up how charges are shared between Qwipo, seller and retailer"}
+                {seller?.name}
+                {scope === "wholesaler"
+                  ? ` • Applies to all ${wholesalerCompanies.length} wholesaler compan${
+                      wholesalerCompanies.length === 1 ? "y" : "ies"
+                    }`
+                  : step === 3
+                    ? " • Review your configuration before saving"
+                    : " • Set up how charges are shared between Qwipo, seller and retailer"}
               </p>
             </div>
           </div>
@@ -232,7 +291,7 @@ export function AdminChargeConfigure() {
           {step === 1 && <LogisticsStep draft={draft} setLogistics={setLogistics} />}
           {step === 2 && <BeatStep draft={draft} setBeat={setBeat} />}
           {step === 3 && (
-            <ReviewStep draft={draft} setDraft={setDraft} companyName={company.name} />
+            <ReviewStep draft={draft} setDraft={setDraft} companyName={targetName} />
           )}
         </div>
 
@@ -243,7 +302,7 @@ export function AdminChargeConfigure() {
             {step === 0 ? "Cancel" : "Back"}
           </Button>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" onClick={() => navigate("/admin/charges")}>
+            <Button variant="ghost" onClick={() => navigate(backTo)}>
               Cancel
             </Button>
             {step < 3 ? (
@@ -680,47 +739,82 @@ function BeatStep({
 }) {
   const b = draft.beat;
   const disabled = !b.enabled;
+  const { beat: beatThreshold, nonBeat: nonBeatThreshold } = getBeatThresholds();
   return (
     <div>
       <StepHeader
         icon={<ShoppingCart className="h-5 w-5 text-blue-600 mt-1" />}
         title="Beat Small Order Configuration"
-        subtitle="For self-delivery beat orders only — additional charge for small order values to make them viable."
+        subtitle="Additional charge for small orders to make them viable. Thresholds are inherited from the seller's Order Settings (view-only); only the flat fees are editable here."
         enabled={b.enabled}
         onToggle={(v) => setBeat({ enabled: v })}
         toggleLabel="Enable Beat Small Order"
         toggleHint={
-          b.enabled ? "Applies only to self-delivery beat orders." : "Disabled for this brand."
+          b.enabled ? "Applies to beat and non-beat small orders." : "Disabled for this brand."
         }
       />
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1.4fr] gap-4 items-start">
-        <FeeInput
-          label="Free Delivery Threshold (₹)"
-          value={b.freeDeliveryThreshold}
-          onChange={(v) => setBeat({ freeDeliveryThreshold: v })}
-          suffix="₹"
-          disabled={disabled}
-        />
-        <FeeInput
-          label="Flat Fee Below Threshold (₹)"
-          value={b.flatFeeBelowThreshold}
-          onChange={(v) => setBeat({ flatFeeBelowThreshold: v })}
-          suffix="₹"
-          disabled={disabled}
-        />
-        <div className="rounded-lg bg-blue-50 border border-blue-100 p-3 flex gap-2">
-          <Info className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
-          <div className="text-[11px] text-blue-900 space-y-1">
-            <p className="font-medium">How it works</p>
-            <p>
-              If order value is less than {money(b.freeDeliveryThreshold)}, retailer pays{" "}
-              {money(b.flatFeeBelowThreshold)} as an additional charge.
-            </p>
-            <p>
-              If order value is {money(b.freeDeliveryThreshold)} or more, no additional
-              charge is applied.
-            </p>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Beat orders */}
+        <div className="rounded-lg border border-gray-200 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-gray-900">Beat Orders</p>
+            <Badge className="bg-gray-100 text-gray-600 border-gray-200 text-[10px]">
+              From seller settings
+            </Badge>
           </div>
+          <CalcField
+            label="Beat Threshold (MOV)"
+            value={money(beatThreshold)}
+            hint="Minimum order value for beat orders — set in the seller's Order Settings."
+          />
+          <FeeInput
+            label="Flat Fee Below Threshold (₹)"
+            value={b.flatFeeBelowBeatThreshold}
+            onChange={(v) => setBeat({ flatFeeBelowBeatThreshold: v })}
+            suffix="₹"
+            disabled={disabled}
+            hint={`Charged when a beat order is below ${money(beatThreshold)}.`}
+          />
+        </div>
+
+        {/* Non-beat orders */}
+        <div className="rounded-lg border border-gray-200 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-gray-900">Non-Beat Orders</p>
+            <Badge className="bg-gray-100 text-gray-600 border-gray-200 text-[10px]">
+              From seller settings
+            </Badge>
+          </div>
+          <CalcField
+            label="Non-Beat Threshold (MOV)"
+            value={money(nonBeatThreshold)}
+            hint="Minimum order value for non-beat (off-route) orders — set in the seller's Order Settings."
+          />
+          <FeeInput
+            label="Flat Fee Below Threshold (₹)"
+            value={b.flatFeeBelowNonBeatThreshold}
+            onChange={(v) => setBeat({ flatFeeBelowNonBeatThreshold: v })}
+            suffix="₹"
+            disabled={disabled}
+            hint={`Charged when a non-beat order is below ${money(nonBeatThreshold)}.`}
+          />
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-lg bg-blue-50 border border-blue-100 p-3 flex gap-2">
+        <Info className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
+        <div className="text-[11px] text-blue-900 space-y-1">
+          <p className="font-medium">How it works</p>
+          <p>
+            If a <b>beat</b> order is below {money(beatThreshold)}, the retailer pays{" "}
+            {money(b.flatFeeBelowBeatThreshold)} as an additional charge.
+          </p>
+          <p>
+            If a <b>non-beat</b> order is below {money(nonBeatThreshold)}, the retailer
+            pays {money(b.flatFeeBelowNonBeatThreshold)} as an additional charge.
+          </p>
+          <p>Orders at or above the threshold have no additional charge.</p>
         </div>
       </div>
     </div>
@@ -741,6 +835,7 @@ function ReviewStep({
   const l = draft.logistics;
   const b = draft.beat;
   const perKg = l.method === "per_kg";
+  const beatThresholds = getBeatThresholds();
   return (
     <div className="space-y-5">
       <div className="rounded-lg bg-green-50 border border-green-200 p-4 flex items-center gap-3">
@@ -800,9 +895,10 @@ function ReviewStep({
           title="Beat Small Order"
           enabled={b.enabled}
           rows={[
-            ["Free Delivery Threshold", money(b.freeDeliveryThreshold)],
-            ["Flat Fee Below Threshold", money(b.flatFeeBelowThreshold)],
-            ["Applies To", "Self-Delivery Beat Orders Only"],
+            ["Beat Threshold (MOV)", money(beatThresholds.beat)],
+            ["Flat Fee · Beat", money(b.flatFeeBelowBeatThreshold)],
+            ["Non-Beat Threshold (MOV)", money(beatThresholds.nonBeat)],
+            ["Flat Fee · Non-Beat", money(b.flatFeeBelowNonBeatThreshold)],
           ]}
         />
         <div className="rounded-lg border border-gray-200 p-4">

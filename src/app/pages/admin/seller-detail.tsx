@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { Card, CardContent } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
@@ -42,6 +42,7 @@ import {
   X,
   MapPin,
   Truck,
+  Receipt,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -67,6 +68,7 @@ import {
   SELLER_TYPE_LABELS,
 } from "../../components/seller-type-badge";
 import { WholesalerServiceability } from "../../components/wholesaler-serviceability";
+import { SellerChargesTab } from "./seller-charges-tab";
 import {
   Select,
   SelectContent,
@@ -94,8 +96,13 @@ const DATA_SYNC_TYPES = ["SKU", "Orders", "Customers", "Inventory", "Pricing"];
 export function AdminSellerDetail() {
   const { sellerId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [seller, setSeller] = useState<Seller | null>(null);
-  const [activeTab, setActiveTab] = useState("profile");
+  // Initial tab honours a ?tab= query param so returning from the charges
+  // wizard lands back on the Charges & Fees tab.
+  const [activeTab, setActiveTab] = useState(
+    () => searchParams.get("tab") ?? "profile",
+  );
 
   // Profile is read-only post-creation (no edit affordance in Phase 1).
 
@@ -380,11 +387,16 @@ export function AdminSellerDetail() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex-1 overflow-y-auto p-6">
-        <Card>
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <div className="border-b border-gray-200 p-3">
+      {/* Tabs — the seller header (above) and this tab bar stay fixed; only
+          the active tab's content scrolls, inside the card's borders. */}
+      <div className="flex-1 min-h-0 p-6">
+        <Card className="h-full flex flex-col overflow-hidden gap-0 p-0">
+          <Tabs
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className="w-full h-full flex flex-col min-h-0"
+          >
+            <div className="border-b border-gray-200 p-3 flex-shrink-0">
               <TabsList className="bg-gray-100 p-1 rounded-lg inline-flex gap-1 h-auto flex-wrap">
                 <TabsTrigger
                   value="profile"
@@ -414,6 +426,13 @@ export function AdminSellerDetail() {
                   <MapPin className="h-4 w-4 mr-2" />
                   Serviceability
                 </TabsTrigger>
+                <TabsTrigger
+                  value="charges"
+                  className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2"
+                >
+                  <Receipt className="h-4 w-4 mr-2" />
+                  Charges &amp; Fees
+                </TabsTrigger>
               </TabsList>
             </div>
 
@@ -422,7 +441,7 @@ export function AdminSellerDetail() {
                 aren't half-empty: short fields (Mobile, Seller Type, PIN,
                 City, State, Lat, Lng, Created On) pack tightly, and the
                 long Full Address field spans the row. */}
-            <TabsContent value="profile" className="p-6 mt-0">
+            <TabsContent value="profile" className="flex-1 min-h-0 overflow-y-auto p-6 mt-0">
               <div className="space-y-6">
                 {/* Status — pinned at the top so the admin can flip
                     Active / Inactive without scrolling. Opens a confirmation
@@ -526,7 +545,7 @@ export function AdminSellerDetail() {
             </TabsContent>
 
             {/* Companies & Brands attached to this seller */}
-            <TabsContent value="catalog" className="p-6 mt-0">
+            <TabsContent value="catalog" className="flex-1 min-h-0 overflow-y-auto p-6 mt-0">
               <SellerCatalogTab
                 seller={seller}
                 onChange={(s) => setSeller(s)}
@@ -534,7 +553,7 @@ export function AdminSellerDetail() {
             </TabsContent>
 
             {/* KYC — hidden */}
-            <TabsContent value="kyc" className="p-6 mt-0">
+            <TabsContent value="kyc" className="flex-1 min-h-0 overflow-y-auto p-6 mt-0">
               {seller.kyc.status === "not_started" ? (
                 <div className="text-center py-10">
                   <FileText className="h-10 w-10 mx-auto text-gray-300 mb-2" />
@@ -578,7 +597,7 @@ export function AdminSellerDetail() {
                 (marketplace + logistics). Connected cards render side by
                 side in the same grid; the Add Connector dialog hosts every
                 available type so there's no separate Add Logistics CTA. */}
-            <TabsContent value="connectors" className="p-6 mt-0">
+            <TabsContent value="connectors" className="flex-1 min-h-0 overflow-y-auto p-6 mt-0">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-base font-semibold text-gray-900">
@@ -651,7 +670,7 @@ export function AdminSellerDetail() {
             </TabsContent>
 
             {/* Permissions */}
-            <TabsContent value="permissions" className="p-6 mt-0">
+            <TabsContent value="permissions" className="flex-1 min-h-0 overflow-y-auto p-6 mt-0">
               <div className="max-w-2xl space-y-3">
                 <p className="text-sm text-gray-600 mb-4">
                   Grant per-seller access levels. Changes take effect
@@ -697,7 +716,7 @@ export function AdminSellerDetail() {
             </TabsContent>
 
             {/* Managed Companies */}
-            <TabsContent value="companies" className="p-6 mt-0">
+            <TabsContent value="companies" className="flex-1 min-h-0 overflow-y-auto p-6 mt-0">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-base font-semibold text-gray-900">
@@ -777,7 +796,7 @@ export function AdminSellerDetail() {
                 polygon upload, list + configure views) inside the
                 Manage Seller view, so admins can configure delivery
                 zones for any seller from a single place. */}
-            <TabsContent value="serviceability" className="p-6 mt-0">
+            <TabsContent value="serviceability" className="flex-1 min-h-0 overflow-y-auto p-6 mt-0">
               {/* Sections render DYNAMICALLY from the seller type so
                   irrelevant models never show:
                     • Wholesale seller   → Wholesale section only
@@ -835,6 +854,14 @@ export function AdminSellerDetail() {
                   </section>
                 )}
               </div>
+            </TabsContent>
+
+            {/* Charges & Fees — commerce / logistics / beat charges for every
+                company and brand linked to this seller. Distributor companies
+                are configured individually; all wholesaler companies share a
+                single common structure. */}
+            <TabsContent value="charges" className="flex-1 min-h-0 mt-0 p-0">
+              <SellerChargesTab seller={seller} />
             </TabsContent>
           </Tabs>
         </Card>

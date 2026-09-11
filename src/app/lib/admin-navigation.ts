@@ -8,7 +8,6 @@ import {
   Loader2,
   Users,
   FileSpreadsheet,
-  Receipt,
   type LucideIcon,
 } from "lucide-react";
 
@@ -28,7 +27,6 @@ export const adminNavigation: NavItem[] = [
   { name: "Generate Report", href: "/admin/reports", icon: FileSpreadsheet },
   { name: "Companies & Brands", href: "/admin/companies", icon: Building2 },
   { name: "Category Master", href: "/admin/categories", icon: LayoutGrid },
-  { name: "Charges & Fees", href: "/admin/charges", icon: Receipt },
   { name: "Connectors", href: "/admin/connectors", icon: Plug },
 ];
 
@@ -64,7 +62,6 @@ export function getAdminPageTitle(pathname: string): string {
   if (pathname.startsWith("/admin/companies")) return "Companies & Brands";
   if (pathname.startsWith("/admin/categories")) return "Category Master";
   if (pathname.startsWith("/admin/charges/configure")) return "Configure Charges";
-  if (pathname.startsWith("/admin/charges")) return "Charges & Fees";
   if (pathname.startsWith("/admin/connectors/")) return "Connector Details";
   if (pathname.startsWith("/admin/connectors")) return "Connectors";
   if (pathname.startsWith("/admin/sellers/")) return "Seller Details";

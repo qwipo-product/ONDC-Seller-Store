@@ -3,6 +3,7 @@
 // Phase 1 is UI-only, so everything is client-side.
 
 import { PROD_REPLICA_SELLERS } from "./prod-replica-sellers-seed";
+import { getCompanies } from "./admin-catalog";
 import type { DeliveryDay } from "./customers-data";
 
 export type RequestStatus = "pending" | "approved" | "rejected";
@@ -213,7 +214,11 @@ const REQUESTS_KEY = "qwipo.mock.requests";
 // v9 (2026-07-30): production roster refresh — 4 new sellers (Banjara,
 // SKM, Balaji Trading, Silpatwal), CHASWI re-activated, Lakshmi Saai
 // deactivated.
-const SELLERS_KEY = "qwipo.mock.sellers.v10";
+// v11 (2026-09-11): three Charges & Fees demo sellers added at the top of
+// the roster (Distributor / Wholesaler / Hybrid).
+// v12 (2026-09-11): demo sellers slimmed to a small company roster (8 each)
+// for a clearer, more legible Charges & Fees tab. Bump forces a re-seed.
+const SELLERS_KEY = "qwipo.mock.sellers.v12";
 
 // ---- Default factory helpers ----
 
@@ -280,12 +285,106 @@ const SEED_REQUESTS: SellerRequest[] = [
   },
 ];
 
+// ---- Demo sellers for the Charges & Fees showcase ----
+// Three purpose-built sellers, each linked to a small, legible set of catalog
+// companies, in a different operation-mode mix so all Charges & Fees cases can
+// be explored:
+//   • Distributor  → a handful of companies, all mapped as Distributor.
+//   • Wholesaler   → a handful of companies, all mapped as Wholesaler.
+//   • Hybrid       → first half Distributor, second half Wholesaler.
+// Stable ids are exported so charges-data can seed matching configs.
+export const DEMO_DISTRIBUTOR_ID = "seller-demo-distributor";
+export const DEMO_WHOLESALER_ID = "seller-demo-wholesaler";
+export const DEMO_HYBRID_ID = "seller-demo-hybrid";
+
+/** Keep the demo rosters small (5–10 companies) so each seller's Charges tab
+ *  stays clear and easy to scan. */
+const DEMO_COMPANY_COUNT = 8;
+
+function demoSelections(
+  mode: (index: number, total: number) => OperationMode,
+): CompanyBrandSelection[] {
+  const all = getCompanies().slice(0, DEMO_COMPANY_COUNT);
+  return all.map((c, i) => ({
+    companyId: c.id,
+    brandIds: [], // empty = all brands of the company
+    operationMode: mode(i, all.length),
+  }));
+}
+
+function makeDemoSeller(
+  id: string,
+  name: string,
+  businessName: string,
+  phone: string,
+  selections: CompanyBrandSelection[],
+): Seller {
+  return {
+    id,
+    name,
+    email: `${id}@qwipo.com`,
+    phone,
+    businessName,
+    city: "Hyderabad City",
+    pinCode: "500018",
+    state: "Telangana",
+    latitude: 17.44,
+    longitude: 78.43,
+    fullAddress: "Demo warehouse, Erragadda, Hyderabad, Telangana, 500018.",
+    isActive: true,
+    sellerType: deriveSellerType({
+      companyBrandSelections: selections,
+      sellerType: undefined,
+    }),
+    kyc: {
+      gstin: "36DEMOQ0000A1Z0",
+      businessAddress: "Demo warehouse, Erragadda, Hyderabad, Telangana, 500018.",
+      status: "verified",
+      updatedAt: "2026-09-01T00:00:00Z",
+    },
+    connectors: {
+      bizom: { status: "not_connected" },
+      ondc: { status: "not_connected" },
+    },
+    permissions: { view: true, write: true, edit: true, update: true },
+    managedCompanies: [],
+    companyBrandSelections: selections,
+    approvedAt: "2026-09-01T00:00:00Z",
+  };
+}
+
+const DEMO_SELLERS: Seller[] = [
+  makeDemoSeller(
+    DEMO_DISTRIBUTOR_ID,
+    "K RAVI TEJA",
+    "RAVI TEJA DISTRIBUTORS (Demo)",
+    "9000000001",
+    demoSelections(() => "distributor"),
+  ),
+  makeDemoSeller(
+    DEMO_WHOLESALER_ID,
+    "M SRINIVAS RAO",
+    "SRI SAI WHOLESALE MART (Demo)",
+    "9000000002",
+    demoSelections(() => "wholesaler"),
+  ),
+  makeDemoSeller(
+    DEMO_HYBRID_ID,
+    "P BALAJI",
+    "BALAJI OMNI TRADERS (Demo)",
+    "9000000003",
+    // First half Distributor, second half Wholesaler → Hybrid.
+    demoSelections((i, total) => (i < Math.ceil(total / 2) ? "distributor" : "wholesaler")),
+  ),
+];
+
 // Prod seller roster — exact replica of production
 // (seller-portal.bms.qwipo.com) captured 2026-07-24. Real names,
 // mobile numbers, GST, addresses and warehouse lat/long live in the
 // generated module prod-replica-sellers-seed.ts (rebuild it with
-// build-prod-replica-seed.cjs at the repo root).
-const SEED_SELLERS: Seller[] = PROD_REPLICA_SELLERS;
+// build-prod-replica-seed.cjs at the repo root). The three Charges & Fees
+// demo sellers are pinned to the TOP of the roster for easy discovery.
+const SEED_SELLERS: Seller[] = [...DEMO_SELLERS, ...PROD_REPLICA_SELLERS];
 
 
 
