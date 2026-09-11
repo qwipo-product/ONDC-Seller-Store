@@ -69,8 +69,9 @@ export function AdminCompanies() {
   const [name, setName] = useState("");
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   // Which image represents the company where a single logo is shown.
+  // Defaults to "brand" — company logo is used only when explicitly chosen.
   const [logoPreference, setLogoPreference] = useState<"company" | "brand">(
-    "company",
+    "brand",
   );
   const [drafts, setDrafts] = useState<DraftBrand[]>([
     { id: makeId("br"), name: "", imageUrl: null },
@@ -105,7 +106,7 @@ export function AdminCompanies() {
     setEditingId(null);
     setName("");
     setImageUrl(null);
-    setLogoPreference("company");
+    setLogoPreference("brand");
     setDrafts([{ id: makeId("br"), name: "", imageUrl: null }]);
     // New companies start with all 37 ONDC categories (no images yet)
     setDraftCategories(makeCompanyCategorySeed());
@@ -120,7 +121,7 @@ export function AdminCompanies() {
     setEditingId(c.id);
     setName(c.name);
     setImageUrl(c.imageUrl);
-    setLogoPreference(c.logoPreference ?? "company");
+    setLogoPreference(c.logoPreference ?? "brand");
     setDrafts(
       c.brands.length > 0
         ? c.brands.map((b) => ({
