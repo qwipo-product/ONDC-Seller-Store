@@ -123,6 +123,12 @@ export interface Company {
    * already reference them) but are hidden from new assignments.
    */
   isActive?: boolean;
+  /**
+   * Which image represents this company where a single logo is shown:
+   * "company" → the uploaded company logo, "brand" → the brand images.
+   * Defaults to "company" when unset (legacy records).
+   */
+  logoPreference?: "company" | "brand";
 }
 
 export interface AdminCategory {
@@ -219,14 +225,15 @@ export const seedCompanies: Company[] = [
   {
     id: "co-itc",
     name: "ITC Limited",
-    imageUrl: null,
+    // Demo logos served from public/brands/ (drop the image files there).
+    imageUrl: "/brands/itc.png",
     isActive: true,
     brands: [
-      { id: "br-aashirvaad", name: "Aashirvaad", imageUrl: null },
-      { id: "br-sunfeast", name: "Sunfeast", imageUrl: null },
-      { id: "br-bingo", name: "Bingo", imageUrl: null },
-      { id: "br-yippee", name: "Yippee", imageUrl: null },
-      { id: "br-classmate", name: "Classmate", imageUrl: null },
+      { id: "br-aashirvaad", name: "Aashirvaad", imageUrl: "/brands/aashirvaad.png" },
+      { id: "br-sunfeast", name: "Sunfeast", imageUrl: "/brands/sunfeast.png" },
+      { id: "br-bingo", name: "Bingo", imageUrl: "/brands/bingo.png" },
+      { id: "br-yippee", name: "Yippee", imageUrl: "/brands/yippee.png" },
+      { id: "br-classmate", name: "Classmate", imageUrl: "/brands/classmate.png" },
     ],
     categories: makeCompanyCategorySeed(),
   },

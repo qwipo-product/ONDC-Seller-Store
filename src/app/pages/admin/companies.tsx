@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type DragEvent } from "react";
 import { useNavigate } from "react-router";
 import { Card, CardContent } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
@@ -24,8 +24,10 @@ import {
   LayoutGrid,
   CheckCircle2,
   Trash2,
+  GripVertical,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../../components/ui/tabs";
+import { Switch } from "../../components/ui/switch";
 import { toast } from "sonner";
 import {
   AdminCategory,
@@ -66,6 +68,11 @@ export function AdminCompanies() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  // Which image represents the company where a single logo is shown.
+  // Defaults to "brand" — company logo is used only when explicitly chosen.
+  const [logoPreference, setLogoPreference] = useState<"company" | "brand">(
+    "brand",
+  );
   const [drafts, setDrafts] = useState<DraftBrand[]>([
     { id: makeId("br"), name: "", imageUrl: null },
   ]);
@@ -99,6 +106,7 @@ export function AdminCompanies() {
     setEditingId(null);
     setName("");
     setImageUrl(null);
+    setLogoPreference("brand");
     setDrafts([{ id: makeId("br"), name: "", imageUrl: null }]);
     // New companies start with all 37 ONDC categories (no images yet)
     setDraftCategories(makeCompanyCategorySeed());
@@ -113,6 +121,7 @@ export function AdminCompanies() {
     setEditingId(c.id);
     setName(c.name);
     setImageUrl(c.imageUrl);
+    setLogoPreference(c.logoPreference ?? "brand");
     setDrafts(
       c.brands.length > 0
         ? c.brands.map((b) => ({
@@ -181,6 +190,23 @@ export function AdminCompanies() {
     markDirty();
   };
 
+  // Gap index (0..N) where a dragged brand will land — drives the drop
+  // indicator line shown between rows while dragging.
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
+
+  // Reorder brands by drag-and-drop. Array order is the saved order, so the
+  // top row becomes the company's first/top brand.
+  const moveBrand = (from: number, to: number) => {
+    setDrafts((prev) => {
+      if (to < 0 || to >= prev.length || from === to) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+    markDirty();
+  };
+
   const removeBrandRow = (idx: number) => {
     setDrafts((prev) => {
       revokeImage(prev[idx].imageUrl);
@@ -206,6 +232,7 @@ export function AdminCompanies() {
       name: name.trim(),
       imageUrl,
       isActive: existing?.isActive ?? true,
+      logoPreference,
       brands: validBrands.map<Brand>((b) => ({
         id: b.id,
         name: b.name.trim(),
@@ -407,6 +434,47 @@ export function AdminCompanies() {
               </div>
             </div>
 
+            {/* Logo image preference — choose whether the company logo or its
+                brand images represent this company where a single image is
+                shown. */}
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
+              <div className="space-y-0.5">
+                <Label className="text-xs font-medium text-gray-900">
+                  Logo Image Preference
+                </Label>
+                <p className="text-[11px] text-gray-500">
+                  Which image represents this company —{" "}
+                  {logoPreference === "brand"
+                    ? "brand images are shown."
+                    : "the company logo is shown."}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <span
+                  className={`text-xs font-medium ${
+                    logoPreference === "company" ? "text-gray-900" : "text-gray-400"
+                  }`}
+                >
+                  Company
+                </span>
+                <Switch
+                  checked={logoPreference === "brand"}
+                  onCheckedChange={(v) => {
+                    setLogoPreference(v ? "brand" : "company");
+                    markDirty();
+                  }}
+                  aria-label="Toggle logo image preference between company and brand"
+                />
+                <span
+                  className={`text-xs font-medium ${
+                    logoPreference === "brand" ? "text-gray-900" : "text-gray-400"
+                  }`}
+                >
+                  Brand
+                </span>
+              </div>
+            </div>
+
             {/* Brands / Categories tabs — every company has its own copy of
                 the 37 ONDC categories with company-specific images. */}
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -452,6 +520,11 @@ export function AdminCompanies() {
                       <BrandRow
                         key={b.id}
                         brand={b}
+                        index={i}
+                        count={drafts.length}
+                        moveBrand={moveBrand}
+                        dropIndex={dropIndex}
+                        onSetDropIndex={setDropIndex}
                         onName={(v) => updateBrandName(i, v)}
                         onImage={(f) => handleBrandImage(i, f)}
                         onRemove={() => removeBrandRow(i)}
@@ -470,7 +543,8 @@ export function AdminCompanies() {
                   </div>
                   <div className="px-3 py-2 bg-blue-50 border-t border-blue-100 text-[11px] text-blue-900 flex items-center gap-1.5">
                     <AlertCircle className="h-3 w-3 shrink-0" />
-                    Add new brands as needed. Existing brands cannot be removed.
+                    Drag the handle to reorder — the top brand is listed first.
+                    Existing brands cannot be removed.
                   </div>
                 </div>
                 {errors.brands && (
@@ -572,8 +646,15 @@ export function AdminCompanies() {
 }
 
 // ---- Brand row used inside the Add/Edit Company dialog ----
+// Numbered + drag-reorderable via native HTML5 DnD. The grip handle (right)
+// is the drag source; the whole row is the drop target.
 function BrandRow({
   brand,
+  index,
+  count,
+  moveBrand,
+  dropIndex,
+  onSetDropIndex,
   onName,
   onImage,
   onRemove,
@@ -581,14 +662,64 @@ function BrandRow({
   removeBlockedReason,
 }: {
   brand: DraftBrand;
+  index: number;
+  count: number;
+  moveBrand: (from: number, to: number) => void;
+  dropIndex: number | null;
+  onSetDropIndex: (gap: number | null) => void;
   onName: (v: string) => void;
   onImage: (f: File | null) => void;
   onRemove: () => void;
   canRemove: boolean;
   removeBlockedReason?: string;
 }) {
+  // Native HTML5 drag-and-drop. Only the grip handle is draggable, so the
+  // name field stays freely editable; the whole row is the drop target.
+  const [dragging, setDragging] = useState(false);
+
+  // Which side of this row the cursor is on → the gap (0..count) a drop
+  // would insert into. A line is drawn at that gap so the user can see
+  // exactly where the brand will sit.
+  const gapFor = (e: DragEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const bottomHalf = e.clientY - rect.top > rect.height / 2;
+    return bottomHalf ? index + 1 : index;
+  };
+
+  const showTopLine = dropIndex === index;
+  const showBottomLine = index === count - 1 && dropIndex === count;
+
   return (
-    <div className="grid grid-cols-[64px_1fr_36px] gap-3 items-center p-3">
+    <div
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        onSetDropIndex(gapFor(e));
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        const from = Number(e.dataTransfer.getData("text/plain"));
+        const gap = gapFor(e);
+        if (!Number.isNaN(from)) {
+          // Removing `from` first shifts later indices down by one.
+          const to = gap > from ? gap - 1 : gap;
+          if (to !== from) moveBrand(from, to);
+        }
+        onSetDropIndex(null);
+      }}
+      className={`relative grid grid-cols-[24px_64px_1fr_36px_28px] gap-3 items-center p-3 bg-white transition-opacity ${
+        dragging ? "opacity-40" : ""
+      }`}
+    >
+      {showTopLine && (
+        <span className="pointer-events-none absolute -top-px left-2 right-2 h-0.5 rounded-full bg-blue-600" />
+      )}
+      {showBottomLine && (
+        <span className="pointer-events-none absolute -bottom-px left-2 right-2 h-0.5 rounded-full bg-blue-600" />
+      )}
+      <span className="text-xs font-medium text-gray-500 text-center tabular-nums">
+        {index + 1}
+      </span>
       <ImageUploader
         value={brand.imageUrl}
         onChange={onImage}
@@ -624,6 +755,26 @@ function BrandRow({
           <X className="h-4 w-4 text-red-600" />
         </Button>
       )}
+      {/* Drag handle — reorders brands. Only the handle is draggable, so the
+          name field stays freely editable. */}
+      <button
+        type="button"
+        draggable
+        onDragStart={(e) => {
+          e.dataTransfer.effectAllowed = "move";
+          e.dataTransfer.setData("text/plain", String(index));
+          setDragging(true);
+        }}
+        onDragEnd={() => {
+          setDragging(false);
+          onSetDropIndex(null);
+        }}
+        aria-label="Drag to reorder brand"
+        title="Drag to reorder"
+        className="h-8 w-8 flex items-center justify-center text-gray-400 hover:text-gray-600 cursor-grab active:cursor-grabbing"
+      >
+        <GripVertical className="h-4 w-4" />
+      </button>
     </div>
   );
 }
