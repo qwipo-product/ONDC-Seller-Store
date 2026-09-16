@@ -61,7 +61,6 @@ export function getAdminPageTitle(pathname: string): string {
   if (pathname.startsWith("/admin/reports")) return "Generate Report";
   if (pathname.startsWith("/admin/companies")) return "Companies & Brands";
   if (pathname.startsWith("/admin/categories")) return "Category Master";
-  if (pathname.startsWith("/admin/charges/configure")) return "Configure Charges";
   if (pathname.startsWith("/admin/connectors/")) return "Connector Details";
   if (pathname.startsWith("/admin/connectors")) return "Connectors";
   if (pathname.startsWith("/admin/sellers/")) return "Seller Details";

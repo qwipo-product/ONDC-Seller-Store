@@ -860,7 +860,7 @@ export function AdminSellerDetail() {
                 company and brand linked to this seller. Distributor companies
                 are configured individually; all wholesaler companies share a
                 single common structure. */}
-            <TabsContent value="charges" className="flex-1 min-h-0 mt-0 p-0">
+            <TabsContent value="charges" className="flex-1 min-h-0 overflow-y-auto p-6 mt-0">
               <SellerChargesTab seller={seller} />
             </TabsContent>
           </Tabs>

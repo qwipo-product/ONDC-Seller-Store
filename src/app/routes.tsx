@@ -52,7 +52,6 @@ import { AdminCustomerDetail } from "./pages/admin/customer-detail";
 import { AdminServiceabilityReport } from "./pages/admin/serviceability-report";
 import { AdminCompanies } from "./pages/admin/companies";
 import { AdminCategories } from "./pages/admin/categories";
-import { AdminChargeConfigure } from "./pages/admin/charge-configure";
 import { ErrorScreensDemo } from "./pages/demos/error-screens";
 import { LoadingScreensDemo } from "./pages/demos/loading-screens";
 
@@ -104,14 +103,8 @@ export const router = createBrowserRouter([
       { path: "companies", Component: AdminCompanies },
       // Category Master — hierarchical taxonomy (37 ONDC roots + add/sub)
       { path: "categories", Component: AdminCategories },
-      // Charges & Fees — configured per SELLER from the Manage Seller
-      // "Charges & Fees" tab. :scope is "distributor" | "wholesaler";
-      // :companyId is the company id for distributor, or "_all" for the
-      // shared wholesale config.
-      {
-        path: "charges/configure/:sellerId/:scope/:companyId",
-        Component: AdminChargeConfigure,
-      },
+      // Charges & Fees — logistics fee is configured per SELLER from a tile +
+      // dialog on the Manage Seller "Charges & Fees" tab (no standalone route).
       // Error Screens demo gallery — only surfaced in the empty-mode
       // sidebar but routable for both admin paths.
       { path: "error-screens", Component: ErrorScreensDemo },
