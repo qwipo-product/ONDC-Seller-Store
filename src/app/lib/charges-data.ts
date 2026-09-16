@@ -1,5 +1,5 @@
-// Per-SELLER charge configuration for the "Charges & Fees" tab on the
-// Manage Seller screen. Charges are scoped to a seller and to the seller's
+// Per-SELLER LOGISTICS charge configuration for the "Charges & Fees" tab on
+// the Manage Seller screen. Charges are scoped to a seller and to the seller's
 // linked companies:
 //
 //   • Distributor companies  → each configured INDIVIDUALLY (one config per
@@ -8,20 +8,23 @@
 //                              share ONE common structure (a single config
 //                              per seller, keyed by WHOLESALE_TARGET).
 //
+// NOTE: the commercial (commerce) fee now lives at the COMPANY level
+// (admin-catalog Company.commercialFee) and is managed from the Companies &
+// Brands dialog. The old "Beat Small Order" step has been removed. This module
+// only owns the per-seller LOGISTICS fee.
+//
 // In-memory demo store with a subscribe hook, mirroring admin-catalog.
 // Company ids reference src/app/lib/admin-catalog.ts; seller ids reference
 // src/app/lib/mock-store.ts.
 
 import { makeId, getCompanies } from "./admin-catalog";
-import { getOrderValueMin, getOrderValueNonBeat } from "./order-settings-data";
 import {
   DEMO_DISTRIBUTOR_ID,
   DEMO_WHOLESALER_ID,
   DEMO_HYBRID_ID,
 } from "./mock-store";
 
-export type CommerceMethod = "gmv_percent" | "order_slab";
-export type LogisticsMethod = "gmv_percent" | "per_kg";
+export type LogisticsMethod = "gmv_percent" | "per_kg" | "by_category";
 export type ChargeStatus = "active" | "inactive";
 
 /** A charge config is either an individual distributor company config or the
@@ -32,22 +35,14 @@ export type ChargeScope = "distributor" | "wholesaler";
  *  covers every wholesaler-mode company linked to the seller. */
 export const WHOLESALE_TARGET = "__wholesale__";
 
-/** One order-value band for the "Order Value Slab" commerce method. */
-export interface OrderSlab {
+/** One per-category logistics fee row for the "By Category" method. Each ONDC
+ *  category is added individually with its own Qwipo target and seller
+ *  contribution; retailer = target − seller. */
+export interface CategoryLogisticsFee {
   id: string;
-  minValue: number; // ₹ — order value lower bound
-  maxValue: number; // ₹ — order value upper bound
-  fee: number; // ₹ — flat fee charged for orders in this band
-}
-
-export interface CommerceFeeConfig {
-  enabled: boolean;
-  method: CommerceMethod;
-  /** GMV %: Qwipo target fee (capped at 0.5%). Retailer = target − seller. */
-  qwipoTargetPct: number;
-  sellerContributionPct: number;
-  /** Order Value Slab method. */
-  slabs: OrderSlab[];
+  category: string; // ONDC category name (from ONDC_CATEGORY_NAMES)
+  qwipoTarget: number; // ₹
+  sellerContribution: number; // ₹
 }
 
 export interface LogisticsFeeConfig {
@@ -59,20 +54,8 @@ export interface LogisticsFeeConfig {
   /** GMV % method. */
   qwipoTargetPct: number;
   sellerContributionPct: number;
-}
-
-// The two order-value thresholds (beat MOV and non-beat MOV) are NOT stored
-// on the charge config — they are read-only, sourced from the seller's Order
-// Settings (see getBeatThresholds). Only the two flat fees below each
-// threshold are editable here.
-export interface BeatSmallOrderConfig {
-  enabled: boolean;
-  /** Flat fee charged when a BEAT order's value is below the seller's beat
-   *  MOV threshold. Editable. */
-  flatFeeBelowBeatThreshold: number; // ₹
-  /** Flat fee charged when a NON-BEAT order's value is below the seller's
-   *  non-beat MOV threshold. Editable. */
-  flatFeeBelowNonBeatThreshold: number; // ₹
+  /** By-category method — one fee row per ONDC category, added individually. */
+  categories: CategoryLogisticsFee[];
 }
 
 export interface ChargeConfig {
@@ -81,35 +64,24 @@ export interface ChargeConfig {
   /** Distributor: the linked company's id. Wholesaler: WHOLESALE_TARGET. */
   companyId: string;
   status: ChargeStatus;
-  commerce: CommerceFeeConfig;
   logistics: LogisticsFeeConfig;
-  beat: BeatSmallOrderConfig;
   effectiveFrom: string; // YYYY-MM-DD
   effectiveUntil: string; // YYYY-MM-DD
   updatedAt?: string; // ISO datetime
   updatedBy?: string;
 }
 
-/** Hard cap on the Qwipo commerce target fee. */
-export const MAX_COMMERCE_TARGET_PCT = 0.5;
-
 // ---- Derived helpers ----
 
-export function commerceRetailerPct(c: CommerceFeeConfig): number {
-  return Math.max(0, +(c.qwipoTargetPct - c.sellerContributionPct).toFixed(4));
-}
 export function logisticsRetailerPerKg(l: LogisticsFeeConfig): number {
   return Math.max(0, +(l.qwipoTargetPerKg - l.sellerContributionPerKg).toFixed(4));
 }
 export function logisticsRetailerPct(l: LogisticsFeeConfig): number {
   return Math.max(0, +(l.qwipoTargetPct - l.sellerContributionPct).toFixed(4));
 }
-
-/** The read-only beat / non-beat order-value thresholds surfaced in the Beat
- *  Small Order step. Sourced from the seller's Order Settings, never edited
- *  from the charges wizard. */
-export function getBeatThresholds(): { beat: number; nonBeat: number } {
-  return { beat: getOrderValueMin(), nonBeat: getOrderValueNonBeat() };
+/** Retailer contribution for one category fee row. */
+export function categoryLogisticsRetailer(f: CategoryLogisticsFee): number {
+  return Math.max(0, +(f.qwipoTarget - f.sellerContribution).toFixed(2));
 }
 
 /** Stable storage key for a config. Wholesale configs collapse to a single
@@ -138,13 +110,6 @@ export function emptyChargeConfig(
     scope,
     companyId: scope === "wholesaler" ? WHOLESALE_TARGET : companyId,
     status: "inactive",
-    commerce: {
-      enabled: true,
-      method: "gmv_percent",
-      qwipoTargetPct: 0.5,
-      sellerContributionPct: 0.3,
-      slabs: [{ id: makeId("slab"), minValue: 0, maxValue: 500, fee: 5 }],
-    },
     logistics: {
       enabled: true,
       method: "per_kg",
@@ -152,11 +117,7 @@ export function emptyChargeConfig(
       sellerContributionPerKg: 2,
       qwipoTargetPct: 0.5,
       sellerContributionPct: 0.3,
-    },
-    beat: {
-      enabled: true,
-      flatFeeBelowBeatThreshold: 15,
-      flatFeeBelowNonBeatThreshold: 20,
+      categories: [],
     },
     effectiveFrom: iso(now),
     effectiveUntil: iso(yearEnd),
@@ -180,19 +141,38 @@ function buildSeed(): ChargeConfig[] {
   });
 
   // Distributor demo — configure the first four companies individually,
-  // alternating commerce method so both variants show in the table.
+  // varying the logistics method so all variants show in the table.
   companies.slice(0, 4).forEach((c, i) => {
     const cfg = emptyChargeConfig(DEMO_DISTRIBUTOR_ID, "distributor", c.id);
+    const method: LogisticsMethod =
+      i === 1 ? "gmv_percent" : i === 2 ? "by_category" : "per_kg";
     out.push(
       active(
         {
           ...cfg,
-          commerce: {
-            ...cfg.commerce,
-            method: i % 2 === 0 ? "gmv_percent" : "order_slab",
+          logistics: {
+            ...cfg.logistics,
+            method,
+            categories:
+              method === "by_category"
+                ? [
+                    {
+                      id: makeId("catfee"),
+                      category: "Oil & Ghee",
+                      qwipoTarget: 4,
+                      sellerContribution: 2.5,
+                    },
+                    {
+                      id: makeId("catfee"),
+                      category: "Foodgrains",
+                      qwipoTarget: 3,
+                      sellerContribution: 2,
+                    },
+                  ]
+                : [],
           },
         },
-        "2026-09-05T00:00:00Z",
+        "2026-09-12T00:00:00Z",
       ),
     );
   });
@@ -201,7 +181,7 @@ function buildSeed(): ChargeConfig[] {
   out.push(
     active(
       emptyChargeConfig(DEMO_WHOLESALER_ID, "wholesaler", "_all"),
-      "2026-09-07T00:00:00Z",
+      "2026-09-13T00:00:00Z",
     ),
   );
 
@@ -211,14 +191,14 @@ function buildSeed(): ChargeConfig[] {
     out.push(
       active(
         emptyChargeConfig(DEMO_HYBRID_ID, "distributor", c.id),
-        "2026-09-08T00:00:00Z",
+        "2026-09-14T00:00:00Z",
       ),
     );
   });
   out.push(
     active(
       emptyChargeConfig(DEMO_HYBRID_ID, "wholesaler", "_all"),
-      "2026-09-08T00:00:00Z",
+      "2026-09-14T00:00:00Z",
     ),
   );
 

@@ -25,6 +25,7 @@ import {
   CheckCircle2,
   Trash2,
   GripVertical,
+  Coins,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../../components/ui/tabs";
 import { Switch } from "../../components/ui/switch";
@@ -33,6 +34,8 @@ import {
   AdminCategory,
   Brand,
   Company,
+  CommercialFeeConfig,
+  emptyCommercialFee,
   getCompanies,
   makeCompanyCategorySeed,
   makeId,
@@ -42,6 +45,7 @@ import {
 } from "../../lib/admin-catalog";
 import { EmptyState } from "../../components/empty-state";
 import { ImageUploader } from "../../components/ui/image-uploader";
+import { CommercialFeeTab } from "./company-commercial-fee";
 
 interface DraftBrand {
   id: string;
@@ -81,6 +85,9 @@ export function AdminCompanies() {
     makeCompanyCategorySeed(),
   );
   const [categorySearch, setCategorySearch] = useState("");
+  // Company-level commercial fee (applies to every seller linked to it).
+  const [draftCommercialFee, setDraftCommercialFee] =
+    useState<CommercialFeeConfig>(emptyCommercialFee());
   const [activeTab, setActiveTab] = useState("brands");
   // Inline form errors. Surfaces in red text under the relevant field
   // instead of a popup, so users see what to fix without losing context.
@@ -110,6 +117,7 @@ export function AdminCompanies() {
     setDrafts([{ id: makeId("br"), name: "", imageUrl: null }]);
     // New companies start with all 37 ONDC categories (no images yet)
     setDraftCategories(makeCompanyCategorySeed());
+    setDraftCommercialFee(emptyCommercialFee());
     setCategorySearch("");
     setActiveTab("brands");
     setErrors({});
@@ -137,6 +145,9 @@ export function AdminCompanies() {
       c.categories && c.categories.length > 0
         ? c.categories.map((cat) => ({ ...cat }))
         : makeCompanyCategorySeed(),
+    );
+    setDraftCommercialFee(
+      c.commercialFee ? { ...c.commercialFee } : emptyCommercialFee(),
     );
     setCategorySearch("");
     setActiveTab("brands");
@@ -239,6 +250,7 @@ export function AdminCompanies() {
         imageUrl: b.imageUrl,
       })),
       categories: draftCategories.map((c) => ({ ...c })),
+      commercialFee: { ...draftCommercialFee, slabs: draftCommercialFee.slabs.map((s) => ({ ...s })) },
     };
     const next = editingId
       ? companies.map((c) => (c.id === editingId ? company : c))
@@ -499,6 +511,22 @@ export function AdminCompanies() {
                     {draftCategories.filter((c) => c.imageUrl).length}/{draftCategories.length}
                   </Badge>
                 </TabsTrigger>
+                <TabsTrigger
+                  value="commercial"
+                  className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2 text-sm"
+                >
+                  <Coins className="h-4 w-4 mr-2 text-blue-600" />
+                  Commercial Fees
+                  <Badge
+                    className={`ml-2 text-[10px] ${
+                      draftCommercialFee.enabled
+                        ? "bg-green-50 text-green-700 border-green-200"
+                        : "bg-gray-100 text-gray-600 border-gray-200"
+                    }`}
+                  >
+                    {draftCommercialFee.enabled ? "On" : "Off"}
+                  </Badge>
+                </TabsTrigger>
               </TabsList>
 
               {/* Brands tab */}
@@ -610,6 +638,18 @@ export function AdminCompanies() {
                     Images are scoped to this company only.
                   </div>
                 </div>
+              </TabsContent>
+
+              {/* Commercial Fees tab — company-level commercial fee applied to
+                  every seller/distributor linked to this company. */}
+              <TabsContent value="commercial" className="mt-3">
+                <CommercialFeeTab
+                  value={draftCommercialFee}
+                  onChange={(next) => {
+                    setDraftCommercialFee(next);
+                    markDirty();
+                  }}
+                />
               </TabsContent>
             </Tabs>
           </div>

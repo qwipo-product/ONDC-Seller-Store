@@ -129,6 +129,56 @@ export interface Company {
    * Defaults to "company" when unset (legacy records).
    */
   logoPreference?: "company" | "brand";
+  /**
+   * Commercial (commerce) fee for this company. Configured PER COMPANY from
+   * the "Commercial Fees" tab in the add/edit dialog, and applied to every
+   * seller/distributor linked to the company. Optional on legacy records —
+   * treat missing as an unconfigured, disabled fee.
+   */
+  commercialFee?: CommercialFeeConfig;
+}
+
+// ---- Company-level Commercial Fee ----
+// Commercial fee lives on the Company (not the seller) so a single setup
+// applies to all sellers/distributors that carry the company.
+export type CommerceMethod = "gmv_percent" | "order_slab";
+
+/** One order-value band for the "Order Value Slab" commerce method. */
+export interface OrderSlab {
+  id: string;
+  minValue: number; // ₹ — order value lower bound
+  maxValue: number; // ₹ — order value upper bound
+  fee: number; // ₹ — flat fee charged for orders in this band
+}
+
+export interface CommercialFeeConfig {
+  enabled: boolean;
+  method: CommerceMethod;
+  /** GMV %: Qwipo target fee (capped at MAX_COMMERCE_TARGET_PCT). Retailer =
+   *  target − seller. */
+  qwipoTargetPct: number;
+  sellerContributionPct: number;
+  /** Order Value Slab method. */
+  slabs: OrderSlab[];
+}
+
+/** Hard cap on the Qwipo commercial target fee. */
+export const MAX_COMMERCE_TARGET_PCT = 0.5;
+
+/** Retailer contribution = Qwipo target − seller contribution (never < 0). */
+export function commercialRetailerPct(c: CommercialFeeConfig): number {
+  return Math.max(0, +(c.qwipoTargetPct - c.sellerContributionPct).toFixed(4));
+}
+
+/** A blank commercial-fee config for a company that hasn't set one up. */
+export function emptyCommercialFee(): CommercialFeeConfig {
+  return {
+    enabled: true,
+    method: "gmv_percent",
+    qwipoTargetPct: 0.5,
+    sellerContributionPct: 0.3,
+    slabs: [{ id: makeId("slab"), minValue: 0, maxValue: 500, fee: 5 }],
+  };
 }
 
 export interface AdminCategory {

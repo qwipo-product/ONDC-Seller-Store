@@ -15,13 +15,10 @@ import {
   getSellerWholesaleConfig,
   subscribeToChargeConfigs,
   upsertChargeConfig,
-  commerceRetailerPct,
   logisticsRetailerPerKg,
   logisticsRetailerPct,
   type ChargeConfig,
-  type CommerceFeeConfig,
   type LogisticsFeeConfig,
-  type BeatSmallOrderConfig,
 } from "../../lib/charges-data";
 import type { Seller, OperationMode } from "../../lib/mock-store";
 
@@ -30,27 +27,18 @@ const PAGE_SIZE = 25;
 const pct = (n: number) => `${+n.toFixed(2)}%`;
 const rupee = (n: number) => `₹${+n.toFixed(2)}`;
 
-// ---- Cell text helpers. A disabled section reads "Disabled" on an active
+// ---- Cell text helper. A disabled section reads "Disabled" on an active
 // config and "Not Configured" on an inactive (stub / unconfigured) config. ----
-function commerceText(c: CommerceFeeConfig, status: ChargeConfig["status"]): string {
-  if (!c.enabled) return status === "inactive" ? "Not Configured" : "Disabled";
-  if (c.method === "order_slab") {
-    if (c.slabs.length === 0) return "Order Slab";
-    const fees = c.slabs.map((s) => s.fee);
-    return `Order Slab (${rupee(Math.min(...fees))} - ${rupee(Math.max(...fees))})`;
-  }
-  return `${pct(c.qwipoTargetPct)} / ${pct(commerceRetailerPct(c))}`;
-}
 function logisticsText(l: LogisticsFeeConfig, status: ChargeConfig["status"]): string {
   if (!l.enabled) return status === "inactive" ? "Not Configured" : "Disabled";
   if (l.method === "per_kg") {
     return `${rupee(l.qwipoTargetPerKg)}/kg / ${rupee(logisticsRetailerPerKg(l))}/kg`;
   }
+  if (l.method === "by_category") {
+    const n = l.categories.length;
+    return `By category (${n} categor${n === 1 ? "y" : "ies"})`;
+  }
   return `${pct(l.qwipoTargetPct)} / ${pct(logisticsRetailerPct(l))}`;
-}
-function beatText(b: BeatSmallOrderConfig, status: ChargeConfig["status"]): string {
-  if (!b.enabled) return status === "inactive" ? "Not Configured" : "Disabled";
-  return `${rupee(b.flatFeeBelowBeatThreshold)} / ${rupee(b.flatFeeBelowNonBeatThreshold)}`;
 }
 
 // Relative "time ago" — e.g. "just now", "3 days ago", "2 weeks ago".
@@ -211,9 +199,7 @@ export function SellerChargesTab({ seller }: { seller: Seller }) {
               <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
                 <tr>
                   <Th title="Company" />
-                  <Th title="Commercial Fees" sub="Qwipo / Retailer" />
                   <Th title="Logistics Fee" sub="Qwipo / Retailer" />
-                  <Th title="Beat Small Order" sub="Beat / Non-Beat" />
                   <Th title="Status" />
                   <Th title="Last Updated" />
                   <Th title="Actions" align="right" />
@@ -228,14 +214,8 @@ export function SellerChargesTab({ seller }: { seller: Seller }) {
                     s === "Not Configured" || s === "Disabled"
                       ? "text-gray-400"
                       : "text-gray-700";
-                  const cText = config
-                    ? commerceText(config.commerce, status)
-                    : "Not Configured";
                   const lText = config
                     ? logisticsText(config.logistics, status)
-                    : "Not Configured";
-                  const bText = config
-                    ? beatText(config.beat, status)
                     : "Not Configured";
                   return (
                     <tr key={row.key} className="hover:bg-gray-50">
@@ -287,14 +267,8 @@ export function SellerChargesTab({ seller }: { seller: Seller }) {
                           </div>
                         )}
                       </td>
-                      <td className={`px-3 py-2.5 text-sm whitespace-nowrap ${muted(cText)}`}>
-                        {cText}
-                      </td>
                       <td className={`px-3 py-2.5 text-sm whitespace-nowrap ${muted(lText)}`}>
                         {lText}
-                      </td>
-                      <td className={`px-3 py-2.5 text-sm whitespace-nowrap ${muted(bText)}`}>
-                        {bText}
                       </td>
                       {/* Status */}
                       <td className="px-3 py-2.5">
