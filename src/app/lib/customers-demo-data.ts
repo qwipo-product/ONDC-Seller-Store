@@ -86,6 +86,9 @@ export interface DemoCustomer {
   totalOrders: number;
   /** Total revenue in INR — surfaced on the detail page Business card. */
   totalRevenue?: number;
+  /** Customer-level status — Active / Blocked. Blocking a customer stops all
+   *  new orders for them across every linked company. Defaults to "Active". */
+  status?: "Active" | "Blocked";
   /** Companies the customer buys from. Length ≥ 1. */
   companies: CompanyLink[];
   /**
@@ -246,7 +249,9 @@ const SEED: DemoCustomer[] = [
         companyName: "Gemini Edibles & Fats India",
         status: "Active",
       },
-      { companyId: "co-adani", companyName: "Adani Wilmar Ltd", status: "Active" },
+      // Per-company block example: this customer is Active overall but
+      // blocked for this one company.
+      { companyId: "co-adani", companyName: "Adani Wilmar Ltd", status: "Blocked" },
     ],
     // Multi-address showcase. City Supermart runs three locations, and
     // each one falls in a different beat — so the COMPANY set and the
@@ -360,11 +365,13 @@ const SEED: DemoCustomer[] = [
     gstNumber: "33ABCDE9876H1Z3",
     totalOrders: 38,
     totalRevenue: 487000,
+    // Customer-level block example for the demo.
+    status: "Blocked",
     companies: [
       {
         companyId: "co-freedom",
         companyName: "Gemini Edibles & Fats India",
-        status: "Blocked",
+        status: "Active",
       },
     ],
   },
@@ -391,7 +398,23 @@ export const setDemoCustomers = (next: DemoCustomer[]) => {
   notify();
 };
 
-/** Update the status of a single company link for a single customer. */
+/** Block / unblock a customer at the customer level. This is a master switch:
+ *  while the customer is Blocked, every linked company is effectively blocked
+ *  regardless of its own status. When the customer is Active, the per-company
+ *  statuses apply. */
+export const setDemoCustomerStatus = (
+  customerId: string,
+  status: "Active" | "Blocked",
+) => {
+  _customers = _customers.map((c) =>
+    c.customerId === customerId ? { ...c, status } : c,
+  );
+  notify();
+};
+
+/** Update the status of a single company link for a single customer. Only
+ *  meaningful while the customer is Active (a customer-level block overrides
+ *  every company). */
 export const setDemoCompanyStatus = (
   customerId: string,
   companyId: string,
@@ -409,6 +432,14 @@ export const setDemoCompanyStatus = (
   );
   notify();
 };
+
+/** Effective status of one company link for a customer — a customer-level
+ *  block forces "Blocked"; otherwise the company's own status wins. */
+export const effectiveCompanyStatus = (
+  customer: Pick<DemoCustomer, "status">,
+  company: Pick<CompanyLink, "status">,
+): "Active" | "Blocked" =>
+  (customer.status ?? "Active") === "Blocked" ? "Blocked" : company.status;
 
 export const subscribeToDemoCustomers = (cb: () => void) => {
   subscribers.add(cb);
