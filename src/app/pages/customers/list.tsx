@@ -40,6 +40,7 @@ import { ListPagination } from "../../components/ui/list-pagination";
 import {
   getDemoCustomers,
   setDemoCompanyStatus,
+  effectiveCompanyStatus,
   subscribeToDemoCustomers,
   getAddressCount,
   type CompanyLink as SharedCompanyLink,
@@ -156,11 +157,14 @@ export function CustomersDemo() {
         c.area.toLowerCase().includes(q) ||
         c.pincode.includes(q) ||
         c.companies.some((co) => co.companyName.toLowerCase().includes(q));
-      // Status is per-company now — a customer matches the filter when at
-      // least one of their company links is in the selected state.
+      // Status can be blocked at the customer level (all companies) or per
+      // company. A customer matches the filter when their EFFECTIVE status
+      // for at least one company is in the selected state.
       const matchesStatus =
         statusFilter === "all" ||
-        c.companies.some((co) => co.status === statusFilter);
+        c.companies.some(
+          (co) => effectiveCompanyStatus(c, co) === statusFilter,
+        );
       const matchesCompany =
         companyFilter === "all" ||
         c.companies.some((co) => co.companyId === companyFilter);
@@ -224,7 +228,7 @@ export function CustomersDemo() {
             c.latitude,
             c.longitude,
             co.companyName,
-            co.status,
+            effectiveCompanyStatus(c, co),
             c.origin ?? "first-order",
           ]
             .map(escapeCsv)
@@ -362,13 +366,13 @@ export function CustomersDemo() {
                   </tr>
                 ) : (
                   paginated.map((c) => {
-                    // Status is per-company — roll up for the row badge.
-                    // All-Active and All-Blocked render the single state;
-                    // anything else shows a "Mixed" amber badge so
-                    // the seller knows to open the popup for detail.
-                    const activeCount = c.companies.filter(
-                      (co) => co.status === "Active",
-                    ).length;
+                    // Effective status = customer-level block (all companies)
+                    // OR per-company blocks. Roll up for the row badge:
+                    // all-Active, all-Blocked, or Mixed.
+                    const customerBlocked = (c.status ?? "Active") === "Blocked";
+                    const activeCount = customerBlocked
+                      ? 0
+                      : c.companies.filter((co) => co.status === "Active").length;
                     const blockedCount = c.companies.length - activeCount;
                     const allBlocked = activeCount === 0 && blockedCount > 0;
                     return (
@@ -669,88 +673,107 @@ export function CustomersDemo() {
           {linkedCustomer && (
             <div className="py-2 max-h-[60vh] overflow-y-auto">
               <div className="border border-gray-200 rounded-lg divide-y divide-gray-100">
-                {/* Beat + Delivery Day were stripped from the popup
-                    in June 2026 — the popup is for fast per-company
-                    Block / Unblock, not a serviceability summary. The
-                    detail page (Linked Companies card) is the canonical
-                    place for beat + day. */}
-                <div className="grid grid-cols-[minmax(0,1fr)_120px_130px] gap-3 px-3 py-2 bg-gray-50 text-[10px] uppercase tracking-wider font-semibold text-gray-500">
-                  <span>Company</span>
-                  <span className="text-center">Status</span>
-                  <span className="text-right">Action</span>
-                </div>
-                {linkedCustomer.companies.map((co) => {
+                {/* Per-company Block / Unblock. While the customer is
+                    blocked at the customer level, every company shows as
+                    Blocked and these controls are disabled. */}
+                {(() => {
+                  const customerBlocked =
+                    (linkedCustomer.status ?? "Active") === "Blocked";
                   return (
-                  <div
-                    key={co.companyId}
-                    className="grid grid-cols-[minmax(0,1fr)_120px_130px] gap-3 px-3 py-2.5 items-center"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Building2 className="h-4 w-4 text-gray-500 shrink-0" />
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {co.companyName}
-                      </p>
-                    </div>
-                    <div className="flex justify-center">
-                      {co.status === "Active" ? (
-                        <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1">
-                          <CheckCircle2 className="h-3 w-3" />
-                          Active
-                        </Badge>
-                      ) : (
-                        <Badge className="bg-red-50 text-red-700 border-red-200 gap-1">
-                          <Ban className="h-3 w-3" />
-                          Blocked
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="flex justify-end">
-                      {co.status === "Active" ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 gap-1 border-red-300 text-red-700 hover:bg-red-50"
-                          onClick={() => {
-                            setDemoCompanyStatus(
-                              linkedCustomer.customerId,
-                              co.companyId,
-                              "Blocked",
-                            );
-                            toast.success(
-                              `${linkedCustomer.businessName} blocked for ${co.companyName}.`,
-                            );
-                          }}
-                        >
-                          <Ban className="h-3.5 w-3.5" />
-                          Block
-                        </Button>
-                      ) : (
-                        <Button
-                          size="sm"
-                          className="h-7 gap-1 bg-emerald-600 hover:bg-emerald-700"
-                          onClick={() => {
-                            setDemoCompanyStatus(
-                              linkedCustomer.customerId,
-                              co.companyId,
-                              "Active",
-                            );
-                            toast.success(
-                              `${linkedCustomer.businessName} unblocked for ${co.companyName}.`,
-                            );
-                          }}
-                        >
-                          <CheckCircle2 className="h-3.5 w-3.5" />
-                          Unblock
-                        </Button>
-                      )}
-                    </div>
-                  </div>
+                    <>
+                      <div className="grid grid-cols-[minmax(0,1fr)_120px_130px] gap-3 px-3 py-2 bg-gray-50 text-[10px] uppercase tracking-wider font-semibold text-gray-500">
+                        <span>Company</span>
+                        <span className="text-center">Status</span>
+                        <span className="text-right">Action</span>
+                      </div>
+                      {linkedCustomer.companies.map((co) => {
+                        const effStatus = effectiveCompanyStatus(linkedCustomer, co);
+                        return (
+                          <div
+                            key={co.companyId}
+                            className="grid grid-cols-[minmax(0,1fr)_120px_130px] gap-3 px-3 py-2.5 items-center"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <Building2 className="h-4 w-4 text-gray-500 shrink-0" />
+                              <p className="text-sm font-medium text-gray-900 truncate">
+                                {co.companyName}
+                              </p>
+                            </div>
+                            <div className="flex justify-center">
+                              {effStatus === "Active" ? (
+                                <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1">
+                                  <CheckCircle2 className="h-3 w-3" />
+                                  Active
+                                </Badge>
+                              ) : (
+                                <Badge className="bg-red-50 text-red-700 border-red-200 gap-1">
+                                  <Ban className="h-3 w-3" />
+                                  Blocked
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex justify-end">
+                              {co.status === "Active" ? (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 gap-1 border-red-300 text-red-700 hover:bg-red-50"
+                                  disabled={customerBlocked}
+                                  title={
+                                    customerBlocked
+                                      ? "Customer is blocked — unblock the customer to manage companies individually"
+                                      : undefined
+                                  }
+                                  onClick={() => {
+                                    setDemoCompanyStatus(
+                                      linkedCustomer.customerId,
+                                      co.companyId,
+                                      "Blocked",
+                                    );
+                                    toast.success(
+                                      `${linkedCustomer.businessName} blocked for ${co.companyName}.`,
+                                    );
+                                  }}
+                                >
+                                  <Ban className="h-3.5 w-3.5" />
+                                  Block
+                                </Button>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  className="h-7 gap-1 bg-emerald-600 hover:bg-emerald-700"
+                                  disabled={customerBlocked}
+                                  title={
+                                    customerBlocked
+                                      ? "Customer is blocked — unblock the customer to manage companies individually"
+                                      : undefined
+                                  }
+                                  onClick={() => {
+                                    setDemoCompanyStatus(
+                                      linkedCustomer.customerId,
+                                      co.companyId,
+                                      "Active",
+                                    );
+                                    toast.success(
+                                      `${linkedCustomer.businessName} unblocked for ${co.companyName}.`,
+                                    );
+                                  }}
+                                >
+                                  <CheckCircle2 className="h-3.5 w-3.5" />
+                                  Unblock
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </>
                   );
-                })}
+                })()}
               </div>
               <p className="text-[11px] text-gray-500 mt-2 px-1">
-                Status and Block / Unblock are tracked per company. To
-                see the beat name &amp; delivery day per address, open
+                Block / Unblock a single company here. To block the whole
+                customer at once (a master switch over every company), open
                 this customer&apos;s detail page.
               </p>
             </div>

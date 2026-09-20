@@ -105,6 +105,8 @@ export const router = createBrowserRouter([
       { path: "companies", Component: AdminCompanies },
       // Category Master — hierarchical taxonomy (37 ONDC roots + add/sub)
       { path: "categories", Component: AdminCategories },
+      // Charges & Fees — logistics fee is configured per SELLER from a tile +
+      // dialog on the Manage Seller "Charges & Fees" tab (no standalone route).
       // Error Screens demo gallery — only surfaced in the empty-mode
       // sidebar but routable for both admin paths.
       { path: "error-screens", Component: ErrorScreensDemo },

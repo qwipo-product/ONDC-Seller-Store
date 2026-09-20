@@ -44,7 +44,9 @@ import {
 import { toast } from "sonner";
 import {
   getDemoCustomerById,
+  setDemoCustomerStatus,
   setDemoCompanyStatus,
+  effectiveCompanyStatus,
   subscribeToDemoCustomers,
   getCustomerAddresses,
   getPrimaryAddress,
@@ -106,38 +108,54 @@ export function CustomerDemoDetail() {
       ? getAddressServiceability(customer, selectedAddress)
       : { served: [], unserved: [] };
 
-  // Block / Unblock confirmation — Block lives on a per-company link
-  // now (a customer can be Active for one brand and Blocked for
-  // another), so we track the target companyId alongside the action.
-  const [pendingBlockToggle, setPendingBlockToggle] = useState<{
-    action: "block" | "unblock";
-    companyId: string;
-  } | null>(null);
+  // Block / Unblock confirmation. Two levels:
+  //   • customer → master switch, blocks/unblocks the whole customer.
+  //   • company  → per-company link (only while the customer is Active).
+  const [pendingBlockToggle, setPendingBlockToggle] = useState<
+    | { kind: "customer"; action: "block" | "unblock" }
+    | { kind: "company"; action: "block" | "unblock"; companyId: string }
+    | null
+  >(null);
 
-  const pendingBlockCompany = customer?.companies.find(
-    (co) => co.companyId === pendingBlockToggle?.companyId,
-  );
+  const pendingBlockCompany =
+    pendingBlockToggle?.kind === "company"
+      ? customer?.companies.find(
+          (co) => co.companyId === pendingBlockToggle.companyId,
+        )
+      : undefined;
 
   const handleConfirmBlockToggle = () => {
-    if (!customer || !pendingBlockToggle || !pendingBlockCompany) return;
-    if (pendingBlockToggle.action === "block") {
-      setDemoCompanyStatus(
-        customer.customerId,
-        pendingBlockToggle.companyId,
-        "Blocked",
-      );
-      toast.success(
-        `${customer.businessName} blocked for ${pendingBlockCompany.companyName} — no new orders against this brand until you unblock.`,
-      );
-    } else {
-      setDemoCompanyStatus(
-        customer.customerId,
-        pendingBlockToggle.companyId,
-        "Active",
-      );
-      toast.success(
-        `${customer.businessName} unblocked for ${pendingBlockCompany.companyName}.`,
-      );
+    if (!customer || !pendingBlockToggle) return;
+    if (pendingBlockToggle.kind === "customer") {
+      if (pendingBlockToggle.action === "block") {
+        setDemoCustomerStatus(customer.customerId, "Blocked");
+        toast.success(
+          `${customer.businessName} blocked — no new orders until you unblock this customer.`,
+        );
+      } else {
+        setDemoCustomerStatus(customer.customerId, "Active");
+        toast.success(`${customer.businessName} unblocked.`);
+      }
+    } else if (pendingBlockCompany) {
+      if (pendingBlockToggle.action === "block") {
+        setDemoCompanyStatus(
+          customer.customerId,
+          pendingBlockToggle.companyId,
+          "Blocked",
+        );
+        toast.success(
+          `${customer.businessName} blocked for ${pendingBlockCompany.companyName}.`,
+        );
+      } else {
+        setDemoCompanyStatus(
+          customer.customerId,
+          pendingBlockToggle.companyId,
+          "Active",
+        );
+        toast.success(
+          `${customer.businessName} unblocked for ${pendingBlockCompany.companyName}.`,
+        );
+      }
     }
     setPendingBlockToggle(null);
   };
@@ -177,13 +195,15 @@ export function CustomerDemoDetail() {
   )}&layer=mapnik&marker=${mapAddress.latitude},${mapAddress.longitude}`;
   const openInMapsUrl = `https://www.google.com/maps/search/?api=1&query=${mapAddress.latitude},${mapAddress.longitude}`;
 
+  // Customer-level block status (defaults to Active for legacy records).
+  const isBlocked = (customer.status ?? "Active") === "Blocked";
+
   return (
     <div className="p-4 space-y-3 bg-gray-50 min-h-full">
-      {/* Header — store name + owner + phone. Customer-level Active /
-          Blocked badge is gone; status is now per-company and surfaced
-          in the Linked Companies card below, where Block / Unblock
-          also lives. The header still rolls up the company statuses
-          so the seller has an at-a-glance signal. */}
+      {/* Header — store name + owner + phone, with a customer-level
+          Active / Blocked badge and a Block / Unblock action on the
+          right. Blocking a customer stops new orders across every
+          company they buy from. */}
       <div className="flex items-center gap-3">
         <Button
           variant="outline"
@@ -198,41 +218,47 @@ export function CustomerDemoDetail() {
             <h1 className="text-xl font-bold text-gray-900 truncate">
               {customer.customerName}
             </h1>
-            {(() => {
-              const activeCount = customer.companies.filter(
-                (co) => co.status === "Active",
-              ).length;
-              const blockedCount = customer.companies.length - activeCount;
-              if (blockedCount === 0) {
-                return (
-                  <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1">
-                    <CheckCircle2 className="h-3 w-3" />
-                    Active
-                  </Badge>
-                );
-              }
-              if (activeCount === 0) {
-                return (
-                  <Badge className="bg-red-50 text-red-700 border-red-200 gap-1">
-                    <Ban className="h-3 w-3" />
-                    Blocked
-                  </Badge>
-                );
-              }
-              return (
-                <Badge
-                  className="bg-amber-50 text-amber-700 border-amber-200 gap-1"
-                  title={`${activeCount} active · ${blockedCount} blocked`}
-                >
-                  Mixed ({activeCount}/{customer.companies.length})
-                </Badge>
-              );
-            })()}
+            {isBlocked ? (
+              <Badge className="bg-red-50 text-red-700 border-red-200 gap-1">
+                <Ban className="h-3 w-3" />
+                Blocked
+              </Badge>
+            ) : (
+              <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1">
+                <CheckCircle2 className="h-3 w-3" />
+                Active
+              </Badge>
+            )}
           </div>
           <p className="text-sm text-gray-600 truncate">
             {customer.businessName} · {customer.mobile}
           </p>
         </div>
+        {/* Block / Unblock this customer (master switch) */}
+        {isBlocked ? (
+          <Button
+            size="sm"
+            className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 shrink-0"
+            onClick={() =>
+              setPendingBlockToggle({ kind: "customer", action: "unblock" })
+            }
+          >
+            <CheckCircle2 className="h-4 w-4" />
+            Unblock
+          </Button>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 border-red-300 text-red-700 hover:bg-red-50 shrink-0"
+            onClick={() =>
+              setPendingBlockToggle({ kind: "customer", action: "block" })
+            }
+          >
+            <Ban className="h-4 w-4" />
+            Block
+          </Button>
+        )}
       </div>
 
       {/* Main Content Grid — left column (details) + right column (map),
@@ -409,7 +435,8 @@ export function CustomerDemoDetail() {
                                   <span className="text-xs font-medium text-gray-900 truncate">
                                     {co.companyName}
                                   </span>
-                                  {co.status === "Blocked" && (
+                                  {effectiveCompanyStatus(customer, co) ===
+                                    "Blocked" && (
                                     <Badge className="bg-red-50 text-red-700 border-red-200 h-4 px-1 text-[9px]">
                                       Blocked
                                     </Badge>
@@ -487,11 +514,12 @@ export function CustomerDemoDetail() {
             </CardContent>
           </Card>
 
-          {/* Linked Companies — company-level status + Block / Unblock.
-              A customer can be Active for one brand and Blocked for
-              another, and that decision spans ALL of the customer's
-              addresses. The per-address beat + delivery-day mapping now
-              lives in the Addresses card above. */}
+          {/* Linked Companies — per-company Block / Unblock. While the
+              customer is blocked at the header level, every company shows
+              as Blocked and the per-company controls are disabled (the
+              customer-level block overrides them). Unblock the customer to
+              manage companies individually. The per-address beat +
+              delivery-day mapping lives in the Addresses card above. */}
           <Card>
             <CardHeader className="py-2.5 px-4 border-b border-gray-100">
               <CardTitle className="text-sm flex items-center gap-2">
@@ -506,73 +534,101 @@ export function CustomerDemoDetail() {
                 </p>
               ) : (
                 <>
-                  {customer.companies.map((co) => (
-                    <div
-                      key={co.companyId}
-                      className={`flex items-center justify-between gap-3 rounded-lg border px-3 py-2 ${
-                        co.status === "Active"
-                          ? "border-gray-200"
-                          : "border-red-100 bg-red-50/30"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className="bg-blue-100 text-blue-700 p-1 rounded">
-                          <Building2 className="h-3.5 w-3.5" />
+                  {customer.companies.map((co) => {
+                    const effStatus = effectiveCompanyStatus(customer, co);
+                    return (
+                      <div
+                        key={co.companyId}
+                        className={`flex items-center justify-between gap-3 rounded-lg border px-3 py-2 ${
+                          effStatus === "Active"
+                            ? "border-gray-200"
+                            : "border-red-100 bg-red-50/30"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="bg-blue-100 text-blue-700 p-1 rounded">
+                            <Building2 className="h-3.5 w-3.5" />
+                          </div>
+                          <p className="text-sm font-semibold text-gray-900 truncate">
+                            {co.companyName}
+                          </p>
                         </div>
-                        <p className="text-sm font-semibold text-gray-900 truncate">
-                          {co.companyName}
-                        </p>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {effStatus === "Active" ? (
+                            <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1">
+                              <CheckCircle2 className="h-3 w-3" />
+                              Active
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-red-50 text-red-700 border-red-200 gap-1">
+                              <Ban className="h-3 w-3" />
+                              Blocked
+                            </Badge>
+                          )}
+                          {co.status === "Active" ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 gap-1 border-red-300 text-red-700 hover:bg-red-50"
+                              disabled={isBlocked}
+                              title={
+                                isBlocked
+                                  ? "Customer is blocked — unblock the customer to manage companies individually"
+                                  : undefined
+                              }
+                              onClick={() =>
+                                setPendingBlockToggle({
+                                  kind: "company",
+                                  action: "block",
+                                  companyId: co.companyId,
+                                })
+                              }
+                            >
+                              <Ban className="h-3.5 w-3.5" />
+                              Block
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              className="h-7 gap-1 bg-emerald-600 hover:bg-emerald-700"
+                              disabled={isBlocked}
+                              title={
+                                isBlocked
+                                  ? "Customer is blocked — unblock the customer to manage companies individually"
+                                  : undefined
+                              }
+                              onClick={() =>
+                                setPendingBlockToggle({
+                                  kind: "company",
+                                  action: "unblock",
+                                  companyId: co.companyId,
+                                })
+                              }
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              Unblock
+                            </Button>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        {co.status === "Active" ? (
-                          <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1">
-                            <CheckCircle2 className="h-3 w-3" />
-                            Active
-                          </Badge>
-                        ) : (
-                          <Badge className="bg-red-50 text-red-700 border-red-200 gap-1">
-                            <Ban className="h-3 w-3" />
-                            Blocked
-                          </Badge>
-                        )}
-                        {co.status === "Active" ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-7 gap-1 border-red-300 text-red-700 hover:bg-red-50"
-                            onClick={() =>
-                              setPendingBlockToggle({
-                                action: "block",
-                                companyId: co.companyId,
-                              })
-                            }
-                          >
-                            <Ban className="h-3.5 w-3.5" />
-                            Block
-                          </Button>
-                        ) : (
-                          <Button
-                            size="sm"
-                            className="h-7 gap-1 bg-emerald-600 hover:bg-emerald-700"
-                            onClick={() =>
-                              setPendingBlockToggle({
-                                action: "unblock",
-                                companyId: co.companyId,
-                              })
-                            }
-                          >
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                            Unblock
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                   <p className="text-[11px] text-gray-500 pt-1">
-                    Status and Block / Unblock are tracked per company and
-                    apply across all of this customer&apos;s addresses. The{" "}
-                    <b>beat and delivery days</b> each company delivers on
-                    are resolved per address — see the Addresses card above.
+                    {isBlocked ? (
+                      <>
+                        This customer is <b>blocked</b> at the customer level, so
+                        every company is blocked. Unblock the customer above to
+                        manage companies individually.
+                      </>
+                    ) : (
+                      <>
+                        Block / Unblock a single company here, or use the{" "}
+                        <b>Block</b> button in the header to block the whole
+                        customer. The <b>beat and delivery days</b> each company
+                        delivers on are resolved per address — see the Addresses
+                        card above.
+                      </>
+                    )}
                   </p>
                 </>
               )}
@@ -646,74 +702,95 @@ export function CustomerDemoDetail() {
         </div>
       </div>
 
-      {/* Block / Unblock confirmation — scoped to a single company link
-          so the seller acknowledges the per-brand consequence. Block
-          stops new orders against that brand only; other brands the
-          customer buys from are unaffected. */}
+      {/* Block / Unblock confirmation — customer level (master switch) or
+          per-company, driven by pendingBlockToggle.kind. */}
       <Dialog
         open={pendingBlockToggle !== null}
         onOpenChange={(o) => !o && setPendingBlockToggle(null)}
       >
         <DialogContent showCloseButton={false}>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              {pendingBlockToggle?.action === "block" ? (
-                <>
-                  <Ban className="h-5 w-5 text-red-600" />
-                  Block for {pendingBlockCompany?.companyName}?
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-                  Unblock for {pendingBlockCompany?.companyName}?
-                </>
-              )}
-            </DialogTitle>
-            <DialogDescription>
-              {pendingBlockToggle?.action === "block"
-                ? `${customer.businessName} won't be able to place new orders for ${pendingBlockCompany?.companyName} until you manually unblock. Orders against other linked companies are not affected.`
-                : `${customer.businessName} will be able to place orders for ${pendingBlockCompany?.companyName} again immediately.`}
-            </DialogDescription>
-          </DialogHeader>
-          <div
-            className={
-              pendingBlockToggle?.action === "block"
-                ? "bg-amber-50 border border-amber-200 rounded-md p-3 text-xs text-amber-900"
-                : "bg-emerald-50 border border-emerald-200 rounded-md p-3 text-xs text-emerald-900"
-            }
-          >
-            {pendingBlockToggle?.action === "block" ? (
+          {(() => {
+            if (!pendingBlockToggle) return null;
+            const isBlock = pendingBlockToggle.action === "block";
+            const isCustomer = pendingBlockToggle.kind === "customer";
+            const scopeName = isCustomer
+              ? "this customer"
+              : pendingBlockCompany?.companyName ?? "this company";
+            const title = isBlock
+              ? isCustomer
+                ? "Block this customer?"
+                : `Block for ${scopeName}?`
+              : isCustomer
+                ? "Unblock this customer?"
+                : `Unblock for ${scopeName}?`;
+            const description = isBlock
+              ? isCustomer
+                ? `${customer.businessName} won't be able to place new orders for any of their linked companies until you manually unblock this customer.`
+                : `${customer.businessName} won't be able to place new orders for ${scopeName} until you unblock. Orders against their other linked companies are not affected.`
+              : isCustomer
+                ? `${customer.businessName} will be able to place orders again immediately, across all their linked companies.`
+                : `${customer.businessName} will be able to place orders for ${scopeName} again immediately.`;
+            const confirmLabel = isBlock
+              ? isCustomer
+                ? "Yes, block this customer"
+                : "Yes, block for this company"
+              : isCustomer
+                ? "Yes, unblock this customer"
+                : "Yes, unblock for this company";
+            return (
               <>
-                <b>Heads up:</b> there is no auto-unblock — you'll need to
-                come back here and reverse this manually.
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    {isBlock ? (
+                      <Ban className="h-5 w-5 text-red-600" />
+                    ) : (
+                      <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                    )}
+                    {title}
+                  </DialogTitle>
+                  <DialogDescription>{description}</DialogDescription>
+                </DialogHeader>
+                <div
+                  className={
+                    isBlock
+                      ? "bg-amber-50 border border-amber-200 rounded-md p-3 text-xs text-amber-900"
+                      : "bg-emerald-50 border border-emerald-200 rounded-md p-3 text-xs text-emerald-900"
+                  }
+                >
+                  {isBlock ? (
+                    <>
+                      <b>Heads up:</b> there is no auto-unblock — you'll need to
+                      come back here and reverse this manually.
+                    </>
+                  ) : (
+                    <>
+                      The customer will see your storefront as available
+                      {isCustomer ? "" : " for this company"} the next time they
+                      check in.
+                    </>
+                  )}
+                </div>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => setPendingBlockToggle(null)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleConfirmBlockToggle}
+                    className={
+                      isBlock
+                        ? "bg-red-600 hover:bg-red-700 text-white"
+                        : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                    }
+                  >
+                    {confirmLabel}
+                  </Button>
+                </DialogFooter>
               </>
-            ) : (
-              <>
-                The customer will see your storefront as available for
-                this brand the next time they check in.
-              </>
-            )}
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setPendingBlockToggle(null)}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleConfirmBlockToggle}
-              className={
-                pendingBlockToggle?.action === "block"
-                  ? "bg-red-600 hover:bg-red-700 text-white"
-                  : "bg-emerald-600 hover:bg-emerald-700 text-white"
-              }
-            >
-              {pendingBlockToggle?.action === "block"
-                ? "Yes, block for this company"
-                : "Yes, unblock for this company"}
-            </Button>
-          </DialogFooter>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>
