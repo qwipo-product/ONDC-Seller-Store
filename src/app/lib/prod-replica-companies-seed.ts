@@ -430,5 +430,13 @@ export const PROD_REPLICA_COMPANIES: { id: string; name: string }[] = [
   {
     "id": "co-prod-ava-cholayil-health-care-private-limited",
     "name": "AVA Cholayil Health Care Private Limited"
+  },
+  {
+    "id": "co-prod-sri-sainath-agro-oils",
+    "name": "Sri Sainath Agro Oils"
+  },
+  {
+    "id": "co-prod-telangana-cooperative-oilseeds-growers-f",
+    "name": "Telangana Cooperative Oilseeds Growers Federation Ltd"
   }
 ];

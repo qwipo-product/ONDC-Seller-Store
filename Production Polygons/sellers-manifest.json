@@ -33,7 +33,7 @@
   "seller": "ABDUL HASEEB MOHAMMED",
   "business": "MAS MARKETING",
   "phone": "9866198219",
-  "status": "Active"
+  "status": "Inactive"
  },
  {
   "seller": "Mvm Synergy Solutions LLP",
@@ -183,6 +183,36 @@
   "seller": "MYDHILI KAIPU",
   "business": "RASVITHA TRADERS",
   "phone": "9247241176",
+  "status": "Active"
+ },
+ {
+  "seller": "KANTA MARKETING",
+  "business": "KANTA MARKETING",
+  "phone": "9030003800",
+  "status": "Active"
+ },
+ {
+  "seller": "MOHMMED MUSTAFA",
+  "business": "NOOR ENTERPRISES",
+  "phone": "7993124981",
+  "status": "Active"
+ },
+ {
+  "seller": "YLN TRADERS",
+  "business": "YLN TRADERS",
+  "phone": "9390969061",
+  "status": "Active"
+ },
+ {
+  "seller": "RAMULU KURAPATI",
+  "business": "KARTHIKEYA ENTERPRISES",
+  "phone": "7386747447",
+  "status": "Active"
+ },
+ {
+  "seller": "Suresh Kacharagaddala",
+  "business": "LAKSHMI VENKATESWARA DISTRIBUTORS",
+  "phone": "9666165659",
   "status": "Active"
  }
 ]

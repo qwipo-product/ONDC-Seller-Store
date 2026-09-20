@@ -10,6 +10,8 @@ import { Customers } from "./pages/customers/legacy-list";
 import { CustomerDetail } from "./pages/customers/legacy-detail";
 import { CustomersDemo } from "./pages/customers/list";
 import { CustomerDemoDetail } from "./pages/customers/detail";
+import { CustomersDms } from "./pages/customers-dms/list";
+import { CustomerDmsDetail } from "./pages/customers-dms/detail";
 import { Profile } from "./pages/profile";
 import { Connectors } from "./pages/connectors/list";
 import { ConnectorDetail } from "./pages/connectors/detail";
@@ -154,6 +156,13 @@ export const router = createBrowserRouter([
       { path: "customers/:customerId", Component: CustomerDemoDetail },
       // Legacy approval flow — kept for reference under the empty-
       // mode "Customers 2" sidebar entry.
+      // Customers (DMS) — proposal module for the DMS registration
+      // workflow: buyer-app requests reviewed here, then issued a
+      // company-specific customer ID. Mounted on its own path so the
+      // live /customers module is untouched while the business team
+      // reviews the model.
+      { path: "customers-dms", Component: CustomersDms },
+      { path: "customers-dms/:customerId", Component: CustomerDmsDetail },
       { path: "customers-demo", Component: Customers },
       { path: "customers-demo/:customerId", Component: CustomerDetail },
       { path: "profile", Component: Profile },

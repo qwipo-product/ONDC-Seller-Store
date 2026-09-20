@@ -110,6 +110,18 @@ export interface SellerPermissions {
  *  linking the company; each linked company carries its own mode. */
 export type OperationMode = "distributor" | "wholesaler";
 
+/**
+ * Who may order from this company on the buyer side. Only meaningful
+ * for DISTRIBUTOR mappings — a distributor company can require the
+ * customer to hold a DMS registration (company-specific customer ID)
+ * before the catalogue unlocks. Wholesaler mappings never restrict.
+ *
+ *  - "all-customers"    any customer can purchase (default)
+ *  - "registered-only"  only customers registered in the company's DMS
+ *                       can purchase
+ */
+export type PurchaseEligibility = "all-customers" | "registered-only";
+
 /** Selection of company + (optionally) specific brands for the seller.
  *  Empty `brandIds` means "all brands of that company". Companies/brands
  *  reference the admin-catalog data (src/app/lib/admin-catalog.ts). */
@@ -119,6 +131,10 @@ export interface CompanyBrandSelection {
   /** Distributor or Wholesaler for THIS company. Legacy records that
    *  predate the field are treated as "distributor". */
   operationMode?: OperationMode;
+  /** Purchase gate for THIS company — mandatory for distributor
+   *  mappings, chosen at tag time. Legacy records (and wholesaler
+   *  mappings, where it's meaningless) are treated as "all-customers". */
+  purchaseEligibility?: PurchaseEligibility;
 }
 
 /** Seller business type — no longer chosen manually. Calculated from
@@ -213,7 +229,11 @@ const REQUESTS_KEY = "qwipo.mock.requests";
 // v9 (2026-07-30): production roster refresh — 4 new sellers (Banjara,
 // SKM, Balaji Trading, Silpatwal), CHASWI re-activated, Lakshmi Saai
 // deactivated.
-const SELLERS_KEY = "qwipo.mock.sellers.v10";
+// v12 (2026-09-03): production roster refresh — 5 new sellers
+// (KARTHIKEYA ENTERPRISES, YLN TRADERS, KANTA MARKETING,
+// NOOR ENTERPRISES, LAKSHMI VENKATESWARA DISTRIBUTORS), each with
+// their production company linked (Colgate, Emami, GRB, TS Oilseeds).
+const SELLERS_KEY = "qwipo.mock.sellers.v13";
 
 // ---- Default factory helpers ----
 

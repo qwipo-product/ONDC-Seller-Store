@@ -47,7 +47,7 @@ import {
   adminNavigation,
   getAdminPageTitle,
 } from "../lib/admin-navigation";
-import { AlertOctagon, Loader2 } from "lucide-react";
+import { AlertOctagon, IdCard, Loader2 } from "lucide-react";
 import { RouteProgress } from "./ui/page-loader";
 import { ThemeToggle } from "./theme-toggle";
 // External target the Logistics menu opens in a new tab. The Logistics
@@ -78,6 +78,11 @@ const sellerNavigation: SellerNavItem[] = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "My SKU", href: "/products/my-sku", icon: Package },
   { name: "Customers", href: "/customers", icon: Users },
+  // Customers (DMS) — proposal module under business review. Shown
+  // for every seller persona (not empty-mode-only like the older
+  // "Customers 2" trial) because the business team walks through it
+  // against the regular seed data.
+  { name: "Customers (DMS)", href: "/customers-dms", icon: IdCard },
   { name: "Offers & Schemes", href: "/offers", icon: Tag },
   { name: "Orders", href: "/orders", icon: ShoppingCart },
   { name: "Settings", href: "/settings", icon: Settings },
@@ -128,6 +133,7 @@ const getSellerPageTitle = (pathname: string): string => {
   if (pathname === "/") return "Dashboard";
   if (pathname.startsWith("/products/sku-detail")) return "SKU Details";
   if (pathname.startsWith("/products/my-sku")) return "My SKU List";
+  if (pathname.startsWith("/customers-dms")) return "Customers (DMS)";
   if (pathname.startsWith("/customers-demo")) return "Customers 2";
   if (pathname.startsWith("/customers")) return "Customer Management";
   if (pathname.startsWith("/offers-demo")) return "Offers & Schemes 2";

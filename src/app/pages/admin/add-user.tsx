@@ -28,6 +28,7 @@ import {
   getSellerByEmail,
   getSellerByPhone,
   type OperationMode,
+  type PurchaseEligibility,
 } from "../../lib/mock-store";
 import { isValidEmail, isValidMobile } from "../../lib/auth-credentials";
 import { ImageUploader } from "../../components/ui/image-uploader";
@@ -37,6 +38,9 @@ interface SellerCompanySelection {
   companyId: string;
   brandIds: string[]; // empty array means "all brands of this company"
   operationMode: OperationMode;
+  /** Mandatory for distributor rows; ignored for wholesaler rows.
+   *  Defaults to "all-customers" — anyone can order. */
+  purchaseEligibility: PurchaseEligibility;
 }
 
 export function AdminAddUser() {
@@ -176,7 +180,12 @@ export function AdminAddUser() {
   const [companies, setCompanies] = useState<Company[]>(getCompanies());
   useEffect(() => subscribeToCompanies(() => setCompanies([...getCompanies()])), []);
   const [selections, setSelections] = useState<SellerCompanySelection[]>([
-    { companyId: "", brandIds: [], operationMode: "distributor" },
+    {
+      companyId: "",
+      brandIds: [],
+      operationMode: "distributor",
+      purchaseEligibility: "all-customers",
+    },
   ]);
 
   // ---- Selection helpers ----
@@ -188,7 +197,12 @@ export function AdminAddUser() {
   const addCompanyRow = () => {
     setSelections((prev) => [
       ...prev,
-      { companyId: "", brandIds: [], operationMode: "distributor" },
+      {
+        companyId: "",
+        brandIds: [],
+        operationMode: "distributor",
+        purchaseEligibility: "all-customers",
+      },
     ]);
   };
 
@@ -200,7 +214,12 @@ export function AdminAddUser() {
     setSelections((prev) =>
       prev.map((s, i) =>
         i === idx
-          ? { companyId, brandIds: [], operationMode: s.operationMode }
+          ? {
+              companyId,
+              brandIds: [],
+              operationMode: s.operationMode,
+              purchaseEligibility: s.purchaseEligibility,
+            }
           : s,
       ),
     );
@@ -210,6 +229,15 @@ export function AdminAddUser() {
   const setOperationModeForRow = (idx: number, operationMode: OperationMode) => {
     setSelections((prev) =>
       prev.map((s, i) => (i === idx ? { ...s, operationMode } : s)),
+    );
+  };
+
+  const setPurchaseEligibilityForRow = (
+    idx: number,
+    purchaseEligibility: PurchaseEligibility,
+  ) => {
+    setSelections((prev) =>
+      prev.map((s, i) => (i === idx ? { ...s, purchaseEligibility } : s)),
     );
   };
 
@@ -344,6 +372,12 @@ export function AdminAddUser() {
           companyId: r.companyId,
           brandIds: r.brandIds,
           operationMode: r.operationMode,
+          // Purchase gate only applies to distributor mappings —
+          // wholesaler rows normalise to the open default.
+          purchaseEligibility:
+            r.operationMode === "distributor"
+              ? r.purchaseEligibility
+              : "all-customers",
         })),
       });
       setIsSaving(false);
@@ -714,6 +748,41 @@ export function AdminAddUser() {
                           </SelectContent>
                         </Select>
                       </div>
+                      {/* Customer Purchase — distributor-only gate:
+                          does the buyer need a DMS registration
+                          (company customer ID) before ordering from
+                          this company? Mandatory; defaults to the
+                          open option. Hidden for wholesaler rows —
+                          wholesale never restricts. */}
+                      {sel.operationMode === "distributor" && (
+                        <div className="w-[230px] space-y-1">
+                          <Label className="text-xs">
+                            Customer Purchase{" "}
+                            <span className="text-red-500">*</span>
+                          </Label>
+                          <Select
+                            value={sel.purchaseEligibility}
+                            onValueChange={(v) =>
+                              setPurchaseEligibilityForRow(
+                                idx,
+                                v as PurchaseEligibility,
+                              )
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all-customers">
+                                All customers can purchase
+                              </SelectItem>
+                              <SelectItem value="registered-only">
+                                Registered customers only
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
                       <div className="pt-5">
                         <Button
                           variant="ghost"

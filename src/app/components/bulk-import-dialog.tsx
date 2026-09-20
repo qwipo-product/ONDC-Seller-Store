@@ -108,6 +108,14 @@ export interface BulkImportConfig {
    */
   successToast?: (result: BulkImportValidationResult) => string;
   /**
+   * Column headers for the two identity columns in the error summary
+   * table and the downloadable error report. Defaults to the SKU
+   * importer's labels so every existing caller is unchanged; modules
+   * whose rows aren't SKUs (e.g. Customers (DMS), where a row is a
+   * registration request) override them.
+   */
+  entityColumns?: { codeLabel: string; nameLabel: string };
+  /**
    * Demo-mode simulated processing delay (ms). Defaults to 5 000 so
    * reviewers still see the loader experience without waiting half a
    * minute. Set to 0 in real builds where validate() takes its own
@@ -127,6 +135,8 @@ export function BulkImportDialog({
   onOpenChange: (v: boolean) => void;
   config: BulkImportConfig;
 }) {
+  const codeLabel = config.entityColumns?.codeLabel ?? "SKU Code";
+  const nameLabel = config.entityColumns?.nameLabel ?? "SKU Name";
   const [step, setStep] = useState<Step>("upload");
   const [file, setFile] = useState<File | null>(null);
   const [result, setResult] = useState<BulkImportValidationResult | null>(null);
@@ -190,8 +200,8 @@ export function BulkImportDialog({
     // on-screen UI only shows a simplified
     // "{SKU Name} | {error count}" summary.
     const header = [
-      "SKU Code",
-      "SKU Name",
+      codeLabel,
+      nameLabel,
       "Column / Field",
       "Value Entered",
       "Validation Message",
@@ -505,10 +515,10 @@ function ResultsStep({ result }: { result: BulkImportValidationResult }) {
               <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
                 <tr>
                   <th className="text-left px-4 py-2 font-semibold text-gray-700 w-44">
-                    SKU Code
+                    {codeLabel}
                   </th>
                   <th className="text-left px-4 py-2 font-semibold text-gray-700">
-                    SKU Name
+                    {nameLabel}
                   </th>
                   <th className="text-right px-4 py-2 font-semibold text-gray-700 w-24">
                     Errors

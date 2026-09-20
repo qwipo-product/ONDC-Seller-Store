@@ -61,6 +61,7 @@ import {
   type ConnectorType,
   type CompanyBrandSelection,
   type OperationMode,
+  type PurchaseEligibility,
 } from "../../lib/mock-store";
 import {
   SellerTypeBadge,
@@ -1285,6 +1286,10 @@ export function SellerCatalogTab({
   const [addBrandIds, setAddBrandIds] = useState<string[]>([]);
   const [addOperationMode, setAddOperationMode] =
     useState<OperationMode>("distributor");
+  // Mandatory for distributor links; defaults open — all customers
+  // can order until the admin narrows it to registered-only.
+  const [addPurchaseEligibility, setAddPurchaseEligibility] =
+    useState<PurchaseEligibility>("all-customers");
 
   // ---- Add Brands dialog (per-card "+ Add Brands" CTA) ----
   // Behaves as "extend only" — existing brand access is preserved and
@@ -1377,6 +1382,7 @@ export function SellerCatalogTab({
     setAddAllBrands(true);
     setAddBrandIds([]);
     setAddOperationMode("distributor");
+    setAddPurchaseEligibility("all-customers");
     setAddOpen(true);
   };
 
@@ -1422,6 +1428,12 @@ export function SellerCatalogTab({
         companyId: addCompanyId,
         brandIds: addAllBrands ? [] : addBrandIds,
         operationMode: addOperationMode,
+        // Purchase gate only applies to distributor links — the
+        // wholesaler path normalises to the open default.
+        purchaseEligibility:
+          addOperationMode === "distributor"
+            ? addPurchaseEligibility
+            : "all-customers",
       },
     ];
     persistSelections(next);
@@ -1545,6 +1557,21 @@ export function SellerCatalogTab({
                       >
                         {mode === "wholesaler" ? "Wholesaler" : "Distributor"}
                       </Badge>
+                      {mode === "distributor" && (
+                        <Badge
+                          className={
+                            (sel.purchaseEligibility ?? "all-customers") ===
+                            "registered-only"
+                              ? "bg-purple-50 text-purple-700 border-purple-200 text-[10px]"
+                              : "bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px]"
+                          }
+                        >
+                          {(sel.purchaseEligibility ?? "all-customers") ===
+                          "registered-only"
+                            ? "Registered customers only"
+                            : "All customers can purchase"}
+                        </Badge>
+                      )}
                       {isCompanyInactive && (
                         <Badge className="bg-gray-100 text-gray-600 border-gray-200 text-[10px]">
                           Inactive in catalog
@@ -1680,6 +1707,43 @@ export function SellerCatalogTab({
                   : "Distributor companies use Delivery Beats for serviceability."}
               </p>
             </div>
+
+            {/* Customer Purchase — distributor-only gate chosen at tag
+                time: may any customer order from this company, or only
+                customers registered in the company's DMS (holding its
+                customer ID)? Mandatory, defaults to the open option.
+                Hidden for wholesaler links — wholesale never
+                restricts. */}
+            {addOperationMode === "distributor" && (
+              <div className="space-y-1">
+                <Label className="text-xs">
+                  Customer Purchase <span className="text-red-500">*</span>
+                </Label>
+                <Select
+                  value={addPurchaseEligibility}
+                  onValueChange={(v) =>
+                    setAddPurchaseEligibility(v as PurchaseEligibility)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all-customers">
+                      All customers can purchase
+                    </SelectItem>
+                    <SelectItem value="registered-only">
+                      Registered customers only
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-gray-500">
+                  {addPurchaseEligibility === "registered-only"
+                    ? "Buyers must be registered in this company's DMS (hold its customer ID) before the catalogue unlocks."
+                    : "Any buyer can order from this company — no DMS registration required."}
+                </p>
+              </div>
+            )}
 
             {selectedAddCompany && (
               <div className="space-y-2 border border-gray-200 rounded-lg p-3 bg-gray-50">
