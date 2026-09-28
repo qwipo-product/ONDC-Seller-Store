@@ -22,6 +22,11 @@ import { getSellers, type Seller } from "./mock-store";
 // base customer database is ALWAYS present, on every device, without
 // re-uploading. Uploads layer on top of it (deduped by mobile number).
 import customerRawSeedCsv from "./customer-raw-seed.csv?raw";
+// Salesperson tags (from the Digidukaan tagging sheet) for mobiles that
+// are NOT in the seed roster — applied to uploaded customers so they
+// arrive tagged. Seed tags are baked into the CSV itself; both come from
+// scripts/apply-salesperson-tagging.py.
+import salespersonTagging from "./salesperson-tagging.json";
 
 export interface DbCustomer {
   /** Internal stable id (row key). */
@@ -91,6 +96,14 @@ function getSeedCustomers(): DbCustomer[] {
 }
 
 const isSeedId = (id: string) => id.startsWith("seed-");
+
+const SALESPERSON_TAGS = salespersonTagging as Record<string, [string, string]>;
+
+/** Stamp the tagging sheet's salesperson onto a customer, when it has one. */
+function withSalespersonTag(c: DbCustomer): DbCustomer {
+  const tag = SALESPERSON_TAGS[normalizeMobile(c.mobile)];
+  return tag ? { ...c, salespersonName: tag[0], salespersonNumber: tag[1] } : c;
+}
 
 // ---- Persistence ----
 //
@@ -170,7 +183,7 @@ function buildInitialCustomers(): DbCustomer[] {
     if (m) seenMobiles.add(m);
     return true;
   });
-  return [...seed, ...extras];
+  return [...seed, ...extras.map(withSalespersonTag)];
 }
 
 // Lazy for the same TDZ reason as the seed parse above.
@@ -234,7 +247,7 @@ export function addCustomers(rows: DbCustomer[], replace = false): ImportResult 
       continue;
     }
     if (m) seen.add(m);
-    fresh.push(r);
+    fresh.push(withSalespersonTag(r));
   }
   _customers = [...base, ...fresh];
   persist(_customers);
@@ -610,6 +623,7 @@ export interface ReportRow {
   customerStatus: string;
   cluster: string;
   salespersonName: string;
+  salespersonNumber: string;
   registeredDate: string;
   lat: number;
   lng: number;
@@ -740,6 +754,7 @@ function appendReportRows(rows: ReportRow[], customers: DbCustomer[]): void {
         customerStatus: c.status,
         cluster: c.cluster,
         salespersonName: c.salespersonName,
+        salespersonNumber: c.salespersonNumber,
         registeredDate: c.registeredDate,
         lat: c.lat,
         lng: c.lng,
@@ -769,6 +784,7 @@ function appendReportRows(rows: ReportRow[], customers: DbCustomer[]): void {
         customerStatus: c.status,
         cluster: c.cluster,
         salespersonName: c.salespersonName,
+        salespersonNumber: c.salespersonNumber,
         registeredDate: c.registeredDate,
         lat: c.lat,
         lng: c.lng,
@@ -793,6 +809,7 @@ export const REPORT_HEADERS = [
   "Customer Status",
   "Cluster",
   "Salesperson",
+  "Salesperson Number",
   "Registered Date",
   "Latitude",
   "Longitude",
@@ -814,6 +831,7 @@ export function reportRowCells(r: ReportRow): (string | number)[] {
     r.customerStatus || "—",
     r.cluster || "—",
     r.salespersonName || "—",
+    r.salespersonNumber || "—",
     r.registeredDate || "—",
     r.lat,
     r.lng,
@@ -882,16 +900,17 @@ const REPORT_XLSX_COLUMNS = [
   { header: REPORT_HEADERS[4], key: "cstatus", width: 16 },
   { header: REPORT_HEADERS[5], key: "cluster", width: 18 },
   { header: REPORT_HEADERS[6], key: "salesperson", width: 20 },
-  { header: REPORT_HEADERS[7], key: "registered", width: 16 },
-  { header: REPORT_HEADERS[8], key: "lat", width: 12 },
-  { header: REPORT_HEADERS[9], key: "lng", width: 12 },
-  { header: REPORT_HEADERS[10], key: "seller", width: 22 },
-  { header: REPORT_HEADERS[11], key: "business", width: 26 },
-  { header: REPORT_HEADERS[12], key: "company", width: 26 },
-  { header: REPORT_HEADERS[13], key: "beat", width: 22 },
-  { header: REPORT_HEADERS[14], key: "days", width: 24 },
-  { header: REPORT_HEADERS[15], key: "distance", width: 14 },
-  { header: REPORT_HEADERS[16], key: "status", width: 16 },
+  { header: REPORT_HEADERS[7], key: "spnumber", width: 16 },
+  { header: REPORT_HEADERS[8], key: "registered", width: 16 },
+  { header: REPORT_HEADERS[9], key: "lat", width: 12 },
+  { header: REPORT_HEADERS[10], key: "lng", width: 12 },
+  { header: REPORT_HEADERS[11], key: "seller", width: 22 },
+  { header: REPORT_HEADERS[12], key: "business", width: 26 },
+  { header: REPORT_HEADERS[13], key: "company", width: 26 },
+  { header: REPORT_HEADERS[14], key: "beat", width: 22 },
+  { header: REPORT_HEADERS[15], key: "days", width: 24 },
+  { header: REPORT_HEADERS[16], key: "distance", width: 14 },
+  { header: REPORT_HEADERS[17], key: "status", width: 16 },
 ];
 
 export function downloadReportCsv(rows: ReportRow[], filename: string): void {
@@ -924,7 +943,7 @@ export async function downloadReportXlsx(
     fgColor: { argb: "FF1D4ED8" },
   };
   await addRowsChunked(ws, rows, reportRowCells);
-  ws.autoFilter = { from: "A1", to: "Q1" };
+  ws.autoFilter = { from: "A1", to: "R1" };
   const buf = await wb.xlsx.writeBuffer();
   triggerDownload(
     new Blob([buf], {
@@ -952,6 +971,8 @@ export interface SummaryReportRow {
   /** Roster status ("Active" / "InActive") — NOT serviceability. */
   customerStatus: string;
   cluster: string;
+  salespersonName: string;
+  salespersonNumber: string;
   sellerName: string;
   businessName: string;
   /** "Monday, Wednesday" — calendar-sorted. Empty for unserviceable rows. */
@@ -980,6 +1001,8 @@ export function buildSummaryReportRows(rows: ReportRow[]): SummaryReportRow[] {
       businessType: r.businessType,
       customerStatus: r.customerStatus,
       cluster: r.cluster,
+      salespersonName: r.salespersonName,
+      salespersonNumber: r.salespersonNumber,
       sellerName: r.sellerName,
       businessName: r.businessName,
       deliveryDays: r.deliveryDays,
@@ -998,6 +1021,8 @@ export const SUMMARY_REPORT_HEADERS = [
   "Business Type",
   "Customer Status",
   "Cluster",
+  "Salesperson",
+  "Salesperson Number",
   "Seller Name",
   "Business Name",
   "Delivery Days",
@@ -1016,6 +1041,8 @@ export function summaryReportRowCells(
     r.businessType || "—",
     r.customerStatus || "—",
     r.cluster || "—",
+    r.salespersonName || "—",
+    r.salespersonNumber || "—",
     r.serviceable ? r.sellerName || "—" : "—",
     r.serviceable ? r.businessName || "—" : "—",
     r.serviceable ? r.deliveryDays : "—",
@@ -1032,12 +1059,14 @@ const SUMMARY_XLSX_COLUMNS = [
   { header: SUMMARY_REPORT_HEADERS[3], key: "btype", width: 16 },
   { header: SUMMARY_REPORT_HEADERS[4], key: "cstatus", width: 16 },
   { header: SUMMARY_REPORT_HEADERS[5], key: "cluster", width: 18 },
-  { header: SUMMARY_REPORT_HEADERS[6], key: "seller", width: 22 },
-  { header: SUMMARY_REPORT_HEADERS[7], key: "business", width: 26 },
-  { header: SUMMARY_REPORT_HEADERS[8], key: "days", width: 24 },
-  { header: SUMMARY_REPORT_HEADERS[9], key: "companies", width: 12 },
-  { header: SUMMARY_REPORT_HEADERS[10], key: "distance", width: 14 },
-  { header: SUMMARY_REPORT_HEADERS[11], key: "status", width: 16 },
+  { header: SUMMARY_REPORT_HEADERS[6], key: "salesperson", width: 20 },
+  { header: SUMMARY_REPORT_HEADERS[7], key: "spnumber", width: 16 },
+  { header: SUMMARY_REPORT_HEADERS[8], key: "seller", width: 22 },
+  { header: SUMMARY_REPORT_HEADERS[9], key: "business", width: 26 },
+  { header: SUMMARY_REPORT_HEADERS[10], key: "days", width: 24 },
+  { header: SUMMARY_REPORT_HEADERS[11], key: "companies", width: 12 },
+  { header: SUMMARY_REPORT_HEADERS[12], key: "distance", width: 14 },
+  { header: SUMMARY_REPORT_HEADERS[13], key: "status", width: 16 },
 ];
 
 export function downloadSummaryReportCsv(
@@ -1072,7 +1101,7 @@ export async function downloadSummaryReportXlsx(
     fgColor: { argb: "FF1D4ED8" },
   };
   await addRowsChunked(ws, rows, summaryReportRowCells);
-  ws.autoFilter = { from: "A1", to: "L1" };
+  ws.autoFilter = { from: "A1", to: "N1" };
   const buf = await wb.xlsx.writeBuffer();
   triggerDownload(
     new Blob([buf], {
@@ -1118,7 +1147,7 @@ export async function downloadCombinedReportXlsx(
   summary.columns = SUMMARY_XLSX_COLUMNS;
   styleHeader(summary);
   await addRowsChunked(summary, summaryRows, summaryReportRowCells);
-  summary.autoFilter = { from: "A1", to: "L1" };
+  summary.autoFilter = { from: "A1", to: "N1" };
 
   if (includeRaw) {
     const raw = wb.addWorksheet("Raw Data", {
@@ -1127,7 +1156,7 @@ export async function downloadCombinedReportXlsx(
     raw.columns = REPORT_XLSX_COLUMNS;
     styleHeader(raw);
     await addRowsChunked(raw, detailRows, reportRowCells);
-    raw.autoFilter = { from: "A1", to: "Q1" };
+    raw.autoFilter = { from: "A1", to: "R1" };
   }
 
   const buf = await wb.xlsx.writeBuffer();
