@@ -39,15 +39,13 @@ export interface FixedHoliday {
 }
 
 export interface ShopHours {
-  /** `HH:mm`, 24-hour. */
-  open: string;
-  /** `HH:mm`, 24-hour. */
+  /** `HH:mm`, 24-hour. Sellers only set a closing time. */
   close: string;
 }
 
 const DEFAULT_WEEK_OFF: WeekDay[] = ["sun"];
 
-const DEFAULT_SHOP_HOURS: ShopHours = { open: "09:00", close: "20:00" };
+const DEFAULT_SHOP_HOURS: ShopHours = { close: "20:00" };
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -125,14 +123,13 @@ function readShopHours(): ShopHours {
     const raw = localStorage.getItem(SHOP_HOURS_KEY);
     if (!raw) return { ...DEFAULT_SHOP_HOURS };
     const parsed = JSON.parse(raw);
+    // Older saves also carry an `open` time — it's ignored.
     if (
       parsed &&
-      typeof parsed.open === "string" &&
-      TIME_RE.test(parsed.open) &&
       typeof parsed.close === "string" &&
       TIME_RE.test(parsed.close)
     ) {
-      return { open: parsed.open, close: parsed.close };
+      return { close: parsed.close };
     }
     return { ...DEFAULT_SHOP_HOURS };
   } catch {
@@ -150,7 +147,7 @@ export function getShopHours(): ShopHours {
 
 export function setShopHours(next: ShopHours): void {
   try {
-    if (!TIME_RE.test(next.open) || !TIME_RE.test(next.close)) return;
+    if (!TIME_RE.test(next.close)) return;
     localStorage.setItem(SHOP_HOURS_KEY, JSON.stringify(next));
     notify();
   } catch {

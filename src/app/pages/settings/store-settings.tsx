@@ -131,9 +131,9 @@ export function StoreSettings() {
 
   // ---- Working Hours + Weekly Off ----
   // Draft state seeded from the persisted store; committed together
-  // via the card's Save button so a half-edited pair of times never
-  // leaks into the delivery-date predictor.
-  const [shopOpen, setShopOpen] = useState(() => getShopHours().open);
+  // via the card's Save button so half-edited working hours never
+  // leak into the delivery-date predictor. Sellers only set a closing
+  // time — there's no opening time to configure.
   const [shopClose, setShopClose] = useState(() => getShopHours().close);
   const [weekOff, setWeekOffDraft] = useState<WeekDay[]>(() => getWeekOff());
   // Baseline to diff the draft against for the Save button's enabled
@@ -195,25 +195,20 @@ export function StoreSettings() {
   // persisted — nothing to save yet on first load, and nothing to
   // save again right after a save.
   const workingHoursDirty =
-    shopOpen !== savedHours.open ||
     shopClose !== savedHours.close ||
     !sameDaySet(weekOff, savedWeekOff);
 
   const handleSaveWorkingHours = () => {
-    if (!shopOpen || !shopClose) {
-      toast.error("Set both opening and closing time.");
+    if (!shopClose) {
+      toast.error("Set the shop closing time.");
       return;
     }
-    if (shopClose <= shopOpen) {
-      toast.error("Closing time must be after opening time.");
-      return;
-    }
-    persistShopHours({ open: shopOpen, close: shopClose });
+    persistShopHours({ close: shopClose });
     persistWeekOff(weekOff);
-    setSavedHours({ open: shopOpen, close: shopClose });
+    setSavedHours({ close: shopClose });
     setSavedWeekOff(weekOff);
     toast.success(
-      `Working hours saved — open ${shopOpen} to ${shopClose}, ${
+      `Working hours saved — closes at ${shopClose}, ${
         weekOff.length === 0
           ? "no weekly off"
           : `weekly off on ${weekOff.map((d) => WEEK_DAY_LABELS[d]).join(", ")}`
@@ -511,32 +506,15 @@ export function StoreSettings() {
               </div>
             </CardHeader>
             <CardContent className="pt-0 space-y-4">
-              {/* Times stacked in their own rows — clearer than the old
-                  congested single row, and the labels line up. */}
               <div className="space-y-2.5">
-                <div className="flex items-center gap-3">
-                  <Label className="text-xs text-gray-700 w-32 shrink-0 whitespace-nowrap">
-                    Shop Opening Time
-                  </Label>
-                  <div className="relative w-32">
-                    {/* Leading clock icon; the native picker indicator is
-                        hidden and re-opened on click so there's a single,
-                        left-aligned icon. */}
-                    <Clock className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500" />
-                    <Input
-                      type="time"
-                      value={shopOpen}
-                      onChange={(e) => setShopOpen(e.target.value)}
-                      onClick={(e) => e.currentTarget.showPicker?.()}
-                      className="h-9 pl-8 pr-2 text-sm [&::-webkit-calendar-picker-indicator]:hidden"
-                    />
-                  </div>
-                </div>
                 <div className="flex items-center gap-3">
                   <Label className="text-xs text-gray-700 w-32 shrink-0 whitespace-nowrap">
                     Shop Closing Time
                   </Label>
                   <div className="relative w-32">
+                    {/* Leading clock icon; the native picker indicator is
+                        hidden and re-opened on click so there's a single,
+                        left-aligned icon. */}
                     <Clock className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500" />
                     <Input
                       type="time"
@@ -547,11 +525,6 @@ export function StoreSettings() {
                     />
                   </div>
                 </div>
-                {shopClose <= shopOpen && (
-                  <p className="text-[11px] text-red-600">
-                    Closing time must be after opening time.
-                  </p>
-                )}
                 <p className="text-[11px] text-gray-500 leading-relaxed">
                   Buyers will see the store based on the configured working
                   days.
