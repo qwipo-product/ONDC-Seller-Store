@@ -302,15 +302,15 @@ export const seedCompanies: Company[] = [
     ],
     categories: makeCompanyCategorySeed(),
   },
-  // Production company catalog (2026-07-24) — every company referenced
-  // by a replicated production delivery beat.
+  // Production company catalog — every company linked to a replicated
+  // STD 040 production seller, with the brands those sellers tagged.
   ...PROD_REPLICA_COMPANIES.map(
     (c): Company => ({
       id: c.id,
       name: c.name,
       imageUrl: null,
       isActive: true,
-      brands: [],
+      brands: c.brands,
       categories: makeCompanyCategorySeed(),
     }),
   ),

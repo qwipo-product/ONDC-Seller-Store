@@ -1,0 +1,641 @@
+[
+ {
+  "seller": "SHYAMALA CHENNABOINA",
+  "business": "ASHWITHA RAMAN AGENCIES",
+  "phone": "9100499454",
+  "status": "Active",
+  "localId": "seller-prod-ashwitha-raman-agencies",
+  "companies": 3,
+  "beats": 11
+ },
+ {
+  "seller": "SAMPATH CHENNABOINA",
+  "business": "ASHWITHA RAMAN ENTERPRISES",
+  "phone": "6301334541",
+  "status": "Inactive",
+  "localId": "seller-prod-ashwitha-raman-enterprises",
+  "companies": 4,
+  "beats": 60
+ },
+ {
+  "seller": "VANSH AGARWAL",
+  "business": "BALAJI TRADING",
+  "phone": "7702002017",
+  "status": "Active",
+  "localId": "seller-prod-balaji-trading",
+  "companies": 1,
+  "beats": 6
+ },
+ {
+  "seller": "JHARAPLA SAROJA",
+  "business": "BANJARA MARKETING",
+  "phone": "9000266947",
+  "status": "Active",
+  "localId": "seller-prod-banjara-marketing",
+  "companies": 1,
+  "beats": 5
+ },
+ {
+  "seller": "GORLI BHARGAVI",
+  "business": "BHARGAVI ENTERPRISES",
+  "phone": "9177861989",
+  "status": "Active",
+  "localId": "seller-prod-bhargavi-enterprises",
+  "companies": 3,
+  "beats": 18
+ },
+ {
+  "seller": "DAYAKAR REDDY GANTA",
+  "business": "CHANDANA MARKETING",
+  "phone": "9618939600",
+  "status": "Active",
+  "localId": "seller-prod-chandana-marketing",
+  "companies": 2,
+  "beats": 30
+ },
+ {
+  "seller": "GAYATHRI VALLURI",
+  "business": "CHASWI MARKETING SOLUTIONS",
+  "phone": "9989998536",
+  "status": "Inactive",
+  "localId": "seller-prod-chaswi",
+  "companies": 21,
+  "beats": 126
+ },
+ {
+  "seller": "VENU CHERUKUMALLI",
+  "business": "D J ENTERPRISES",
+  "phone": "9440443944",
+  "status": "Active",
+  "localId": "seller-prod-d-j-enterprises",
+  "companies": 1,
+  "beats": 9
+ },
+ {
+  "seller": "POLINENI ADITHYA",
+  "business": "DAKSHAYA AGENCIES",
+  "phone": "8121820276",
+  "status": "Active",
+  "localId": "seller-prod-dakshaya-agencies",
+  "companies": 2,
+  "beats": 5
+ },
+ {
+  "seller": "ASHOK PAREEK",
+  "business": "DEV AGENCIES",
+  "phone": "8500011128",
+  "status": "Active",
+  "localId": "seller-prod-dev",
+  "companies": 1,
+  "beats": 6
+ },
+ {
+  "seller": "VENKATA SHIVAJI VANAMA",
+  "business": "DHHANA LAXME ENTERPRISES",
+  "phone": "9866781539",
+  "status": "Active",
+  "localId": "seller-prod-dhhana-laxme",
+  "companies": 13,
+  "beats": 39
+ },
+ {
+  "seller": "SRIKANTH CHALLA",
+  "business": "DWARAKA SAI ENTERPRISES",
+  "phone": "9381822741",
+  "status": "Active",
+  "localId": "seller-prod-dwaraka-sai-enterprises",
+  "companies": 5,
+  "beats": 40
+ },
+ {
+  "seller": "GEO MARKETING",
+  "business": "GEO MARKETING",
+  "phone": "8309779660",
+  "status": "Active",
+  "localId": "seller-prod-geo-marketing",
+  "companies": 4,
+  "beats": 48
+ },
+ {
+  "seller": "GR TRADING COMPANY",
+  "business": "GR TRADING COMPANY",
+  "phone": "9542067712",
+  "status": "Active",
+  "localId": "seller-prod-gr-trading-company",
+  "companies": 4,
+  "beats": 18
+ },
+ {
+  "seller": "KURA SRINIVAS",
+  "business": "HANUMAN ENTERPRISES",
+  "phone": "9704626876",
+  "status": "Inactive",
+  "localId": "seller-prod-hanuman",
+  "companies": 2,
+  "beats": 9
+ },
+ {
+  "seller": "AMARNATH PALLA",
+  "business": "J S V MARKETING",
+  "phone": "9440665515",
+  "status": "Active",
+  "localId": "seller-prod-jsv",
+  "companies": 7,
+  "beats": 38
+ },
+ {
+  "seller": "PADIDELA JAGDEESHWAR RAO",
+  "business": "JAGADISH AGENCIES",
+  "phone": "9963120143",
+  "status": "Active",
+  "localId": "seller-prod-jagadish",
+  "companies": 1,
+  "beats": 17
+ },
+ {
+  "seller": "POLAPAKA RUPESH KUMAR",
+  "business": "JAI GANESH AGENCIES",
+  "phone": "9985633229",
+  "status": "Active",
+  "localId": "seller-prod-jai-ganesh",
+  "companies": 1,
+  "beats": 13
+ },
+ {
+  "seller": "SIVVA MOUNIKA",
+  "business": "JAI SANTHOSHI MATHA ENTERPRISES",
+  "phone": "9885551440",
+  "status": "Active",
+  "localId": "seller-prod-jai-santhoshi-matha-enterprises",
+  "companies": 1,
+  "beats": 11
+ },
+ {
+  "seller": "APURI JYOTHI",
+  "business": "JYOTHI AGENCY",
+  "phone": "9966982345",
+  "status": "Active",
+  "localId": "seller-prod-jyothi-agency",
+  "companies": 1,
+  "beats": 6
+ },
+ {
+  "seller": "NANGUNOORI SAIKIRAN",
+  "business": "KAMADHENU DISTRIBUTORS",
+  "phone": "9959164350",
+  "status": "Active",
+  "localId": "seller-prod-kamadhenu-distributors",
+  "companies": 3,
+  "beats": 3
+ },
+ {
+  "seller": "KANTA MARKETING",
+  "business": "KANTA MARKETING",
+  "phone": "9030003800",
+  "status": "Active",
+  "localId": "seller-prod-kanta",
+  "companies": 1,
+  "beats": 32
+ },
+ {
+  "seller": "RAMULU KURAPATI",
+  "business": "KARTHIKEYA ENTERPRISES",
+  "phone": "7386747447",
+  "status": "Active",
+  "localId": "seller-prod-karthikeya",
+  "companies": 2,
+  "beats": 12
+ },
+ {
+  "seller": "PRAVEEN KUMAR VENNU",
+  "business": "LAKSHMI SAAI ENTERPRISES",
+  "phone": "8519877717",
+  "status": "Inactive",
+  "localId": "seller-prod-lakshmi-saai",
+  "companies": 3,
+  "beats": 22
+ },
+ {
+  "seller": "Suresh Kacharagaddala",
+  "business": "LAKSHMI VENKATESWARA DISTRIBUTORS",
+  "phone": "9666165659",
+  "status": "Inactive",
+  "localId": "seller-prod-lakshmi-venkateswara",
+  "companies": 9,
+  "beats": 54
+ },
+ {
+  "seller": "LOHIYA MARKETING AGENCY",
+  "business": "LOHIYA MARKETING AGENCY",
+  "phone": "9849199049",
+  "status": "Active",
+  "localId": "seller-prod-lohiya-marketing-agency",
+  "companies": 1,
+  "beats": 7
+ },
+ {
+  "seller": "DEVADASU DUDAM",
+  "business": "MAHADEVA ENTERPRISES",
+  "phone": "9390164462",
+  "status": "Active",
+  "localId": "seller-prod-mahadeva",
+  "companies": 3,
+  "beats": 14
+ },
+ {
+  "seller": "ABDUL HASEEB MOHAMMED",
+  "business": "MAS MARKETING",
+  "phone": "9866198219",
+  "status": "Inactive",
+  "localId": "seller-prod-mas-marketing",
+  "companies": 1,
+  "beats": 24
+ },
+ {
+  "seller": "HOLGE AJA YKUMA",
+  "business": "NAGOBA AGENCIES",
+  "phone": "8500075649",
+  "status": "Active",
+  "localId": "seller-prod-nagoba-agencies",
+  "companies": 3,
+  "beats": 18
+ },
+ {
+  "seller": "MOHMMED MUSTAFA",
+  "business": "NOOR ENTERPRISES",
+  "phone": "7993124981",
+  "status": "Active",
+  "localId": "seller-prod-noor",
+  "companies": 1,
+  "beats": 11
+ },
+ {
+  "seller": "BURRA MAHESH",
+  "business": "PRAHAAS ENTERPRISES",
+  "phone": "9581281172",
+  "status": "Active",
+  "localId": "seller-prod-prahaas-enterprises",
+  "companies": 3,
+  "beats": 17
+ },
+ {
+  "seller": "MYDHILI KAIPU",
+  "business": "RASVITHA TRADERS",
+  "phone": "9247241176",
+  "status": "Active",
+  "localId": "seller-prod-rasvitha",
+  "companies": 5,
+  "beats": 35
+ },
+ {
+  "seller": "Chintha Raja Mouli",
+  "business": "RM Traders",
+  "phone": "9246172889",
+  "status": "Active",
+  "localId": "seller-prod-rm-traders",
+  "companies": 3,
+  "beats": 18
+ },
+ {
+  "seller": "MARRI SAI KUMAR",
+  "business": "RR MARKETERS",
+  "phone": "8143472056",
+  "status": "Active",
+  "localId": "seller-prod-rr-marketers",
+  "companies": 2,
+  "beats": 12
+ },
+ {
+  "seller": "Chintha Anusha",
+  "business": "S R ENTERPRISES",
+  "phone": "8686673441",
+  "status": "Active",
+  "localId": "seller-prod-s-r",
+  "companies": 4,
+  "beats": 24
+ },
+ {
+  "seller": "ILIAS PASHA",
+  "business": "S S MARKETING",
+  "phone": "9154193416",
+  "status": "Inactive",
+  "localId": "seller-prod-s-s-marketing",
+  "companies": 5,
+  "beats": 60
+ },
+ {
+  "seller": "FARHEEN BEGUM",
+  "business": "S S MARKETING FERRERO",
+  "phone": "7702986941",
+  "status": "Active",
+  "localId": "seller-prod-s-s-marketing-ferrero",
+  "companies": 1,
+  "beats": 19
+ },
+ {
+  "seller": "VENKATESHWARLU SANGEPU",
+  "business": "S V AGENCIES",
+  "phone": "8019456496",
+  "status": "Active",
+  "localId": "seller-prod-s-v-agencies",
+  "companies": 7,
+  "beats": 63
+ },
+ {
+  "seller": "PADMA LOHIYA",
+  "business": "S V AGENCY",
+  "phone": "8712753971",
+  "status": "Active",
+  "localId": "seller-prod-s-v-agency",
+  "companies": 7,
+  "beats": 49
+ },
+ {
+  "seller": "DIVYA GOGINENI",
+  "business": "SAHASRA ENTERPRISES",
+  "phone": "9948028989",
+  "status": "Active",
+  "localId": "seller-prod-sahasra",
+  "companies": 1,
+  "beats": 13
+ },
+ {
+  "seller": "SANDEEP BHEEMAGANI",
+  "business": "SAI LAHANVI MARKETING",
+  "phone": "9553399530",
+  "status": "Active",
+  "localId": "seller-prod-sai-lahanvi-marketing",
+  "companies": 2,
+  "beats": 12
+ },
+ {
+  "seller": "SRIDEVI VUYYURU",
+  "business": "SAI SRIDEVI ENTERPRISES",
+  "phone": "9246334410",
+  "status": "Active",
+  "localId": "seller-prod-sai-sridevi-enterprises",
+  "companies": 1,
+  "beats": 1
+ },
+ {
+  "seller": "MEDISHETTI SAI KIRAN",
+  "business": "SBH TRADERS",
+  "phone": "8801846164",
+  "status": "Active",
+  "localId": "seller-prod-sbh-traders",
+  "companies": 3,
+  "beats": 18
+ },
+ {
+  "seller": "KAILASH CHAUDHARY",
+  "business": "SHRI SAI KRISHNA TRADERS",
+  "phone": "8121062768",
+  "status": "Active",
+  "localId": "seller-prod-sai-krishna",
+  "companies": 37,
+  "beats": 280
+ },
+ {
+  "seller": "KOPPULA SINDHUJA",
+  "business": "SINDHU ENTERPRISES",
+  "phone": "9063111199",
+  "status": "Active",
+  "localId": "seller-prod-sindhu-enterprises",
+  "companies": 4,
+  "beats": 33
+ },
+ {
+  "seller": "JALIGUM VIJAYA LAKSHMI",
+  "business": "SKM ENTERPRISES",
+  "phone": "9985229232",
+  "status": "Inactive",
+  "localId": "seller-prod-skm",
+  "companies": 13,
+  "beats": 113
+ },
+ {
+  "seller": "MOUNIKA ALLENI",
+  "business": "SLN ENTERPRISES",
+  "phone": "9885327774",
+  "status": "Active",
+  "localId": "seller-prod-sln-enterprises",
+  "companies": 6,
+  "beats": 36
+ },
+ {
+  "seller": "SOLATI RAVINDER",
+  "business": "SREE MATHA AGENCIES",
+  "phone": "9849998573",
+  "status": "Active",
+  "localId": "seller-prod-sree-matha-agencies",
+  "companies": 1,
+  "beats": 5
+ },
+ {
+  "seller": "Ravinder Kattela",
+  "business": "Sri Balaji Enterprises",
+  "phone": "9393484555",
+  "status": "Active",
+  "localId": "seller-prod-sri-balaji-enterprises",
+  "companies": 1,
+  "beats": 6
+ },
+ {
+  "seller": "KADAVERU PRAVALIKA",
+  "business": "SRI DATTA ENTERPRISES",
+  "phone": "8143875907",
+  "status": "Active",
+  "localId": "seller-prod-sri-datta-enterprises",
+  "companies": 1,
+  "beats": 6
+ },
+ {
+  "seller": "Boyini Anusha",
+  "business": "SRI GANESH ENTERPRISES",
+  "phone": "9177772977",
+  "status": "Active",
+  "localId": "seller-prod-sri-ganesh-enterprises",
+  "companies": 3,
+  "beats": 42
+ },
+ {
+  "seller": "SUNDER KUMAR",
+  "business": "SRI MANJUNATHA ENTERPRISES",
+  "phone": "9948938920",
+  "status": "Active",
+  "localId": "seller-prod-sri-manjunatha-enterprises",
+  "companies": 4,
+  "beats": 28
+ },
+ {
+  "seller": "RUPESH LOHIA",
+  "business": "SRI SAI ENTERPRISES",
+  "phone": "9849474643",
+  "status": "Active",
+  "localId": "seller-prod-sri-sai-enterprises",
+  "companies": 4,
+  "beats": 12
+ },
+ {
+  "seller": "NARAYANA SWAMY DABBARA",
+  "business": "Sri Sairam Enterprises",
+  "phone": "9666687556",
+  "status": "Inactive",
+  "localId": "seller-prod-sri-sairam",
+  "companies": 4,
+  "beats": 25
+ },
+ {
+  "seller": "SARANSH AGARWAL",
+  "business": "SRI SARDA ENTERPRISES",
+  "phone": "7032401515",
+  "status": "Active",
+  "localId": "seller-prod-sri-sarda",
+  "companies": 10,
+  "beats": 60
+ },
+ {
+  "seller": "RAJU GATOJI",
+  "business": "SRI SHIRIDI SAI ENTERPRISES",
+  "phone": "9885026204",
+  "status": "Inactive",
+  "localId": "seller-prod-sri-shiridi-sai-enterprises",
+  "companies": 2,
+  "beats": 12
+ },
+ {
+  "seller": "SRI SRINIVASA ENTERPRISES",
+  "business": "SRI SRINIVASA ENTERPRISES",
+  "phone": "9849399770",
+  "status": "Inactive",
+  "localId": "seller-prod-sri-srinivasa-enterprises",
+  "companies": 2,
+  "beats": 16
+ },
+ {
+  "seller": "SRI VEERABHADRA",
+  "business": "SRI VEERABHADRA CO",
+  "phone": "9346898595",
+  "status": "Active",
+  "localId": "seller-prod-sri-veerabhadra-co",
+  "companies": 1,
+  "beats": 6
+ },
+ {
+  "seller": "BEJUGAM PANDURANGAM",
+  "business": "SRI VENKATESHWARA ENTERPRISES",
+  "phone": "9246365245",
+  "status": "Active",
+  "localId": "seller-prod-sri-venkateshwara-enterprises",
+  "companies": 1,
+  "beats": 6
+ },
+ {
+  "seller": "CHINDAM VENKATESH",
+  "business": "SRI VENKATESHWARA MARKETING",
+  "phone": "9959404640",
+  "status": "Active",
+  "localId": "seller-prod-sri-venkateshwara-marketing",
+  "companies": 1,
+  "beats": 11
+ },
+ {
+  "seller": "VENKATESHWARLU DIDIGAM",
+  "business": "SS DISTRIBUTORS",
+  "phone": "9866444344",
+  "status": "Active",
+  "localId": "seller-prod-ss-dist",
+  "companies": 4,
+  "beats": 4
+ },
+ {
+  "seller": "Didigam Pavani",
+  "business": "SS Enterprises",
+  "phone": "9346605566",
+  "status": "Inactive",
+  "localId": "seller-prod-ss-ent",
+  "companies": 1,
+  "beats": 3
+ },
+ {
+  "seller": "GADDAM RAVI",
+  "business": "SURYA ENTERPRISES",
+  "phone": "9963077708",
+  "status": "Active",
+  "localId": "seller-prod-surya-enterprises",
+  "companies": 1,
+  "beats": 14
+ },
+ {
+  "seller": "PASULA VARUN RAJ",
+  "business": "SURYA KUMARI AGENCIES",
+  "phone": "9996636662",
+  "status": "Active",
+  "localId": "seller-prod-surya-kumari-agencies",
+  "companies": 2,
+  "beats": 12
+ },
+ {
+  "seller": "DAYAKAR BASWA",
+  "business": "SWATHI AGENCIES",
+  "phone": "9701055624",
+  "status": "Active",
+  "localId": "seller-prod-swathi-agencies",
+  "companies": 1,
+  "beats": 4
+ },
+ {
+  "seller": "SHANKPAL PRASHANTH KUMAR",
+  "business": "THANVIKA ENTERPRISES",
+  "phone": "9553904974",
+  "status": "Active",
+  "localId": "seller-prod-thanvika-enterprises",
+  "companies": 3,
+  "beats": 18
+ },
+ {
+  "seller": "SACHIN AINAPUR",
+  "business": "VENKATESHWARA AGENCIES",
+  "phone": "9160336789",
+  "status": "Active",
+  "localId": "seller-prod-venkateshwara",
+  "companies": 4,
+  "beats": 24
+ },
+ {
+  "seller": "VINODH MUTTINENI",
+  "business": "VINODH ENTERPRISES",
+  "phone": "9493018641",
+  "status": "Active",
+  "localId": "seller-prod-vinodh",
+  "companies": 3,
+  "beats": 18
+ },
+ {
+  "seller": "INAPURAM ASHOK KUMAR",
+  "business": "VK ENTERPRISES",
+  "phone": "9885208146",
+  "status": "Active",
+  "localId": "seller-prod-vk-enterprises",
+  "companies": 2,
+  "beats": 20
+ },
+ {
+  "seller": "UNNIKRISHNA KASAM",
+  "business": "YLN AGENCIES",
+  "phone": "9030456547",
+  "status": "Active",
+  "localId": "seller-prod-yln",
+  "companies": 1,
+  "beats": 23
+ },
+ {
+  "seller": "YLN TRADERS",
+  "business": "YLN TRADERS",
+  "phone": "9390969061",
+  "status": "Inactive",
+  "localId": "seller-prod-yln-traders",
+  "companies": 1,
+  "beats": 34
+ }
+]

@@ -9,13 +9,6 @@
 // In-memory demo store with a subscribe hook, mirroring admin-catalog.
 // Seller ids reference src/app/lib/mock-store.ts.
 
-import { makeId } from "./admin-catalog";
-import {
-  DEMO_DISTRIBUTOR_ID,
-  DEMO_WHOLESALER_ID,
-  DEMO_HYBRID_ID,
-} from "./mock-store";
-
 export type LogisticsMethod = "gmv_percent" | "per_kg" | "by_category";
 
 /** One per-category logistics fee row for the "By Category" method. Each ONDC
@@ -83,60 +76,9 @@ export function emptyLogistics(): LogisticsFeeConfig {
 }
 
 // ---- Store (in-memory, one config per seller) ----
-// Pre-seed the three demo sellers (see mock-store) with an enabled logistics
-// config each, varying the method so every variant is explorable.
-function buildSeed(): SellerLogisticsConfig[] {
-  return [
-    {
-      sellerId: DEMO_DISTRIBUTOR_ID,
-      logistics: {
-        ...emptyLogistics(),
-        enabled: true,
-        method: "per_kg",
-        waiverEnabled: true,
-        waiverThreshold: 30000,
-      },
-      updatedAt: "2026-09-12T00:00:00Z",
-      updatedBy: "Admin",
-    },
-    {
-      sellerId: DEMO_WHOLESALER_ID,
-      logistics: {
-        ...emptyLogistics(),
-        enabled: true,
-        method: "gmv_percent",
-      },
-      updatedAt: "2026-09-13T00:00:00Z",
-      updatedBy: "Admin",
-    },
-    {
-      sellerId: DEMO_HYBRID_ID,
-      logistics: {
-        ...emptyLogistics(),
-        enabled: true,
-        method: "by_category",
-        categories: [
-          {
-            id: makeId("catfee"),
-            category: "Oil & Ghee",
-            qwipoTarget: 4,
-            sellerContribution: 2.5,
-          },
-          {
-            id: makeId("catfee"),
-            category: "Foodgrains",
-            qwipoTarget: 3,
-            sellerContribution: 2,
-          },
-        ],
-      },
-      updatedAt: "2026-09-14T00:00:00Z",
-      updatedBy: "Admin",
-    },
-  ];
-}
-
-let configs: SellerLogisticsConfig[] = buildSeed();
+// Starts empty — every seller begins with no logistics fee until one is
+// set up from the Charges & Fees tab.
+let configs: SellerLogisticsConfig[] = [];
 
 const listeners = new Set<() => void>();
 const notify = () => listeners.forEach((cb) => cb());
