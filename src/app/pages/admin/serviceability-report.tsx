@@ -81,6 +81,11 @@ export function AdminServiceabilityReport() {
   const [dayFilter, setDayFilter] = useState<string[]>([]);
   const [companyFilter, setCompanyFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  // Customer-roster filters — e.g. Business Status "Active-User" +
+  // Status "Active" drops the dormant accounts that bloat the download.
+  const [businessStatusFilter, setBusinessStatusFilter] = useState("all");
+  const [businessTypeFilter, setBusinessTypeFilter] = useState("all");
+  const [customerStatusFilter, setCustomerStatusFilter] = useState("all");
   // "summary" collapses to one row per (customer, seller, delivery-day
   // set); "detailed" keeps one row per company beat.
   const [reportFormat, setReportFormat] = useState<"summary" | "detailed">(
@@ -175,6 +180,23 @@ export function AdminServiceabilityReport() {
     );
   };
 
+  const rosterOptions = (pick: (c: (typeof customers)[number]) => string) =>
+    [...new Set(customers.map(pick).filter(Boolean))].sort((a, b) =>
+      a.localeCompare(b),
+    );
+  const businessStatusOptions = useMemo(
+    () => rosterOptions((c) => c.businessStatus),
+    [customers],
+  );
+  const businessTypeOptions = useMemo(
+    () => rosterOptions((c) => c.businessType),
+    [customers],
+  );
+  const customerStatusOptions = useMemo(
+    () => rosterOptions((c) => c.status),
+    [customers],
+  );
+
   const companyOptions = useMemo(() => {
     void beatsVersion;
     const names = new Set(getServiceabilityBeats().map((b) => b.companyName));
@@ -220,6 +242,18 @@ export function AdminServiceabilityReport() {
 
   const rows = useMemo(() => {
     return allRows.filter((r) => {
+      if (
+        businessStatusFilter !== "all" &&
+        r.businessStatus !== businessStatusFilter
+      )
+        return false;
+      if (businessTypeFilter !== "all" && r.businessType !== businessTypeFilter)
+        return false;
+      if (
+        customerStatusFilter !== "all" &&
+        r.customerStatus !== customerStatusFilter
+      )
+        return false;
       if (statusFilter === "serviceable" && !r.serviceable) return false;
       if (statusFilter === "not-serviceable" && r.serviceable) return false;
       if (companyFilter !== "all") {
@@ -236,6 +270,9 @@ export function AdminServiceabilityReport() {
     });
   }, [
     allRows,
+    businessStatusFilter,
+    businessTypeFilter,
+    customerStatusFilter,
     statusFilter,
     companyFilter,
     dayFilter,
@@ -277,6 +314,9 @@ export function AdminServiceabilityReport() {
     if (cityFilter !== "all") parts.push(cityFilter.toLowerCase().replace(/\s+/g, "-"));
     else if (stateFilter !== "all") parts.push(stateFilter.toLowerCase().replace(/\s+/g, "-"));
     if (dayFilter.length === 1) parts.push(dayFilter[0].toLowerCase().replace(/\s+/g, "-"));
+    for (const f of [businessStatusFilter, businessTypeFilter, customerStatusFilter]) {
+      if (f !== "all") parts.push(f.toLowerCase().replace(/\s+/g, "-"));
+    }
     return parts.length > 0 ? `_${parts.join("_")}` : "";
   };
 
@@ -335,13 +375,19 @@ export function AdminServiceabilityReport() {
     setDayFilter([]);
     setCompanyFilter("all");
     setStatusFilter("all");
+    setBusinessStatusFilter("all");
+    setBusinessTypeFilter("all");
+    setCustomerStatusFilter("all");
   };
 
   const filtersActive =
     sellerFilterActive ||
     dayFilter.length > 0 ||
     companyFilter !== "all" ||
-    statusFilter !== "all";
+    statusFilter !== "all" ||
+    businessStatusFilter !== "all" ||
+    businessTypeFilter !== "all" ||
+    customerStatusFilter !== "all";
 
   const sellerLabel = (s: Seller) =>
     [s.city, s.state].filter(Boolean).join(", ");
@@ -634,6 +680,54 @@ export function AdminServiceabilityReport() {
                     </h3>
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
+                    <Select
+                      value={businessStatusFilter}
+                      onValueChange={setBusinessStatusFilter}
+                    >
+                      <SelectTrigger className="w-[220px]">
+                        <SelectValue placeholder="Business Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Business Statuses</SelectItem>
+                        {businessStatusOptions.map((v) => (
+                          <SelectItem key={v} value={v}>
+                            {v}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      value={businessTypeFilter}
+                      onValueChange={setBusinessTypeFilter}
+                    >
+                      <SelectTrigger className="w-[200px]">
+                        <SelectValue placeholder="Business Type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Business Types</SelectItem>
+                        {businessTypeOptions.map((v) => (
+                          <SelectItem key={v} value={v}>
+                            {v}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      value={customerStatusFilter}
+                      onValueChange={setCustomerStatusFilter}
+                    >
+                      <SelectTrigger className="w-[200px]">
+                        <SelectValue placeholder="Customer Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Customer Statuses</SelectItem>
+                        {customerStatusOptions.map((v) => (
+                          <SelectItem key={v} value={v}>
+                            {v}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <Select value={companyFilter} onValueChange={setCompanyFilter}>
                       <SelectTrigger className="w-[220px]">
                         <SelectValue placeholder="Company" />
@@ -652,7 +746,7 @@ export function AdminServiceabilityReport() {
                         <SelectValue placeholder="Status" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Statuses</SelectItem>
+                        <SelectItem value="all">All Serviceability</SelectItem>
                         <SelectItem value="serviceable">
                           Serviceable only
                         </SelectItem>

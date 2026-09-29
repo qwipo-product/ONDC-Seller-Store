@@ -62,6 +62,7 @@ import {
   getCustomers,
   getSeedCustomerCount,
   makeSampleCustomers,
+  getActiveSellerIds,
   matchCustomer,
   groupByCompany,
   parseCustomerFile,
@@ -105,8 +106,9 @@ export function AdminCustomers() {
   const matchInfo = useMemo(() => {
     void beatsVersion;
     const map = new Map<string, { companies: number; beats: number }>();
+    const activeSellerIds = getActiveSellerIds();
     for (const c of customers) {
-      const beats = matchCustomer(c);
+      const beats = matchCustomer(c, activeSellerIds);
       map.set(c.id, {
         companies: groupByCompany(beats).length,
         beats: beats.length,
@@ -133,6 +135,15 @@ export function AdminCustomers() {
 
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [businessStatusFilter, setBusinessStatusFilter] = useState("all");
+
+  const businessStatusOptions = useMemo(
+    () =>
+      [...new Set(customers.map((c) => c.businessStatus).filter(Boolean))].sort(
+        (a, b) => a.localeCompare(b),
+      ),
+    [customers],
+  );
 
   const typeOptions = useMemo(
     () =>
@@ -147,6 +158,11 @@ export function AdminCustomers() {
     return customers.filter((c) => {
       if (statusFilter !== "all" && c.status !== statusFilter) return false;
       if (typeFilter !== "all" && c.businessType !== typeFilter) return false;
+      if (
+        businessStatusFilter !== "all" &&
+        c.businessStatus !== businessStatusFilter
+      )
+        return false;
       if (!q) return true;
       return (
         c.name.toLowerCase().includes(q) ||
@@ -155,7 +171,7 @@ export function AdminCustomers() {
         c.cluster.toLowerCase().includes(q)
       );
     });
-  }, [customers, search, statusFilter, typeFilter]);
+  }, [customers, search, statusFilter, typeFilter, businessStatusFilter]);
 
   // ---- Upload dialog ----
   const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -362,6 +378,22 @@ export function AdminCustomers() {
                   className="pl-9"
                 />
               </div>
+              <Select
+                value={businessStatusFilter}
+                onValueChange={setBusinessStatusFilter}
+              >
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Business Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Business Statuses</SelectItem>
+                  {businessStatusOptions.map((v) => (
+                    <SelectItem key={v} value={v}>
+                      {v}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-[150px]">
                   <SelectValue placeholder="Status" />
@@ -397,6 +429,7 @@ export function AdminCustomers() {
                   <TableHead>Name</TableHead>
                   <TableHead>Mobile</TableHead>
                   <TableHead>Business Type</TableHead>
+                  <TableHead>Business Status</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Cluster</TableHead>
                   <TableHead>Location</TableHead>
@@ -425,6 +458,9 @@ export function AdminCustomers() {
                       </TableCell>
                       <TableCell className="text-gray-600">
                         {c.businessType || "—"}
+                      </TableCell>
+                      <TableCell className="text-gray-600">
+                        {c.businessStatus || "—"}
                       </TableCell>
                       <TableCell>
                         {c.status ? (
