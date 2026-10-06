@@ -225,7 +225,10 @@ export interface DmsCustomer {
   /** Optional on the buyer form — a blank GSTIN is a legitimate
    *  submission, not an error. */
   gstNumber?: string;
-  classType: "Kirana" | "Supermarket" | "General Store" | "Medical" | "HoReCa";
+  /** Optional, like GSTIN. When a GSTIN exists the PAN is its
+   *  characters 3–12. */
+  panNumber?: string;
+  classType:"Kirana" | "Supermarket" | "General Store" | "Medical" | "HoReCa";
   documents: DmsDocument[];
   /** First time anything about this shop reached the seller. */
   submittedAt: string;
@@ -368,6 +371,7 @@ const SEED: DmsCustomer[] = [
     latitude: 17.4239,
     longitude: 78.3772,
     gstNumber: "36ABCDE1234F1Z5",
+    panNumber: "ABCDE1234F",
     classType: "General Store",
     documents: kycBundle("litbox", "2026-08-28T09:12:00Z"),
     submittedAt: "2026-08-28T09:12:00Z",
@@ -432,6 +436,7 @@ const SEED: DmsCustomer[] = [
     pincode: "500072",
     latitude: 17.4948,
     longitude: 78.3996,
+    panNumber: "AQVPR4471K",
     classType: "Kirana",
     documents: [
       doc("balaji-img", "Shop Image", "balaji-storefront.jpg", "2026-08-28T11:40:00Z"),
@@ -458,6 +463,7 @@ const SEED: DmsCustomer[] = [
     latitude: 17.4966,
     longitude: 78.3715,
     gstNumber: "36BXYPK9021L1ZP",
+    panNumber: "BXYPK9021L",
     classType: "Supermarket",
     documents: kycBundle("anjaneya", "2026-08-27T15:05:00Z"),
     submittedAt: "2026-08-27T15:05:00Z",
@@ -482,6 +488,7 @@ const SEED: DmsCustomer[] = [
     latitude: 16.5193,
     longitude: 80.6305,
     gstNumber: "37CDEFG5678H1Z2",
+    panNumber: "CDEFG5678H",
     classType: "Kirana",
     documents: kycBundle("vasavi", "2026-08-26T10:22:00Z"),
     submittedAt: "2026-08-26T10:22:00Z",
@@ -507,6 +514,7 @@ const SEED: DmsCustomer[] = [
     latitude: 17.4399,
     longitude: 78.4483,
     gstNumber: "36KRPNS4412M1Z8",
+    panNumber: "KRPNS4412M",
     classType: "General Store",
     documents: kycBundle("krishna", "2026-08-25T08:30:00Z"),
     submittedAt: "2026-08-25T08:30:00Z",
@@ -568,6 +576,7 @@ const SEED: DmsCustomer[] = [
     latitude: 17.4108,
     longitude: 78.4294,
     gstNumber: "36GRLFM0099Q1Z4",
+    panNumber: "GRLFM0099Q",
     classType: "Supermarket",
     documents: kycBundle("greenleaf", "2026-08-20T12:10:00Z"),
     submittedAt: "2026-08-20T12:10:00Z",
@@ -598,6 +607,7 @@ const SEED: DmsCustomer[] = [
     latitude: 16.3067,
     longitude: 80.4365,
     gstNumber: "37SRMGN2211R1Z9",
+    panNumber: "SRMGN2211R",
     classType: "Medical",
     documents: kycBundle("sairam", "2026-08-23T09:00:00Z"),
     submittedAt: "2026-08-21T14:30:00Z",
@@ -628,6 +638,7 @@ const SEED: DmsCustomer[] = [
     latitude: 17.4375,
     longitude: 78.4483,
     gstNumber: "36VJYSB7788T1Z1",
+    panNumber: "VJYSB7788T",
     classType: "Supermarket",
     documents: kycBundle("vijaya", "2026-07-14T10:00:00Z"),
     submittedAt: "2026-07-14T10:00:00Z",
@@ -740,6 +751,7 @@ const SEED: DmsCustomer[] = [
     latitude: 17.4933,
     longitude: 78.3915,
     gstNumber: "36MTRDN3344V1Z6",
+    panNumber: "MTRDN3344V",
     classType: "General Store",
     documents: kycBundle("metro", "2026-07-22T13:15:00Z"),
     submittedAt: "2026-07-22T13:15:00Z",
@@ -772,6 +784,7 @@ const SEED: DmsCustomer[] = [
     latitude: 17.4326,
     longitude: 78.4071,
     gstNumber: "36HTLRJ5566W1Z3",
+    panNumber: "HTLRJ5566W",
     classType: "HoReCa",
     documents: kycBundle("rajdhani", "2026-08-01T08:45:00Z"),
     submittedAt: "2026-08-01T08:45:00Z",
@@ -809,6 +822,7 @@ const SEED: DmsCustomer[] = [
     pincode: "506001",
     latitude: 17.9784,
     longitude: 79.5941,
+    panNumber: "BHKPY6620D",
     classType: "Kirana",
     documents: [
       doc("ganesh-img", "Shop Image", "ganesh-storefront.jpg", "2026-08-05T16:20:00Z"),
@@ -850,6 +864,7 @@ const SEED: DmsCustomer[] = [
     latitude: 17.4062,
     longitude: 78.4913,
     gstNumber: "36STRTR9911Y1Z7",
+    panNumber: "STRTR9911Y",
     classType: "General Store",
     documents: kycBundle("startraders", "2026-06-30T11:00:00Z"),
     submittedAt: "2026-06-30T11:00:00Z",
@@ -1247,65 +1262,62 @@ export const getDmsAddressServiceability = (
   return { served, unserved };
 };
 
-// ---------- Bulk template ----------
+// ---------- Customer export ----------
 //
-// The download → fill in DMS → upload loop. One row per customer, one
-// COLUMN per distributor company, so an operator who creates 40 IDs in
-// the ITC DMS pastes them down a single column instead of opening 40
-// drawers.
+// The Download on the list page. One row per customer with the details
+// a seller needs to verify the shop and create it in their DMS. Address
+// and coordinates come from the primary address.
 
-export const BULK_FIXED_COLUMNS = [
-  "Request ID",
+export const EXPORT_COLUMNS = [
+  "Phone Number",
   "Shop Name",
-  "Owner Name",
-  "Mobile Number",
-  "Shop Address",
-  "City",
-  "Pincode",
-  "GSTIN",
+  "Address",
+  "Latitude",
+  "Longitude",
+  "GST",
+  "PAN",
+  "Email Address",
 ] as const;
-
-/** Header row: fixed KYC columns + one "<Company> Customer ID" column
- *  per distributor company the seller packs. */
-export function bulkTemplateHeaders(): string[] {
-  return [
-    ...BULK_FIXED_COLUMNS,
-    ...DISTRIBUTOR_COMPANIES.map((c) => `${c.shortName} Customer ID`),
-  ];
-}
 
 const escapeCsv = (v: string | number | undefined) => {
   const s = String(v ?? "");
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 
-/**
- * Build the CSV an operator takes into the DMS. Requested companies get
- * an EMPTY cell (that's the cell to fill); companies the customer never
- * asked for are marked "Not requested" so nobody invents an ID for a
- * company the shop doesn't buy from; already-issued IDs come back
- * pre-filled so the file doubles as a reconciliation sheet.
- */
-export function buildBulkTemplateCsv(rows: DmsCustomer[]): string {
-  const header = bulkTemplateHeaders().join(",");
+/** One-line postal address. Street lines often already name the area
+ *  or city ("Shop 4, Opp Govt Hospital, Guntur"), so those parts are
+ *  only appended when missing — a trailing city is dropped first so the
+ *  area still lands before it. */
+function formatExportAddress(a: DmsAddress): string {
+  let line = (a.fullAddress ?? "").trim();
+  const cityTail = `, ${a.city}`.toLowerCase();
+  if (line.toLowerCase().endsWith(cityTail)) {
+    line = line.slice(0, -cityTail.length);
+  }
+  for (const part of [a.area, a.city]) {
+    if (part && !line.toLowerCase().includes(part.toLowerCase())) {
+      line = line ? `${line}, ${part}` : part;
+    }
+  }
+  return `${line}, ${a.state} - ${a.pincode}`;
+}
+
+export function buildCustomerExportCsv(rows: DmsCustomer[]): string {
+  const header = EXPORT_COLUMNS.join(",");
   const body = rows.map((c) => {
-    const fixed = [
-      c.requestId,
-      c.shopName,
-      c.ownerName,
+    const addr = getDmsPrimaryAddress(c);
+    return [
       c.mobile,
-      c.shopAddress,
-      c.city,
-      c.pincode,
+      c.shopName,
+      formatExportAddress(addr),
+      addr.latitude,
+      addr.longitude,
       c.gstNumber ?? "",
-    ];
-    const idCells = DISTRIBUTOR_COMPANIES.map((co) => {
-      const l = c.companies.find((x) => x.companyId === co.id);
-      if (!l || l.status === "none") return "Not requested";
-      if (l.status === "registered") return l.dmsCustomerId ?? "";
-      return ""; // pending / under-review / rejected → fill this in
-    });
-    return [...fixed, ...idCells].map(escapeCsv).join(",");
+      c.panNumber ?? "",
+      c.email ?? "",
+    ]
+      .map(escapeCsv)
+      .join(",");
   });
   return [header, ...body].join("\n");
 }
@@ -1320,183 +1332,4 @@ export function downloadCsv(fileName: string, csv: string) {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-}
-
-/** One parsed upload row: request id → { companyId: customerId }. */
-export interface ParsedBulkRow {
-  rowNumber: number;
-  requestId: string;
-  shopName: string;
-  ids: Record<string, string>;
-}
-
-export interface BulkParseIssue {
-  row: number;
-  field: string;
-  error: string;
-  value?: string;
-  requestId?: string;
-  shopName?: string;
-}
-
-/** Split one CSV line, honouring simple double-quoted cells. */
-function splitCsvLine(line: string): string[] {
-  const out: string[] = [];
-  let cur = "";
-  let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (inQuotes) {
-      if (ch === '"' && line[i + 1] === '"') {
-        cur += '"';
-        i++;
-      } else if (ch === '"') {
-        inQuotes = false;
-      } else {
-        cur += ch;
-      }
-    } else if (ch === '"') {
-      inQuotes = true;
-    } else if (ch === ",") {
-      out.push(cur);
-      cur = "";
-    } else {
-      cur += ch;
-    }
-  }
-  out.push(cur);
-  return out.map((s) => s.trim());
-}
-
-/**
- * Validate a filled template against the current queue.
- *
- * Rules the business team should sign off on:
- *  - Request ID must exist and must still be awaiting action.
- *  - An ID typed against a company the customer never requested is an
- *    error, not a silent extra registration.
- *  - "Not requested" and blank cells are skipped, not flagged — an
- *    operator is allowed to fill the file in two passes.
- *  - An ID already issued to a DIFFERENT customer is a duplicate and is
- *    rejected; re-typing the SAME id for the same link is a no-op.
- */
-export function validateBulkUpload(text: string) {
-  const lines = text
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean);
-  if (lines.length < 2) {
-    throw new Error("The file has no data rows.");
-  }
-  const headers = splitCsvLine(lines[0]);
-  const colIndex = (name: string) =>
-    headers.findIndex((h) => h.toLowerCase() === name.toLowerCase());
-
-  const reqIdx = colIndex("Request ID");
-  if (reqIdx === -1) {
-    throw new Error('The file is missing the "Request ID" column.');
-  }
-  const shopIdx = colIndex("Shop Name");
-  const idColumns = DISTRIBUTOR_COMPANIES.map((co) => ({
-    company: co,
-    index: colIndex(`${co.shortName} Customer ID`),
-  })).filter((c) => c.index !== -1);
-
-  const issues: BulkParseIssue[] = [];
-  const valid: ParsedBulkRow[] = [];
-  // Every ID already live in the store, so we can catch duplicates
-  // across the file AND against existing registrations.
-  const takenIds = new Map<string, string>();
-  customers.forEach((c) =>
-    c.companies.forEach((l) => {
-      if (l.dmsCustomerId) {
-        takenIds.set(`${l.companyId}::${l.dmsCustomerId.toUpperCase()}`, c.id);
-      }
-    }),
-  );
-
-  lines.slice(1).forEach((line, i) => {
-    const rowNumber = i + 2; // header is row 1
-    const cells = splitCsvLine(line);
-    const requestId = cells[reqIdx] ?? "";
-    const shopName = shopIdx === -1 ? "" : (cells[shopIdx] ?? "");
-    const customer = customers.find((c) => c.requestId === requestId);
-
-    if (!requestId) {
-      issues.push({
-        row: rowNumber,
-        field: "Request ID",
-        error: "Request ID is blank",
-        shopName,
-      });
-      return;
-    }
-    if (!customer) {
-      issues.push({
-        row: rowNumber,
-        field: "Request ID",
-        error: "No registration request found with this ID",
-        value: requestId,
-        requestId,
-        shopName,
-      });
-      return;
-    }
-
-    const ids: Record<string, string> = {};
-    idColumns.forEach(({ company, index }) => {
-      const raw = (cells[index] ?? "").trim();
-      if (!raw || raw.toLowerCase() === "not requested") return;
-
-      const linkForCompany = customer.companies.find(
-        (l) => l.companyId === company.id,
-      );
-      if (!linkForCompany || linkForCompany.status === "none") {
-        issues.push({
-          row: rowNumber,
-          field: `${company.shortName} Customer ID`,
-          error: `${customer.shopName} did not request registration for ${company.name}`,
-          value: raw,
-          requestId,
-          shopName: customer.shopName,
-        });
-        return;
-      }
-      if (
-        linkForCompany.status === "registered" &&
-        linkForCompany.dmsCustomerId?.toUpperCase() === raw.toUpperCase()
-      ) {
-        return; // unchanged — silently skipped
-      }
-      const owner = takenIds.get(`${company.id}::${raw.toUpperCase()}`);
-      if (owner && owner !== customer.id) {
-        issues.push({
-          row: rowNumber,
-          field: `${company.shortName} Customer ID`,
-          error: `This ${company.shortName} customer ID is already assigned to another customer`,
-          value: raw,
-          requestId,
-          shopName: customer.shopName,
-        });
-        return;
-      }
-      takenIds.set(`${company.id}::${raw.toUpperCase()}`, customer.id);
-      ids[company.id] = raw;
-    });
-
-    if (Object.keys(ids).length > 0) {
-      valid.push({ rowNumber, requestId, shopName: customer.shopName, ids });
-    }
-  });
-
-  return { issues, valid, totalRows: lines.length - 1 };
-}
-
-/** Commit a validated upload — registers every parsed ID. */
-export function applyBulkUpload(rows: ParsedBulkRow[]) {
-  rows.forEach((r) => {
-    const customer = customers.find((c) => c.requestId === r.requestId);
-    if (!customer) return;
-    approveWithIds(customer.id, r.ids, "bulk-upload");
-  });
 }

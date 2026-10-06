@@ -23,10 +23,6 @@ import {
   SelectValue,
 } from "../../components/ui/select";
 import { ListPagination } from "../../components/ui/list-pagination";
-import {
-  BulkImportDialog,
-  type BulkImportValidationResult,
-} from "../../components/bulk-import-dialog";
 import { EmptyState } from "../../components/empty-state";
 import {
   Ban,
@@ -36,15 +32,12 @@ import {
   Download,
   Eye,
   Search,
-  Upload,
   Users,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  applyBulkUpload,
-  buildBulkTemplateCsv,
-  DISTRIBUTOR_COMPANIES,
+  buildCustomerExportCsv,
   DMS_COMPANIES,
   downloadCsv,
   getCustomerTab,
@@ -52,10 +45,8 @@ import {
   registrationProgress,
   setBlocked,
   subscribeToDmsCustomers,
-  validateBulkUpload,
   type DmsCustomer,
   type DmsTab,
-  type ParsedBulkRow,
 } from "../../lib/customers-dms-data";
 
 // =====================================================================
@@ -63,18 +54,13 @@ import {
 //
 // Three tabs, single-homed (see getCustomerTab): New Registrations,
 // Registered, Blocked. The New Registrations tab is a work queue, so it
-// carries the two bulk affordances that make 200 requests survivable:
+// carries a bulk Download: a CSV of each shop's contact, address,
+// coordinates, GST, PAN and email (see EXPORT_COLUMNS), so the seller
+// can verify the shop and create it in their DMS.
 //
-//   Download  → CSV with one "<Company> Customer ID" column per
-//               distributor company. Take it to the DMS, create the
-//               customers, paste the IDs down the column.
-//   Upload    → same file back. Every filled cell registers that
-//               (customer × company) link in one shot.
-//
-// The per-row View action opens the detail page — the single-customer
-// path for the same job (issue IDs, reject, retry sync) plus the
-// address × beat serviceability view. Both write through the same
-// store mutators.
+// The per-row View action opens the read-only detail page — KYC,
+// per-company registration status and the address × beat
+// serviceability view.
 // =====================================================================
 
 const PAGE_SIZE = 8;
@@ -95,7 +81,6 @@ export function CustomersDms() {
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<string[]>([]);
 
-  const [uploadOpen, setUploadOpen] = useState(false);
   const [blockTarget, setBlockTarget] = useState<DmsCustomer | null>(null);
   const [blockReason, setBlockReason] = useState("");
 
@@ -145,33 +130,11 @@ export function CustomersDms() {
     }
     downloadCsv(
       `dms-registration-requests-${new Date().toISOString().slice(0, 10)}.csv`,
-      buildBulkTemplateCsv(rows),
+      buildCustomerExportCsv(rows),
     );
     toast.success(
-      `${rows.length} ${rows.length === 1 ? "request" : "requests"} downloaded — fill the customer ID columns and upload the file back.`,
+      `${rows.length} ${rows.length === 1 ? "request" : "requests"} downloaded.`,
     );
-  };
-
-  // ---- Bulk upload ----
-  const validateUpload = async (
-    file: File,
-  ): Promise<BulkImportValidationResult> => {
-    const text = await file.text();
-    const { issues, valid, totalRows } = validateBulkUpload(text);
-    return {
-      totalRows,
-      validRows: valid.length,
-      invalidRows: issues.length,
-      errors: issues.map((i) => ({
-        row: i.row,
-        field: i.field,
-        error: i.error,
-        value: i.value,
-        skuCode: i.requestId,
-        skuName: i.shopName,
-      })),
-      validData: valid,
-    };
   };
 
   return (
@@ -351,14 +314,6 @@ export function CustomersDms() {
                     Download
                     {selectedRows.length > 0 && ` (${selectedRows.length})`}
                   </Button>
-                  <Button
-                    size="sm"
-                    onClick={() => setUploadOpen(true)}
-                    className="gap-2"
-                  >
-                    <Upload className="h-4 w-4" />
-                    Upload customer IDs
-                  </Button>
                 </div>
               )}
             </div>
@@ -394,7 +349,7 @@ export function CustomersDms() {
                   activeTab === "new"
                     ? "New registration requests from the buyer app will land here for review."
                     : activeTab === "registered"
-                      ? "Approve a registration request to see the customer here with their company customer IDs."
+                      ? "Customers appear here with their company customer IDs once they're registered in your DMS."
                       : "Customers you block will be listed here with the reason."
                 }
               />
@@ -593,70 +548,6 @@ export function CustomersDms() {
           </div>
         </Card>
       </div>
-
-      {/* ---- Bulk upload ---- */}
-      <BulkImportDialog
-        open={uploadOpen}
-        onOpenChange={setUploadOpen}
-        config={{
-          title: "Upload customer IDs",
-          description:
-            "Upload the filled template to register customers against each company in bulk.",
-          entityColumns: {
-            codeLabel: "Request ID",
-            nameLabel: "Shop Name",
-          },
-          instructions: (
-            <div className="space-y-2 text-sm text-gray-600">
-              <p>
-                Download the request template first, create those customers in
-                each company's DMS, then paste the generated IDs into the
-                matching <span className="font-medium">Customer ID</span>{" "}
-                column.
-              </p>
-              <ul className="list-disc pl-5 space-y-1 text-xs">
-                <li>
-                  One column per company you distribute for:{" "}
-                  {DISTRIBUTOR_COMPANIES.map((c) => c.shortName).join(", ")}.
-                </li>
-                <li>
-                  Leave a cell blank to skip it — you can fill the file across
-                  several passes.
-                </li>
-                <li>
-                  Cells marked <span className="font-mono">Not requested</span>{" "}
-                  are companies this shop did not ask for. Typing an ID there is
-                  rejected.
-                </li>
-                <li>
-                  Wholesale-only companies are not in the file — wholesale needs
-                  no DMS registration.
-                </li>
-              </ul>
-            </div>
-          ),
-          accept: ".csv",
-          sample: {
-            fileName: "dms-registration-requests.csv",
-            onDownload: () => {
-              const rows = getDmsCustomers().filter(
-                (c) => getCustomerTab(c) === "new",
-              );
-              downloadCsv(
-                "dms-registration-requests.csv",
-                buildBulkTemplateCsv(rows),
-              );
-            },
-          },
-          validate: validateUpload,
-          onImport: (validData) => {
-            applyBulkUpload(validData as ParsedBulkRow[]);
-          },
-          successToast: (r) =>
-            `${r.validRows} ${r.validRows === 1 ? "customer" : "customers"} registered — IDs queued to the DMS connectors.`,
-          simulateValidationDelayMs: 1200,
-        }}
-      />
 
       {/* ---- Block dialog ---- */}
       <Dialog

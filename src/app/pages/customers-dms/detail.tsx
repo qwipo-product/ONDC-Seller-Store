@@ -11,9 +11,12 @@
 //
 // What's different is the Company Registrations card: instead of the
 // live module's Active/Blocked links, each company shows its DMS
-// registration lifecycle (the buyer's five statuses), the issued
-// company-specific customer ID, and the actions — issue an ID, reject
-// with a reason, retry a failed DMS push.
+// registration lifecycle (the buyer's five statuses) and the issued
+// company-specific customer ID.
+//
+// Read-only for now: the register / reject / retry-sync / block actions
+// are switched off — sellers verify from the list page's Download and
+// create customers directly in their DMS.
 //
 // Opening this page for a customer with pending links marks them
 // Under review (the buyer's step-2), replacing the old review drawer.
@@ -29,23 +32,6 @@ import {
 } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
-import { Input } from "../../components/ui/input";
-import { Label } from "../../components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "../../components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../../components/ui/select";
 import {
   AlertCircle,
   ArrowLeft,
@@ -63,41 +49,23 @@ import {
   MapPin,
   MapPinned,
   Navigation,
-  RefreshCw,
   Route,
   Store,
   User as UserIcon,
-  XCircle,
 } from "lucide-react";
-import { toast } from "sonner";
 import {
-  assignCustomerId,
   getDmsAddresses,
   getDmsAddressServiceability,
-  getDmsCompany,
   getDmsCustomer,
   getDmsPrimaryAddress,
   markUnderReview,
   registrationProgress,
-  rejectRegistration,
-  retrySync,
-  setBlocked,
   STATUS_LABELS,
   STATUS_STYLES,
   subscribeToDmsCustomers,
   type DmsCustomer,
 } from "../../lib/customers-dms-data";
 import { subscribeToServiceabilityBeats } from "../../lib/serviceability-data";
-
-/** Canned rejection reasons — the buyer sees the text verbatim. */
-const REJECTION_REASONS = [
-  "GSTIN could not be verified",
-  "Shop image did not show the shop name board",
-  "Photo ID is unclear or expired",
-  "Shop address is outside our delivery area",
-  "Duplicate of an existing customer",
-  "Details do not match the GST record",
-];
 
 const DOC_ICONS = {
   "Shop Image": ImageIcon,
@@ -113,7 +81,7 @@ export function CustomerDmsDetail() {
   );
 
   // Live updates — re-sync whenever the shared store changes so the
-  // page reflects mutations we make below (register / reject / block).
+  // page reflects mutations made elsewhere (e.g. a block from the list).
   useEffect(() => {
     if (!customerId) return;
     return subscribeToDmsCustomers(() => {
@@ -163,15 +131,6 @@ export function CustomerDmsDetail() {
       ? getDmsAddressServiceability(customer, selectedAddress)
       : { served: [], unserved: [] };
 
-  // Per-company ID drafts + the reject flow's dialog state.
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
-  const [rejectTarget, setRejectTarget] = useState<string | null>(null);
-  const [rejectReason, setRejectReason] = useState(REJECTION_REASONS[0]);
-  const [pendingBlockToggle, setPendingBlockToggle] = useState<
-    "block" | "unblock" | null
-  >(null);
-  const [blockReason, setBlockReason] = useState("");
-
   if (!customer) {
     return (
       <div className="h-full flex items-center justify-center bg-gray-50">
@@ -196,9 +155,6 @@ export function CustomerDmsDetail() {
   }
 
   const progress = registrationProgress(customer);
-  const rejectCompany = customer.companies.find(
-    (l) => l.companyId === rejectTarget,
-  );
 
   // Embedded OpenStreetMap iframe centred on the SELECTED address; the
   // overlay link redirects to Google Maps — same pattern as the live
@@ -255,25 +211,6 @@ export function CustomerDmsDetail() {
             {customer.ownerName} · {customer.classType} · {customer.mobile}
           </p>
         </div>
-        <Button
-          variant="outline"
-          onClick={() => {
-            setPendingBlockToggle(customer.blocked ? "unblock" : "block");
-            setBlockReason("");
-          }}
-          className={
-            customer.blocked
-              ? "gap-1.5 text-emerald-700 border-emerald-200 hover:bg-emerald-50"
-              : "gap-1.5 text-red-600 border-red-200 hover:bg-red-50"
-          }
-        >
-          {customer.blocked ? (
-            <CheckCircle2 className="h-4 w-4" />
-          ) : (
-            <Ban className="h-4 w-4" />
-          )}
-          {customer.blocked ? "Unblock" : "Block"}
-        </Button>
       </div>
 
       {customer.blocked && customer.blockReason && (
@@ -532,6 +469,18 @@ export function CustomerDmsDetail() {
                   )}
                 </div>
                 <div>
+                  <p className="text-[11px] text-gray-500">PAN Number</p>
+                  {customer.panNumber ? (
+                    <p className="text-sm font-mono text-gray-900">
+                      {customer.panNumber}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-gray-400 italic">
+                      Not provided
+                    </p>
+                  )}
+                </div>
+                <div>
                   <p className="text-[11px] text-gray-500">Shop Type</p>
                   <p className="text-sm text-gray-900">{customer.classType}</p>
                 </div>
@@ -588,9 +537,9 @@ export function CustomerDmsDetail() {
           </Card>
 
           {/* Company Registrations — the DMS twist on Linked Companies.
-              Status, the company-specific customer ID, and the actions
-              live per company; the beat + delivery days each company
-              serves are per address, in the Addresses card above. */}
+              Status and the company-specific customer ID live per
+              company; the beat + delivery days each company serves are
+              per address, in the Addresses card above. */}
           <Card>
             <CardHeader className="py-2.5 px-4 border-b border-gray-100">
               <div className="flex items-center justify-between">
@@ -605,13 +554,7 @@ export function CustomerDmsDetail() {
             </CardHeader>
             <CardContent className="p-4 space-y-2.5">
               {customer.companies.map((l) => {
-                const co = getDmsCompany(l.companyId);
                 const exempt = l.operationMode === "wholesaler";
-                const canAct =
-                  !exempt &&
-                  (l.status === "pending" ||
-                    l.status === "under-review" ||
-                    l.status === "rejected");
                 return (
                   <div
                     key={l.companyId}
@@ -668,22 +611,6 @@ export function CustomerDmsDetail() {
                             DMS {l.syncState}
                           </Badge>
                         )}
-                        {l.syncState === "failed" && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              retrySync(customer.id, l.companyId);
-                              toast.success(
-                                `Re-pushed to the ${co?.shortName} DMS.`,
-                              );
-                            }}
-                            className="gap-1 h-7"
-                          >
-                            <RefreshCw className="h-3.5 w-3.5" />
-                            Retry
-                          </Button>
-                        )}
                       </div>
                     </div>
 
@@ -698,65 +625,6 @@ export function CustomerDmsDetail() {
                         Re-applied after an earlier rejection
                         {l.rejectionReason ? ` (${l.rejectionReason})` : ""}.
                       </p>
-                    )}
-
-                    {/* Issue the DMS customer ID / reject the request. */}
-                    {canAct && (
-                      <div className="mt-2 flex items-end gap-2">
-                        <div className="flex-1">
-                          <Label
-                            htmlFor={`detail-id-${l.companyId}`}
-                            className="text-[11px] text-gray-600"
-                          >
-                            {co?.shortName} Customer ID
-                          </Label>
-                          <Input
-                            id={`detail-id-${l.companyId}`}
-                            value={drafts[l.companyId] ?? ""}
-                            onChange={(e) =>
-                              setDrafts((p) => ({
-                                ...p,
-                                [l.companyId]: e.target.value,
-                              }))
-                            }
-                            placeholder={`e.g. ${co?.idFormatHint}`}
-                            className="mt-1 h-8 font-mono text-sm"
-                          />
-                        </div>
-                        <Button
-                          size="sm"
-                          disabled={!(drafts[l.companyId] ?? "").trim()}
-                          onClick={() => {
-                            assignCustomerId(
-                              customer.id,
-                              l.companyId,
-                              drafts[l.companyId],
-                            );
-                            setDrafts((p) => ({ ...p, [l.companyId]: "" }));
-                            toast.success(
-                              `Registered for ${co?.name} — ID queued to the DMS.`,
-                            );
-                          }}
-                          className="h-8 gap-1 bg-emerald-600 hover:bg-emerald-700"
-                        >
-                          <CheckCircle2 className="h-3.5 w-3.5" />
-                          Register
-                        </Button>
-                        {l.status !== "rejected" && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setRejectTarget(l.companyId);
-                              setRejectReason(REJECTION_REASONS[0]);
-                            }}
-                            className="h-8 gap-1 border-red-300 text-red-700 hover:bg-red-50"
-                          >
-                            <XCircle className="h-3.5 w-3.5" />
-                            Reject
-                          </Button>
-                        )}
-                      </div>
                     )}
                   </div>
                 );
@@ -850,133 +718,6 @@ export function CustomerDmsDetail() {
           </Card>
         </div>
       </div>
-
-      {/* Reject dialog — reason is shown to the buyer verbatim. */}
-      <Dialog
-        open={rejectTarget !== null}
-        onOpenChange={(o) => !o && setRejectTarget(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <XCircle className="h-5 w-5 text-red-600" />
-              Reject for {rejectCompany?.companyName}?
-            </DialogTitle>
-            <DialogDescription>
-              The buyer sees the reason verbatim and can re-apply with updated
-              details — the request comes back as Pending approval.
-            </DialogDescription>
-          </DialogHeader>
-          <div>
-            <Label className="text-xs font-semibold text-gray-700">
-              Rejection reason
-            </Label>
-            <Select value={rejectReason} onValueChange={setRejectReason}>
-              <SelectTrigger className="mt-2">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {REJECTION_REASONS.map((r) => (
-                  <SelectItem key={r} value={r}>
-                    {r}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRejectTarget(null)}>
-              Cancel
-            </Button>
-            <Button
-              className="bg-red-600 hover:bg-red-700"
-              onClick={() => {
-                if (!rejectTarget) return;
-                rejectRegistration(customer.id, [rejectTarget], rejectReason);
-                toast.success(
-                  `Rejected for ${rejectCompany?.companyName} — the buyer can re-apply.`,
-                );
-                setRejectTarget(null);
-              }}
-            >
-              Reject request
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Block / Unblock confirmation — customer-level: blocking stops
-          orders against EVERY company. The issued DMS customer IDs are
-          kept, so unblocking restores access instantly. */}
-      <Dialog
-        open={pendingBlockToggle !== null}
-        onOpenChange={(o) => !o && setPendingBlockToggle(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              {pendingBlockToggle === "block" ? (
-                <>
-                  <Ban className="h-5 w-5 text-red-600" />
-                  Block {customer.shopName}?
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-                  Unblock {customer.shopName}?
-                </>
-              )}
-            </DialogTitle>
-            <DialogDescription>
-              {pendingBlockToggle === "block"
-                ? "Blocking stops this customer ordering from every company you serve. Their DMS customer IDs are kept, so unblocking restores access instantly."
-                : "The customer will be able to place orders again immediately, using their existing DMS customer IDs."}
-            </DialogDescription>
-          </DialogHeader>
-          {pendingBlockToggle === "block" && (
-            <div>
-              <Label htmlFor="dms-block-reason">Reason</Label>
-              <Input
-                id="dms-block-reason"
-                value={blockReason}
-                onChange={(e) => setBlockReason(e.target.value)}
-                placeholder="e.g. Outstanding dues beyond 90 days"
-                className="mt-2"
-              />
-            </div>
-          )}
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setPendingBlockToggle(null)}
-            >
-              Cancel
-            </Button>
-            <Button
-              disabled={pendingBlockToggle === "block" && !blockReason.trim()}
-              onClick={() => {
-                if (pendingBlockToggle === "block") {
-                  setBlocked(customer.id, true, blockReason.trim());
-                  toast.success(`${customer.shopName} blocked.`);
-                } else {
-                  setBlocked(customer.id, false);
-                  toast.success(`${customer.shopName} unblocked.`);
-                }
-                setPendingBlockToggle(null);
-              }}
-              className={
-                pendingBlockToggle === "block"
-                  ? "bg-red-600 hover:bg-red-700 text-white"
-                  : "bg-emerald-600 hover:bg-emerald-700 text-white"
-              }
-            >
-              {pendingBlockToggle === "block"
-                ? "Yes, block customer"
-                : "Yes, unblock customer"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
