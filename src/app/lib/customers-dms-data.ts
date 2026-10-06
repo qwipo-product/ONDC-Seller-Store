@@ -1,5 +1,5 @@
 // =====================================================================
-// Customers (DMS) — proposal store.
+// Customer Onboarding — proposal store.
 //
 // A SECOND, self-contained customer model that sits alongside the live
 // /customers module without touching it. The live module auto-registers
@@ -24,7 +24,7 @@
 //            Under review → Registered | Rejected → (re-apply) →
 //            Pending approval.
 //
-// Routed at /customers-dms. Nothing here is imported by the live
+// Routed at /customer-onboarding. Nothing here is imported by the live
 // Customers module.
 // =====================================================================
 

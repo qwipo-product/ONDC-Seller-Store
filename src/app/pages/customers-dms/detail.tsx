@@ -1,5 +1,5 @@
 // =====================================================================
-// Customers (DMS) — detail.
+// Customer Onboarding — detail.
 //
 // Deliberately the same skeleton as the live Customers detail page
 // (pages/customers/detail.tsx): two-column layout — Basic Information /
@@ -81,7 +81,7 @@ export function CustomerDmsDetail() {
   );
 
   // Live updates — re-sync whenever the shared store changes so the
-  // page reflects mutations made elsewhere (e.g. a block from the list).
+  // page reflects mutations made elsewhere.
   useEffect(() => {
     if (!customerId) return;
     return subscribeToDmsCustomers(() => {
@@ -144,10 +144,10 @@ export function CustomerDmsDetail() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => navigate("/customers-dms")}
+            onClick={() => navigate("/customer-onboarding")}
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Customers (DMS)
+            Back to Customer Onboarding
           </Button>
         </div>
       </div>
@@ -175,7 +175,7 @@ export function CustomerDmsDetail() {
         <Button
           variant="outline"
           size="icon"
-          onClick={() => navigate("/customers-dms")}
+          onClick={() => navigate("/customer-onboarding")}
           className="hover:bg-gray-100"
         >
           <ArrowLeft className="h-5 w-5" />

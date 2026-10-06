@@ -6,15 +6,6 @@ import { Input } from "../../components/ui/input";
 import { Badge } from "../../components/ui/badge";
 import { Checkbox } from "../../components/ui/checkbox";
 import { Label } from "../../components/ui/label";
-import { Textarea } from "../../components/ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "../../components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -22,19 +13,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { ListPagination } from "../../components/ui/list-pagination";
 import { EmptyState } from "../../components/empty-state";
+import { CopyOnHover } from "../../components/copy-on-hover";
 import {
-  Ban,
   Building2,
-  CheckCircle2,
   Clock,
   Download,
   Eye,
+  Filter,
   Search,
-  Users,
+  UserPlus,
   X,
 } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import {
   buildCustomerExportCsv,
@@ -43,24 +36,22 @@ import {
   getCustomerTab,
   getDmsCustomers,
   registrationProgress,
-  setBlocked,
   subscribeToDmsCustomers,
   type DmsCustomer,
-  type DmsTab,
 } from "../../lib/customers-dms-data";
 
 // =====================================================================
-// Customers (DMS) — list.
+// Customer Onboarding — list.
 //
-// Three tabs, single-homed (see getCustomerTab): New Registrations,
-// Registered, Blocked. The New Registrations tab is a work queue, so it
-// carries a bulk Download: a CSV of each shop's contact, address,
-// coordinates, GST, PAN and email (see EXPORT_COLUMNS), so the seller
-// can verify the shop and create it in their DMS.
+// New-customer requests from the buyer app. A single New Registrations
+// tab: the distributor downloads the requests (see EXPORT_COLUMNS),
+// hands the file to the company, and the company creates the customers
+// in its DMS. There is no approval workflow on this page.
 //
-// The per-row View action opens the read-only detail page — KYC,
-// per-company registration status and the address × beat
-// serviceability view.
+// Follows the design-system List Page Anatomy (Orders pattern): tab
+// strip with Filters + Download on the right, applied-filter chips,
+// search row with the "N selected" caption, table, pagination. The
+// company filter lives in the standard right-side Filters drawer.
 // =====================================================================
 
 const PAGE_SIZE = 8;
@@ -75,22 +66,22 @@ export function CustomersDms() {
     [],
   );
 
-  const [activeTab, setActiveTab] = useState<DmsTab>("new");
   const [searchQuery, setSearchQuery] = useState("");
   const [companyFilter, setCompanyFilter] = useState("all");
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<string[]>([]);
 
-  const [blockTarget, setBlockTarget] = useState<DmsCustomer | null>(null);
-  const [blockReason, setBlockReason] = useState("");
-
-  const tabCount = (tab: DmsTab) =>
-    customers.filter((c) => getCustomerTab(c) === tab).length;
+  // Only open requests are listed — fully registered and blocked
+  // customers are out of scope for onboarding.
+  const requests = useMemo(
+    () => customers.filter((c) => getCustomerTab(c) === "new"),
+    [customers],
+  );
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return customers.filter((c) => {
-      if (getCustomerTab(c) !== activeTab) return false;
+    return requests.filter((c) => {
       if (
         companyFilter !== "all" &&
         !c.companies.some((l) => l.companyId === companyFilter)
@@ -110,18 +101,18 @@ export function CustomersDms() {
         )
       );
     });
-  }, [customers, activeTab, searchQuery, companyFilter]);
+  }, [requests, searchQuery, companyFilter]);
 
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const selectedRows = customers.filter((c) => selected.includes(c.id));
+  const selectedRows = requests.filter((c) => selected.includes(c.id));
+  const activeCompany = DMS_COMPANIES.find((c) => c.id === companyFilter);
 
-  const switchTab = (tab: DmsTab) => {
-    setActiveTab(tab);
+  const setCompany = (value: string) => {
+    setCompanyFilter(value);
     setPage(1);
-    setSelected([]);
   };
 
-  // ---- Bulk download ----
+  // ---- Download ----
   const handleDownload = () => {
     const rows = selectedRows.length > 0 ? selectedRows : filtered;
     if (rows.length === 0) {
@@ -129,7 +120,7 @@ export function CustomersDms() {
       return;
     }
     downloadCsv(
-      `dms-registration-requests-${new Date().toISOString().slice(0, 10)}.csv`,
+      `new-customer-requests-${new Date().toISOString().slice(0, 10)}.csv`,
       buildCustomerExportCsv(rows),
     );
     toast.success(
@@ -138,227 +129,123 @@ export function CustomersDms() {
   };
 
   return (
-    <div className="h-full flex flex-col overflow-hidden bg-gray-50">
-      {/* ---- Header ---- */}
-      <div className="flex-shrink-0 bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-semibold text-gray-900">
-              Customers (DMS)
-            </h1>
-            <p className="text-sm text-gray-500 mt-0.5">
-              Buyer-app registration requests, reviewed here and issued a
-              customer ID per company from your DMS.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-4">
-            {[
-              {
-                label: "Awaiting action",
-                value: tabCount("new"),
-                tone: "text-amber-600",
-              },
-              {
-                label: "Registered",
-                value: tabCount("registered"),
-                tone: "text-green-600",
-              },
-              {
-                label: "IDs to issue",
-                value: customers
-                  .filter((c) => getCustomerTab(c) === "new")
-                  .reduce(
-                    (n, c) =>
-                      n +
-                      c.companies.filter(
-                        (l) =>
-                          l.operationMode === "distributor" &&
-                          l.status !== "registered",
-                      ).length,
-                    0,
-                  ),
-                tone: "text-blue-600",
-              },
-            ].map((s) => (
-              <div
-                key={s.label}
-                className="rounded-lg border border-gray-200 px-4 py-2 min-w-28"
-              >
-                <p className={`text-xl font-semibold ${s.tone}`}>{s.value}</p>
-                <p className="text-[11px] text-gray-500">{s.label}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
+    <div className="h-full flex flex-col bg-gray-50">
       <div className="flex-1 overflow-hidden p-6">
         <Card className="h-full flex flex-col overflow-hidden p-0 gap-0">
-          {/* ---- Tabs ---- */}
-          <div className="border-b border-gray-200 px-4 py-3 flex-shrink-0">
-            <div className="inline-flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-              {(
-                [
-                  {
-                    key: "new",
-                    label: "New Registrations",
-                    icon: Clock,
-                    color: "amber",
-                  },
-                  {
-                    key: "registered",
-                    label: "Registered",
-                    icon: CheckCircle2,
-                    color: "green",
-                  },
-                  { key: "blocked", label: "Blocked", icon: Ban, color: "red" },
-                ] as const
-              ).map(({ key, label, icon: Icon, color }) => {
-                const active = activeTab === key;
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => switchTab(key)}
-                    className={`inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                      active
-                        ? "bg-white shadow-sm text-gray-900"
-                        : "text-gray-600 hover:text-gray-900"
-                    }`}
+          {/* Tab strip — Filters + Download right */}
+          <div className="border-b border-gray-200 p-3 flex-shrink-0">
+            <div className="flex items-center justify-between gap-4 overflow-x-auto">
+              <Tabs value="new">
+                <TabsList className="bg-gray-100 p-1 rounded-lg inline-flex gap-1 h-auto flex-shrink-0">
+                  <TabsTrigger
+                    value="new"
+                    className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2 transition-all whitespace-nowrap"
                   >
-                    <Icon
-                      className={`h-4 w-4 ${
-                        color === "amber"
-                          ? "text-amber-600"
-                          : color === "green"
-                            ? "text-green-600"
-                            : "text-red-600"
-                      }`}
-                    />
-                    {label}
-                    <span
-                      className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${
-                        active
-                          ? color === "amber"
-                            ? "bg-amber-50 text-amber-700 border-amber-200"
-                            : color === "green"
-                              ? "bg-green-50 text-green-700 border-green-200"
-                              : "bg-red-50 text-red-700 border-red-200"
-                          : "bg-gray-50 text-gray-600 border-gray-200"
-                      }`}
-                    >
-                      {tabCount(key)}
+                    <Clock className="h-4 w-4 mr-2" />
+                    <span className="font-medium">
+                      New Registrations ({requests.length})
                     </span>
-                  </button>
-                );
-              })}
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+              <div className="flex gap-2 flex-shrink-0">
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  onClick={() => setIsFilterDrawerOpen(true)}
+                >
+                  <Filter className="h-4 w-4" />
+                  Filters
+                  {activeCompany && (
+                    <Badge className="bg-blue-600 text-white border-blue-600 ml-1 h-5 px-1.5 text-[10px]">
+                      1
+                    </Badge>
+                  )}
+                </Button>
+                <Button className="gap-2" onClick={handleDownload}>
+                  <Download className="h-4 w-4" />
+                  Download
+                  {selectedRows.length > 0 && ` (${selectedRows.length})`}
+                </Button>
+              </div>
             </div>
           </div>
 
-          {/* ---- Search + bulk actions ---- */}
-          <div className="border-b border-gray-200 p-4 flex-shrink-0">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-              <div className="flex flex-1 gap-2 min-w-0">
-                <div className="relative flex-1 max-w-md">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="Search shop, owner, mobile or request ID..."
-                    value={searchQuery}
-                    onChange={(e) => {
-                      setSearchQuery(e.target.value);
-                      setPage(1);
-                    }}
-                    className="pl-10 pr-10"
-                  />
-                  {searchQuery && (
-                    <button
-                      onClick={() => setSearchQuery("")}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      aria-label="Clear search"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
+          {/* Applied filter chips */}
+          {activeCompany && (
+            <div className="px-6 py-2 border-b flex flex-wrap items-center gap-2 flex-shrink-0">
+              <Badge
+                variant="secondary"
+                className="gap-1 pl-2 pr-1 py-1 text-xs bg-blue-50 text-blue-700 border-blue-200"
+              >
+                {activeCompany.name}
+                <button
+                  onClick={() => setCompany("all")}
+                  className="ml-1 hover:bg-blue-200 rounded-full p-0.5"
+                  aria-label={`Remove ${activeCompany.name} filter`}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setCompany("all")}
+                className="text-gray-500 text-xs h-6"
+              >
+                Clear all
+              </Button>
+            </div>
+          )}
+
+          {requests.length === 0 ? (
+            <div className="flex-1 flex items-center justify-center">
+              <EmptyState
+                icon={UserPlus}
+                title="No new registrations"
+                description="New customer requests from the buyer app will land here, ready to download and share with the company."
+              />
+            </div>
+          ) : (
+            <>
+              {/* Search + selection caption */}
+              <div className="px-6 py-4 border-b flex-shrink-0">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="relative max-w-md flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      placeholder="Search by shop, owner, mobile or request ID..."
+                      value={searchQuery}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value);
+                        setPage(1);
+                      }}
+                      className="pl-10 pr-10"
+                    />
+                    {searchQuery && (
+                      <button
+                        onClick={() => setSearchQuery("")}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        aria-label="Clear search"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                  {selectedRows.length > 0 && (
+                    <span className="text-sm text-gray-600">
+                      {selectedRows.length} selected
+                    </span>
                   )}
                 </div>
-                <Select
-                  value={companyFilter}
-                  onValueChange={(v) => {
-                    setCompanyFilter(v);
-                    setPage(1);
-                  }}
-                >
-                  <SelectTrigger className="w-52">
-                    <SelectValue placeholder="All companies" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All companies</SelectItem>
-                    {DMS_COMPANIES.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                        {c.operationMode === "wholesaler" ? " (wholesale)" : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
 
-              {activeTab === "new" && (
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleDownload}
-                    className="gap-2"
-                  >
-                    <Download className="h-4 w-4" />
-                    Download
-                    {selectedRows.length > 0 && ` (${selectedRows.length})`}
-                  </Button>
-                </div>
-              )}
-            </div>
-
-            {activeTab === "new" && selectedRows.length > 0 && (
-              <div className="mt-3 flex items-center gap-3 rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-sm">
-                <span className="text-blue-800">
-                  {selectedRows.length} selected
-                </span>
-                <button
-                  onClick={() => setSelected([])}
-                  className="text-blue-700 hover:underline text-xs"
-                >
-                  Clear selection
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* ---- Table ---- */}
-          <div className="flex-1 overflow-y-auto">
-            {paged.length === 0 ? (
-              <EmptyState
-                icon={Users}
-                title={
-                  activeTab === "new"
-                    ? "No pending registrations"
-                    : activeTab === "registered"
-                      ? "No registered customers yet"
-                      : "No blocked customers"
-                }
-                description={
-                  activeTab === "new"
-                    ? "New registration requests from the buyer app will land here for review."
-                    : activeTab === "registered"
-                      ? "Customers appear here with their company customer IDs once they're registered in your DMS."
-                      : "Customers you block will be listed here with the reason."
-                }
-              />
-            ) : (
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
-                  <tr className="text-left text-xs font-semibold text-gray-600">
-                    {activeTab === "new" && (
-                      <th className="px-4 py-3 w-10">
+              {/* Table */}
+              <div className="flex-1 overflow-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-100 sticky top-0 z-10">
+                    <tr>
+                      <th className="px-4 py-3 text-left w-10">
                         <Checkbox
                           checked={
                             paged.length > 0 &&
@@ -381,217 +268,225 @@ export function CustomersDms() {
                           aria-label="Select all on this page"
                         />
                       </th>
-                    )}
-                    <th className="px-4 py-3">Shop / Owner</th>
-                    <th className="px-4 py-3">Contact</th>
-                    <th className="px-4 py-3">Location</th>
-                    <th className="px-4 py-3">Companies</th>
-                    <th className="px-4 py-3">
-                      {activeTab === "blocked" ? "Blocked" : "Submitted"}
-                    </th>
-                    <th className="px-4 py-3 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {paged.map((c) => {
-                    const progress = registrationProgress(c);
-                    return (
-                      <tr key={c.id} className="hover:bg-gray-50">
-                        {activeTab === "new" && (
-                          <td className="px-4 py-3">
-                            <Checkbox
-                              checked={selected.includes(c.id)}
-                              onCheckedChange={(v) =>
-                                setSelected((prev) =>
-                                  v
-                                    ? [...prev, c.id]
-                                    : prev.filter((id) => id !== c.id),
-                                )
-                              }
-                              aria-label={`Select ${c.shopName}`}
-                            />
-                          </td>
-                        )}
-                        <td className="px-4 py-3">
-                          <button
-                            onClick={() => navigate(`/customers-dms/${c.id}`)}
-                            className="font-medium text-gray-900 hover:text-blue-600 text-left"
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
+                        Shop / Owner
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
+                        Contact
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
+                        Location
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
+                        Companies
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
+                        Submitted
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-600">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {paged.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={7}
+                          className="px-4 py-12 text-center text-sm text-gray-500"
+                        >
+                          No registration requests match your search or
+                          filters.
+                        </td>
+                      </tr>
+                    ) : (
+                      paged.map((c) => {
+                        const progress = registrationProgress(c);
+                        return (
+                          <tr
+                            key={c.id}
+                            className="hover:bg-gray-50 transition-colors"
                           >
-                            {c.shopName}
-                          </button>
-                          <p className="text-xs text-gray-500">
-                            {c.ownerName} · {c.classType}
-                          </p>
-                          <p className="text-[11px] text-gray-400 font-mono mt-0.5">
-                            {c.requestId}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3">
-                          <p className="text-gray-900">{c.mobile}</p>
-                          <p className="text-xs text-gray-500">
-                            {c.gstNumber ?? (
-                              <span className="italic text-gray-400">
-                                No GSTIN
-                              </span>
-                            )}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3">
-                          <p className="text-gray-900">{c.city}</p>
-                          <p className="text-xs text-gray-500">
-                            {c.area} · {c.pincode}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="inline-flex items-center gap-1.5 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700">
-                            <Building2 className="h-3.5 w-3.5" />
-                            {c.companies.length}{" "}
-                            {c.companies.length === 1 ? "company" : "companies"}
-                          </span>
-                          <p className="text-[11px] text-gray-500 mt-1">
-                            {progress.done} of {progress.total} registered
-                          </p>
-                        </td>
-                        <td className="px-4 py-3 text-xs text-gray-600">
-                          {new Date(
-                            activeTab === "blocked" && c.blockedAt
-                              ? c.blockedAt
-                              : c.submittedAt,
-                          ).toLocaleDateString("en-IN", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                          })}
-                          {activeTab === "blocked" && c.blockReason && (
-                            <p className="text-[11px] text-red-600 mt-1 max-w-48">
-                              {c.blockReason}
-                            </p>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center justify-end gap-2">
-                            {activeTab === "new" && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() =>
-                                  navigate(`/customers-dms/${c.id}`)
+                            <td className="px-4 py-3">
+                              <Checkbox
+                                checked={selected.includes(c.id)}
+                                onCheckedChange={(v) =>
+                                  setSelected((prev) =>
+                                    v
+                                      ? [...prev, c.id]
+                                      : prev.filter((id) => id !== c.id),
+                                  )
                                 }
-                                className="gap-1"
+                                aria-label={`Select ${c.shopName}`}
+                              />
+                            </td>
+                            <td className="px-4 py-3">
+                              <CopyOnHover value={c.shopName} label="Shop name">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    navigate(`/customer-onboarding/${c.id}`)
+                                  }
+                                  className="text-left hover:underline focus:outline-none focus-visible:underline"
+                                  title={`View details for ${c.shopName}`}
+                                >
+                                  <p className="font-medium text-gray-900 text-sm">
+                                    {c.shopName}
+                                  </p>
+                                </button>
+                              </CopyOnHover>
+                              <p className="text-xs text-gray-500">
+                                {c.ownerName} · {c.classType}
+                              </p>
+                              <p className="text-[11px] text-gray-400 font-mono mt-0.5">
+                                {c.requestId}
+                              </p>
+                            </td>
+                            <td className="px-4 py-3">
+                              <CopyOnHover value={c.mobile} label="Mobile number">
+                                <p className="text-sm text-gray-700 font-mono">
+                                  {c.mobile}
+                                </p>
+                              </CopyOnHover>
+                              <p className="text-xs text-gray-500">
+                                {c.gstNumber ?? (
+                                  <span className="italic text-gray-400">
+                                    No GSTIN
+                                  </span>
+                                )}
+                              </p>
+                            </td>
+                            <td className="px-4 py-3">
+                              <p className="text-sm text-gray-900">{c.city}</p>
+                              <p className="text-xs text-gray-500">
+                                {c.area} · {c.pincode}
+                              </p>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className="inline-flex items-center gap-1.5 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700">
+                                <Building2 className="h-3.5 w-3.5" />
+                                {c.companies.length}{" "}
+                                {c.companies.length === 1
+                                  ? "company"
+                                  : "companies"}
+                              </span>
+                              <p className="text-[11px] text-gray-500 mt-1">
+                                {progress.done} of {progress.total} registered
+                              </p>
+                            </td>
+                            <td className="px-4 py-3 text-xs text-gray-600">
+                              {new Date(c.submittedAt).toLocaleDateString(
+                                "en-IN",
+                                {
+                                  day: "2-digit",
+                                  month: "short",
+                                  year: "numeric",
+                                },
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="gap-1 text-blue-700 hover:bg-blue-50 hover:text-blue-700 h-8"
+                                onClick={() =>
+                                  navigate(`/customer-onboarding/${c.id}`)
+                                }
+                                title={`View details for ${c.shopName}`}
                               >
                                 <Eye className="h-3.5 w-3.5" />
                                 View
                               </Button>
-                            )}
-                            {activeTab === "registered" && (
-                              <>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() =>
-                                    navigate(`/customers-dms/${c.id}`)
-                                  }
-                                  className="gap-1"
-                                >
-                                  <Eye className="h-3.5 w-3.5" />
-                                  View
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => {
-                                    setBlockTarget(c);
-                                    setBlockReason("");
-                                  }}
-                                  className="gap-1 text-red-600 border-red-200 hover:bg-red-50"
-                                >
-                                  <Ban className="h-3.5 w-3.5" />
-                                  Block
-                                </Button>
-                              </>
-                            )}
-                            {activeTab === "blocked" && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  setBlocked(c.id, false);
-                                  toast.success(
-                                    `${c.shopName} unblocked — they can order again.`,
-                                  );
-                                }}
-                                className="gap-1 text-green-700 border-green-200 hover:bg-green-50"
-                              >
-                                <CheckCircle2 className="h-3.5 w-3.5" />
-                                Unblock
-                              </Button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
 
-          {/* ---- Pagination ---- */}
-          <div className="border-t border-gray-200 flex-shrink-0">
-            <ListPagination
-              page={page}
-              total={filtered.length}
-              pageSize={PAGE_SIZE}
-              onPageChange={setPage}
-              itemLabel="customer"
-            />
-          </div>
+              <ListPagination
+                page={page}
+                total={filtered.length}
+                pageSize={PAGE_SIZE}
+                onPageChange={setPage}
+                itemLabel="request"
+              />
+            </>
+          )}
         </Card>
       </div>
 
-      {/* ---- Block dialog ---- */}
-      <Dialog
-        open={blockTarget !== null}
-        onOpenChange={(v) => !v && setBlockTarget(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Block {blockTarget?.shopName}?</DialogTitle>
-            <DialogDescription>
-              Blocking stops this customer ordering from every company you
-              serve. Their DMS customer IDs are kept, so unblocking restores
-              access instantly.
-            </DialogDescription>
-          </DialogHeader>
-          <div>
-            <Label htmlFor="block-reason">Reason</Label>
-            <Textarea
-              id="block-reason"
-              value={blockReason}
-              onChange={(e) => setBlockReason(e.target.value)}
-              placeholder="e.g. Outstanding dues beyond 90 days"
-              className="mt-2"
+      {/* Filters drawer — Company */}
+      <AnimatePresence>
+        {isFilterDrawerOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 bg-black/50 z-40"
+              onClick={() => setIsFilterDrawerOpen(false)}
             />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setBlockTarget(null)}>
-              Cancel
-            </Button>
-            <Button
-              className="bg-red-600 hover:bg-red-700"
-              disabled={!blockReason.trim()}
-              onClick={() => {
-                if (!blockTarget) return;
-                setBlocked(blockTarget.id, true, blockReason.trim());
-                toast.success(`${blockTarget.shopName} blocked.`);
-                setBlockTarget(null);
-              }}
+            <motion.div
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="fixed right-0 top-0 bottom-0 w-96 bg-white shadow-2xl z-50 flex flex-col"
             >
-              Block customer
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
+                <button
+                  onClick={() => setIsFilterDrawerOpen(false)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  aria-label="Close filters"
+                >
+                  <X className="h-5 w-5 text-gray-500" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-gray-700">
+                    Company
+                  </Label>
+                  <Select value={companyFilter} onValueChange={setCompany}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Companies</SelectItem>
+                      {DMS_COMPANIES.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
+                          {c.operationMode === "wholesaler" ? " (wholesale)" : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="border-t border-gray-200 p-6 flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setCompany("all")}
+                  className="flex-1"
+                >
+                  Clear Filters
+                </Button>
+                <Button
+                  onClick={() => setIsFilterDrawerOpen(false)}
+                  className="flex-1"
+                >
+                  Apply
+                </Button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
