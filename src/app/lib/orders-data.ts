@@ -1486,7 +1486,94 @@ for (let i = 0; i < seedOrders.length; i++) {
 // deliver, the detail page does single-order actions). When either
 // writes, the other gets a re-render via the subscribe callback.
 
-let _orders: Order[] = [...seedOrders];
+// ---- Live dates (testing) ----
+// The seed orders are written around a frozen demo day, 2026-05-20.
+// With USE_LIVE_DATES on, every seed date is shifted by the same
+// number of days so that frozen day lands on the real calendar today:
+// an order that was "due tomorrow" in the seed is due tomorrow for
+// real, overdue stays overdue, and so on. Order IDs keep their
+// original numbers. Flip to false to get the fixed May 2026 demo back.
+const USE_LIVE_DATES = true;
+const SEED_TODAY = "2026-05-20";
+
+/** The browser's local calendar date as YYYY-MM-DD. */
+function localTodayIso(): string {
+  const d = new Date();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+const LIVE_TODAY = USE_LIVE_DATES ? localTodayIso() : SEED_TODAY;
+const SEED_SHIFT_DAYS = Math.round(
+  (Date.parse(LIVE_TODAY + "T00:00:00Z") -
+    Date.parse(SEED_TODAY + "T00:00:00Z")) /
+    86400000,
+);
+
+/** Shift the leading YYYY-MM-DD of a date or ISO timestamp. */
+function shiftSeedDate<T extends string | undefined>(value: T): T {
+  if (!value || SEED_SHIFT_DAYS === 0) return value;
+  const m = /^(\d{4}-\d{2}-\d{2})/.exec(value);
+  if (!m) return value;
+  const t = Date.parse(m[1] + "T00:00:00Z");
+  if (Number.isNaN(t)) return value;
+  const shifted = new Date(t + SEED_SHIFT_DAYS * 86400000)
+    .toISOString()
+    .slice(0, 10);
+  return (shifted + value.slice(10)) as T;
+}
+
+/** Replace the YYMMDD segment of a "QWI-XXXX-YYMMDD-TOKEN" id. */
+function withIdDate(id: string, iso: string): string {
+  return id.replace(
+    /^(QWI-[A-Z]+-)\d{6}(-)/,
+    `$1${iso.slice(2, 4)}${iso.slice(5, 7)}${iso.slice(8, 10)}$2`,
+  );
+}
+
+/** Shift the YYMMDD segment of an id by SEED_SHIFT_DAYS. */
+function shiftIdDate(id: string): string {
+  const m = /^QWI-[A-Z]+-(\d{2})(\d{2})(\d{2})-/.exec(id);
+  if (!m) return id;
+  return withIdDate(id, shiftSeedDate(`20${m[1]}-${m[2]}-${m[3]}`));
+}
+
+// Seed order ids embed their order date (YYMMDD). Once the dates are
+// shifted the id is rewritten to match the new order date, so the ID
+// and Order Date columns agree. Old ids stay resolvable through this
+// map — the detail page's rich demo order and the design-system links
+// still use them.
+const seedIdByLiveId = new Map<string, string>();
+const liveIdBySeedId = new Map<string, string>();
+
+function shiftSeedOrder(o: Order): Order {
+  if (SEED_SHIFT_DAYS === 0) return o;
+  const orderDate = shiftSeedDate(o.orderDate);
+  const id = withIdDate(o.id, orderDate);
+  seedIdByLiveId.set(id, o.id);
+  liveIdBySeedId.set(o.id, id);
+  return {
+    ...o,
+    id,
+    // Shifted (not re-derived) so orders split from one checkout keep
+    // sharing the same customer order id.
+    customerOrderId: o.customerOrderId && shiftIdDate(o.customerOrderId),
+    orderDate,
+    expectedDeliveryDate: shiftSeedDate(o.expectedDeliveryDate),
+    actualDeliveryDate: shiftSeedDate(o.actualDeliveryDate),
+    cancellationTime: shiftSeedDate(o.cancellationTime),
+    logisticsRequestedAt: shiftSeedDate(o.logisticsRequestedAt),
+  };
+}
+
+/** The id an order had in the seed data (unchanged when live dates
+ *  are off, or for orders that didn't come from the seed). */
+export function getSeedOrderId(id: string): string {
+  return seedIdByLiveId.get(id) ?? id;
+}
+
+let _orders: Order[] = seedOrders.map(shiftSeedOrder);
 const _listeners = new Set<() => void>();
 
 const notify = () => {
@@ -1503,7 +1590,9 @@ export function setOrders(next: Order[]) {
 }
 
 export function getOrderById(id: string): Order | undefined {
-  return _orders.find((o) => o.id === id);
+  // Old seed ids (pre live-date shift) still resolve.
+  const liveId = liveIdBySeedId.get(id) ?? id;
+  return _orders.find((o) => o.id === liveId);
 }
 
 /**
@@ -1673,7 +1762,9 @@ export function subscribeToOrders(cb: () => void): () => void {
 // sync across screens — there's no live clock to chase. Override via
 // `OVERRIDE_TODAY` if you ever need a different anchor for QA.
 
-const DEMO_TODAY = "2026-05-20";
+// Follows the live-dates switch above: the real calendar day when
+// USE_LIVE_DATES is on, the frozen seed day otherwise.
+const DEMO_TODAY = LIVE_TODAY;
 
 /** Resolve "today" for the orders module. */
 export function getOrdersToday(): string {

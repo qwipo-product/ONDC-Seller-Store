@@ -44,6 +44,7 @@ import { toast } from "sonner";
 // page's subscribe callback sees the change.
 import {
   getOrderById,
+  getSeedOrderId,
   updateOrderStatus,
   subscribeToOrders,
   synthesizeProducts,
@@ -176,7 +177,7 @@ function buildOrderDetailFromStore(order: Order): OrderDetails {
   // products array (with QPS slabs) — synthesizeProducts strips the
   // QPS field so we'd lose it otherwise.
   const rawProducts: OrderProduct[] =
-    order.id === "QWI-ONDC-260330-8F3K92"
+    getSeedOrderId(order.id) === "QWI-ONDC-260330-8F3K92"
       ? RICH_PRODUCTS_FOR_SEED_ORDER
       : (synthesizeProducts(order) as OrderProduct[]);
 

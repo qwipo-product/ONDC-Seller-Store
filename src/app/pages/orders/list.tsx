@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { Card, CardContent } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
@@ -65,7 +65,6 @@ import {
 import {
   type Order,
   type OrderLineItem,
-  type DeliveryType,
   type CancelledBy,
   SELLER_INFO,
   getOrders,
@@ -92,6 +91,41 @@ import {
 // helper so call-sites read clearly at usage.
 function isBeatOrder(order: Order): boolean {
   return getOrderType(order) === "beat";
+}
+
+function shortDate(iso: string): string {
+  const d = Date.parse(iso + "T00:00:00Z");
+  if (Number.isNaN(d)) return iso;
+  return new Date(d).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  });
+}
+
+// Delivery-day weekday tabs. Keyed by JS getUTCDay() (0 = Sunday) but
+// listed Monday-first, the way distributors plan their beat week.
+const WEEKDAY_TABS: { day: number; label: string }[] = [
+  { day: 1, label: "Monday" },
+  { day: 2, label: "Tuesday" },
+  { day: 3, label: "Wednesday" },
+  { day: 4, label: "Thursday" },
+  { day: 5, label: "Friday" },
+  { day: 6, label: "Saturday" },
+  { day: 0, label: "Sunday" },
+];
+
+/** Weekday (0 = Sunday) of a YYYY-MM-DD delivery date, or null when the
+ *  date is missing / malformed so it never lands on the wrong weekday.
+ *  Parsed in UTC, matching the store's other date helpers, so the
+ *  result doesn't drift across the client's timezone boundary. */
+function deliveryWeekday(iso: string | undefined): number | null {
+  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null;
+  const d = new Date(iso + "T00:00:00Z");
+  if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== iso) {
+    return null;
+  }
+  return d.getUTCDay();
 }
 
 // "rejected" tab label is retired alongside the status rename; the
@@ -143,39 +177,29 @@ export function Orders() {
     setOrdersStore(next);
   };
   const [activeTab, setActiveTab] = useState<TabType>("all");
-  // Sub-tab inside Confirmed: split deliveries by when they're due.
-  // "all" matches both buckets — the default so existing flows keep
-  // Confirmed-tab navigation. The earlier "Urgent / Tomorrow /
-  // Beyond Tomorrow" model was retired in June 2026 — distributors
-  // plan around delivery DAYS, not urgency labels. The new model:
+  // Quick filter bar — one bar, same on every tab, so the seller can
+  // ask plain questions ("non-beat orders", "what goes out
+  // Monday", "Thursday's orders by status") in one or two clicks.
+  // It deliberately survives tab switches: pick a weekday once and
+  // the status tabs' counts all re-read for that day.
   //
-  //   1. Pick a delivery day (e.g. "Thu 21 May") from a pill row.
-  //   2. Inside that day, switch between Beat orders (riding the
-  //      configured serviceability route) and Non-Beat orders
-  //      (urgent / off-schedule exceptions).
-  //
-  // `confirmedDeliveryDay` holds the selected ISO date or "all".
-  // `confirmedBeatMode` holds the Beat/Non-Beat filter.
-  const [confirmedDeliveryDay, setConfirmedDeliveryDay] = useState<string>("all");
-  const [confirmedBeatMode, setConfirmedBeatMode] = useState<
-    "all" | "beat" | "non-beat"
-  >("all");
+  //   - `routeFilter`: Order type — Beat vs Non-Beat.
+  // Delivery-day weekday tab: "all" or a getUTCDay() number. Matches
+  // every order whose delivery date falls on that weekday, across all
+  // weeks — not a single calendar date.
+  const [deliveryDayTab, setDeliveryDayTab] = useState<"all" | number>("all");
+  // Exact delivery date picked from the date row that opens under a
+  // weekday tab ("all" = every date for that weekday).
+  const [deliveryDate, setDeliveryDate] = useState<string>("all");
+  const [routeFilter, setRouteFilter] = useState<"all" | "beat" | "non-beat">(
+    "all",
+  );
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [marketplaceFilter, setMarketplaceFilter] = useState<string>("all");
   const [selectedBrandFilters, setSelectedBrandFilters] = useState<string[]>([]);
-  const [selectedStatusFilters, setSelectedStatusFilters] = useState<string[]>([]);
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
-  // Delivery filters — Delivery Type (Urgent / Regular) is still
-  // a useful slicer in the drawer; the Today / Tomorrow / Overdue
-  // bucket multi-select and the Tomorrow-only / Urgent-only quick
-  // toggles were retired in June 2026 along with the rest of the
-  // relative-date model. Sellers filter by a concrete Delivery Day
-  // (via the pill row + an optional date range below) instead.
-  const [selectedDeliveryTypes, setSelectedDeliveryTypes] = useState<string[]>([]);
-  const [deliveryStartDate, setDeliveryStartDate] = useState<string>("");
-  const [deliveryEndDate, setDeliveryEndDate] = useState<string>("");
   // "Cancelled By" quick filter — only consulted on the Cancelled
   // tab. "all" matches buyer + seller cancellations; the other two
   // narrow to just one origin so the seller can audit one cancellation
@@ -189,16 +213,6 @@ export function Orders() {
     () => Array.from(new Set(orders.map((o) => o.brand))).sort(),
     [orders]
   );
-  const statusOptions = [
-    { label: "New", value: "New" },
-    { label: "Confirmed", value: "Confirmed" },
-    { label: "Delivered", value: "Delivered" },
-    { label: "Cancelled", value: "Cancelled" },
-  ];
-  const deliveryTypeOptions: { label: string; value: DeliveryType }[] = [
-    { label: "Urgent", value: "Urgent" },
-    { label: "Regular", value: "Regular" },
-  ];
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -296,261 +310,180 @@ export function Orders() {
     o.status === "Confirmed" && o.logisticsRequested === true;
   const isSellerActionable = (o: Order) => !isWithLogisticsPartner(o);
 
-  // Calculate summary statistics
-  const summary = useMemo(() => {
-    return {
-      all: orders.length,
-      new: orders.filter((o) => o.status === "New").length,
-      confirmed: orders.filter(
-        (o) => o.status === "Confirmed" && isSellerActionable(o),
-      ).length,
-      logistics: orders.filter(isWithLogisticsPartner).length,
-      delivered: orders.filter((o) => o.status === "Delivered").length,
-      cancelled: orders.filter((o) => o.status === "Cancelled").length,
-    };
-  }, [orders]);
-
-  // Get orders for active tab
-  const getTabOrders = (tab: TabType): Order[] => {
-    const statusMap: Record<
-      Exclude<TabType, "all" | "logistics">,
-      Order["status"]
-    > = {
-      new: "New",
-      confirmed: "Confirmed",
-      delivered: "Delivered",
-      cancelled: "Cancelled",
-    };
-
-    return orders.filter((order) => {
-      // "all" bypasses the status filter; "logistics" is keyed off the
-      // hand-off flag rather than a status, since those rows are still
-      // Confirmed underneath.
-      const matchesStatus =
-        tab === "all"
-          ? true
-          : tab === "logistics"
-            ? isWithLogisticsPartner(order)
-            : order.status === statusMap[tab];
-      // Orders out with the 3PL partner leave the seller's Confirmed
-      // working list — they live in the Logistics tab instead. They
-      // stay visible on "All" so the seller can still find an order by
-      // id without hunting.
-      const matchesLogisticsHandoff =
-        tab === "confirmed" ? isSellerActionable(order) : true;
-      const matchesSearch =
-        order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        order.retailerName.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesMarketplace =
-        marketplaceFilter === "all" || order.marketplace === marketplaceFilter;
-      const matchesBrand =
-        selectedBrandFilters.length === 0 || selectedBrandFilters.includes(order.brand);
-      const matchesStatusFilter =
-        selectedStatusFilters.length === 0 || selectedStatusFilters.includes(order.status);
-
-      let matchesDate = true;
-      if (startDate && endDate) {
-        const orderDate = new Date(order.orderDate);
-        const start = new Date(startDate);
-        const end = new Date(endDate);
-        matchesDate = orderDate >= start && orderDate <= end;
-      }
-
-      // Delivery filters — Delivery Type stays (Urgent / Regular),
-      // backed by the optional Delivery Day range below. The relative
-      // bucket multi-select and Tomorrow-only / Urgent-only quick
-      // toggles were dropped in June 2026.
-      const matchesDeliveryType =
-        selectedDeliveryTypes.length === 0 ||
-        selectedDeliveryTypes.includes(order.deliveryType);
-
-      let matchesDeliveryDateRange = true;
-      if (deliveryStartDate && deliveryEndDate) {
-        matchesDeliveryDateRange =
-          order.expectedDeliveryDate >= deliveryStartDate &&
-          order.expectedDeliveryDate <= deliveryEndDate;
-      }
-
-      // Delivery Day pill + Beat/Non-Beat sub-navigation. Same shape
-      // on the New, Confirmed and 3PL Logistics tabs — the seller
-      // plans new arrivals, their own deliveries and the partner's
-      // deliveries the same way (which day? which route?), so the
-      // filters mirror across all three. "all" on either dimension is
-      // a pass-through.
-      let matchesConfirmedSub = true;
-      if (tab === "confirmed" || tab === "new" || tab === "logistics") {
-        if (confirmedDeliveryDay !== "all") {
-          matchesConfirmedSub =
-            matchesConfirmedSub &&
-            order.expectedDeliveryDate === confirmedDeliveryDay;
-        }
-        if (confirmedBeatMode !== "all") {
-          const beat = isBeatOrder(order);
-          matchesConfirmedSub =
-            matchesConfirmedSub &&
-            (confirmedBeatMode === "beat" ? beat : !beat);
-        }
-      }
-
-      // Cancelled-By quick filter — only applies on the Cancelled tab.
-      // Off-tab the filter is ignored so switching tabs doesn't accidentally
-      // mask non-cancelled orders.
-      let matchesCancelledBy = true;
-      if (tab === "cancelled" && cancelledByFilter !== "all") {
-        // Treat legacy / un-stamped cancellations as seller-initiated
-        // — that's where the existing seed orders came from.
-        const who = order.cancelledBy ?? "Seller";
-        matchesCancelledBy = who === cancelledByFilter;
-      }
-
-      return (
-        matchesStatus &&
-        matchesLogisticsHandoff &&
-        matchesSearch &&
-        matchesMarketplace &&
-        matchesBrand &&
-        matchesStatusFilter &&
-        matchesDate &&
-        matchesDeliveryType &&
-        matchesDeliveryDateRange &&
-        matchesConfirmedSub &&
-        matchesCancelledBy
-      );
-    });
+  const matchesRoute = (o: Order): boolean => {
+    if (routeFilter === "all") return true;
+    if (routeFilter === "non-beat") return !isBeatOrder(o);
+    return isBeatOrder(o);
   };
+
+  /** Every filter except the status tab. `skip` leaves one chip group
+   *  out so that group's chips can show "what would I get if I clicked
+   *  this" instead of collapsing to the current selection. */
+  const matchesCommonFilters = (
+    o: Order,
+    skip: ("route" | "weekday" | "date")[] = [],
+  ): boolean => {
+    const q = searchQuery.trim().toLowerCase();
+    if (
+      q &&
+      !o.id.toLowerCase().includes(q) &&
+      !o.retailerName.toLowerCase().includes(q)
+    ) {
+      return false;
+    }
+    if (marketplaceFilter !== "all" && o.marketplace !== marketplaceFilter) {
+      return false;
+    }
+    if (
+      selectedBrandFilters.length > 0 &&
+      !selectedBrandFilters.includes(o.brand)
+    ) {
+      return false;
+    }
+    if (startDate && o.orderDate < startDate) return false;
+    if (endDate && o.orderDate > endDate) return false;
+    if (!skip.includes("route") && !matchesRoute(o)) return false;
+    // Weekday tab: orders with a missing / invalid delivery date never
+    // match a specific weekday, but still show under All Days.
+    if (
+      !skip.includes("weekday") &&
+      deliveryDayTab !== "all" &&
+      deliveryWeekday(o.expectedDeliveryDate) !== deliveryDayTab
+    ) {
+      return false;
+    }
+    if (
+      !skip.includes("date") &&
+      deliveryDate !== "all" &&
+      o.expectedDeliveryDate !== deliveryDate
+    ) {
+      return false;
+    }
+    return true;
+  };
+
+  // Orders handed to the 3PL partner stay visible on All and Pending
+  // so the seller can still find them by id, but leave the Confirmed
+  // working list — they live in the 3PL Logistics tab instead.
+  const matchesTab = (o: Order, tab: TabType): boolean => {
+    switch (tab) {
+      case "all":
+        return true;
+      case "new":
+        return o.status === "New";
+      case "confirmed":
+        return o.status === "Confirmed" && isSellerActionable(o);
+      case "logistics":
+        return isWithLogisticsPartner(o);
+      case "delivered":
+        return o.status === "Delivered";
+      case "cancelled":
+        return o.status === "Cancelled";
+    }
+  };
+
+  // Cancelled-By chip — only consulted on the Cancelled tab. Legacy /
+  // un-stamped cancellations count as seller-initiated, which is where
+  // the existing seed orders came from.
+  const matchesCancelledBy = (o: Order): boolean =>
+    activeTab !== "cancelled" ||
+    cancelledByFilter === "all" ||
+    (o.cancelledBy ?? "Seller") === cancelledByFilter;
+
+  const filterDeps = [
+    orders,
+    searchQuery,
+    marketplaceFilter,
+    selectedBrandFilters,
+    startDate,
+    endDate,
+    routeFilter,
+    deliveryDayTab,
+    deliveryDate,
+  ];
+
+  // Tab counts follow the filter bar, so picking "This week" turns the
+  // tab strip into "this week's orders by status".
+  const summary = useMemo(() => {
+    const filtered = orders.filter((o) => matchesCommonFilters(o));
+    const count = (tab: TabType) =>
+      filtered.filter((o) => matchesTab(o, tab)).length;
+    return {
+      all: filtered.length,
+      new: count("new"),
+      confirmed: count("confirmed"),
+      logistics: count("logistics"),
+      delivered: count("delivered"),
+      cancelled: count("cancelled"),
+    };
+  }, filterDeps);
 
   const currentTabOrders = useMemo(
-    () => getTabOrders(activeTab),
-    [
-      activeTab,
-      confirmedDeliveryDay,
-      confirmedBeatMode,
-      orders,
-      searchQuery,
-      marketplaceFilter,
-      selectedBrandFilters,
-      selectedStatusFilters,
-      startDate,
-      endDate,
-      selectedDeliveryTypes,
-      deliveryStartDate,
-      deliveryEndDate,
-      cancelledByFilter,
-    ],
+    () =>
+      orders.filter(
+        (o) =>
+          matchesTab(o, activeTab) &&
+          matchesCancelledBy(o) &&
+          matchesCommonFilters(o),
+      ),
+    [...filterDeps, activeTab, cancelledByFilter],
   );
 
-  // Counts for the Delivery Day + Beat/Non-Beat sub-navigation. The
-  // same shape is rendered on both the New and the Confirmed tabs,
-  // so the compute is factored into a helper and called twice —
-  // once filtered to "New", once to "Confirmed". We expose:
-  //   - dayBuckets: one entry per distinct expectedDeliveryDate
-  //     with how many orders sit on that day (ignoring the active
-  //     day filter so the pill row stays steady when the user hops
-  //     between days).
-  //   - beat / nonBeat: how many Beat vs Non-Beat orders sit inside
-  //     the currently-selected day (or across all days when day ===
-  //     "all").
-  //
-  // Both run off the same base filter so a search / marketplace /
-  // brand filter is reflected in the counts the user sees on the
-  // pills + tabs.
-  // `scope` picks the tab's population. It takes a predicate rather
-  // than a status because the 3PL Logistics tab isn't status-backed —
-  // those rows are Confirmed underneath and are selected on
-  // `logisticsRequested` instead.
-  const buildBucketCounts = (scope: (order: Order) => boolean) => {
-    const base = orders.filter((o) => {
-      if (!scope(o)) return false;
-      const matchesSearch =
-        o.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        o.retailerName.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesMarketplace =
-        marketplaceFilter === "all" || o.marketplace === marketplaceFilter;
-      const matchesBrand =
-        selectedBrandFilters.length === 0 ||
-        selectedBrandFilters.includes(o.brand);
-      const matchesDeliveryType =
-        selectedDeliveryTypes.length === 0 ||
-        selectedDeliveryTypes.includes(o.deliveryType);
-      return (
-        matchesSearch &&
-        matchesMarketplace &&
-        matchesBrand &&
-        matchesDeliveryType
-      );
-    });
-
-    const dayMap = new Map<string, number>();
+  // Weekday tab counts — same population as the visible list (current
+  // status tab + every other filter), minus the weekday tab itself, so
+  // All Days equals the list total and each weekday is what you get by
+  // clicking it.
+  const deliveryDayCounts = useMemo(() => {
+    const base = orders.filter(
+      (o) =>
+        matchesTab(o, activeTab) &&
+        matchesCancelledBy(o) &&
+        matchesCommonFilters(o, ["weekday", "date"]),
+    );
+    const byDay = new Map<number, number>();
     for (const o of base) {
-      dayMap.set(
+      const d = deliveryWeekday(o.expectedDeliveryDate);
+      if (d !== null) byDay.set(d, (byDay.get(d) ?? 0) + 1);
+    }
+    return { all: base.length, byDay };
+  }, [...filterDeps, activeTab, cancelledByFilter]);
+
+  // Dates for the selected weekday with their order counts. Ignores
+  // only the date pick itself, so every date stays clickable.
+  const deliveryDateBuckets = useMemo(() => {
+    if (deliveryDayTab === "all") return { total: 0, dates: [] };
+    const byDate = new Map<string, number>();
+    let total = 0;
+    for (const o of orders) {
+      if (
+        !matchesTab(o, activeTab) ||
+        !matchesCancelledBy(o) ||
+        !matchesCommonFilters(o, ["date"])
+      ) {
+        continue;
+      }
+      total++;
+      byDate.set(
         o.expectedDeliveryDate,
-        (dayMap.get(o.expectedDeliveryDate) ?? 0) + 1,
+        (byDate.get(o.expectedDeliveryDate) ?? 0) + 1,
       );
     }
-    const dayBuckets = Array.from(dayMap.entries())
+    const dates = Array.from(byDate.entries())
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, count]) => ({ date, count }));
+    return { total, dates };
+  }, [...filterDeps, activeTab, cancelledByFilter]);
 
-    const scopedToDay =
-      confirmedDeliveryDay === "all"
-        ? base
-        : base.filter(
-            (o) => o.expectedDeliveryDate === confirmedDeliveryDay,
-          );
-
-    return {
-      all: base.length,
-      dayBuckets,
-      beat: scopedToDay.filter(isBeatOrder).length,
-      nonBeat: scopedToDay.filter((o) => !isBeatOrder(o)).length,
-    };
-  };
-
-  // Keeps the day + Beat/Non-Beat pill counts in step with the rows
-  // the seller can actually see — an order out with the 3PL partner
-  // shouldn't inflate a day pill the seller can't action.
-  const confirmedBucketCounts = useMemo(
-    () =>
-      buildBucketCounts(
-        (o) => o.status === "Confirmed" && isSellerActionable(o),
-      ),
-    [
-      orders,
-      searchQuery,
-      marketplaceFilter,
-      selectedBrandFilters,
-      selectedDeliveryTypes,
-      confirmedDeliveryDay,
-    ],
-  );
-
-  // Same two chip rows as Confirmed, scoped to what the partner is
-  // carrying. The planning question doesn't change just because
-  // someone else is driving: which day is this going out, and is it
-  // riding a beat?
-  const logisticsBucketCounts = useMemo(
-    () => buildBucketCounts(isWithLogisticsPartner),
-    [
-      orders,
-      searchQuery,
-      marketplaceFilter,
-      selectedBrandFilters,
-      selectedDeliveryTypes,
-      confirmedDeliveryDay,
-    ],
-  );
-
-  const newBucketCounts = useMemo(
-    () => buildBucketCounts((o) => o.status === "New"),
-    [
-      orders,
-      searchQuery,
-      marketplaceFilter,
-      selectedBrandFilters,
-      selectedDeliveryTypes,
-      confirmedDeliveryDay,
-    ],
-  );
+  const routeCounts = useMemo(() => {
+    const base = orders.filter(
+      (o) =>
+        matchesTab(o, activeTab) &&
+        matchesCancelledBy(o) &&
+        matchesCommonFilters(o, ["route"]),
+    );
+    const beat = base.filter(isBeatOrder).length;
+    return { all: base.length, beat, nonBeat: base.length - beat };
+  }, [...filterDeps, activeTab, cancelledByFilter]);
 
   // VIW-2026-06911 — Soft nudge only (Stage 1). New orders the seller
   // has sat on past the threshold, across the whole list — not just
@@ -625,25 +558,16 @@ export function Orders() {
   // cancelled-by chip itself, so each chip always shows the size
   // of the bucket the seller would land on if they clicked it.
   const cancelledByCounts = useMemo(() => {
-    const baseCancelled = orders.filter((o) => {
-      if (o.status !== "Cancelled") return false;
-      const matchesSearch =
-        o.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        o.retailerName.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesMarketplace =
-        marketplaceFilter === "all" || o.marketplace === marketplaceFilter;
-      const matchesBrand =
-        selectedBrandFilters.length === 0 ||
-        selectedBrandFilters.includes(o.brand);
-      return matchesSearch && matchesMarketplace && matchesBrand;
-    });
+    const baseCancelled = orders.filter(
+      (o) => o.status === "Cancelled" && matchesCommonFilters(o),
+    );
     const isBuyer = (o: Order) => (o.cancelledBy ?? "Seller") === "Buyer";
     return {
       all: baseCancelled.length,
       buyer: baseCancelled.filter(isBuyer).length,
       seller: baseCancelled.filter((o) => !isBuyer(o)).length,
     };
-  }, [orders, searchQuery, marketplaceFilter, selectedBrandFilters]);
+  }, filterDeps);
 
   // Handle select all for current tab
   const handleSelectAll = (checked: boolean) => {
@@ -678,27 +602,29 @@ export function Orders() {
     setActiveTab(tab as TabType);
     setSelectedOrders([]);
     setCurrentPage(1); // Reset to first page
-    // Reset the Delivery Day + Beat/Non-Beat sub-navigation whenever
-    // we leave New, Confirmed or 3PL Logistics (the tabs that host
-    // the filters), so a fresh visit always lands on "All days / All
-    // orders".
-    if (tab !== "confirmed" && tab !== "new" && tab !== "logistics") {
-      setConfirmedDeliveryDay("all");
-      setConfirmedBeatMode("all");
-    }
-    // Same idea for the Cancelled tab's "Cancelled By" quick filter
-    // — reset on the way out so it doesn't quietly persist.
+    // The quick filter bar is shared across tabs and deliberately
+    // kept. The Cancelled tab's "Cancelled By" chip is tab-local, so
+    // reset it on the way out so it doesn't quietly persist.
     if (tab !== "cancelled") setCancelledByFilter("all");
   };
 
-  const handleConfirmedDayChange = (day: string) => {
-    setConfirmedDeliveryDay(day);
+  const handleDeliveryDayTabChange = (day: "all" | number) => {
+    setDeliveryDayTab(day);
+    setDeliveryDate("all");
     setSelectedOrders([]);
     setCurrentPage(1);
   };
 
-  const handleConfirmedBeatModeChange = (mode: "all" | "beat" | "non-beat") => {
-    setConfirmedBeatMode(mode);
+  const handleRouteChange = (route: "all" | "beat" | "non-beat") => {
+    setRouteFilter(route);
+    setSelectedOrders([]);
+    setCurrentPage(1);
+  };
+
+  // Date row under a weekday: pick one date. Clicking the active date
+  // again goes back to every date for that weekday.
+  const handleDeliveryDateChange = (date: string) => {
+    setDeliveryDate(deliveryDate === date ? "all" : date);
     setSelectedOrders([]);
     setCurrentPage(1);
   };
@@ -851,7 +777,7 @@ export function Orders() {
       `${moved} order${moved === 1 ? "" : "s"} sent for 3PL delivery.`,
       {
         description:
-          "Track them under the 3PL Logistics tab until the delivery partner completes them.",
+          "Track them under the Logistics tab until the delivery partner completes them.",
         icon: <Truck className="h-4 w-4 text-blue-600" />,
         duration: 5000,
       },
@@ -865,24 +791,25 @@ export function Orders() {
     setSearchQuery("");
     setMarketplaceFilter("all");
     setSelectedBrandFilters([]);
-    setSelectedStatusFilters([]);
     setStartDate("");
     setEndDate("");
-    setSelectedDeliveryTypes([]);
-    setDeliveryStartDate("");
-    setDeliveryEndDate("");
+    setRouteFilter("all");
+    setDeliveryDayTab("all");
+    setDeliveryDate("all");
+    setCurrentPage(1);
   };
 
+  // Drawer-only filters — drives the badge on the Filters button.
+  const drawerFilterCount =
+    (marketplaceFilter !== "all" ? 1 : 0) +
+    (selectedBrandFilters.length > 0 ? 1 : 0) +
+    (startDate || endDate ? 1 : 0);
+
   const hasActiveFilters =
-    searchQuery ||
-    marketplaceFilter !== "all" ||
-    selectedBrandFilters.length > 0 ||
-    selectedStatusFilters.length > 0 ||
-    startDate ||
-    endDate ||
-    selectedDeliveryTypes.length > 0 ||
-    deliveryStartDate ||
-    deliveryEndDate;
+    !!searchQuery ||
+    drawerFilterCount > 0 ||
+    routeFilter !== "all" ||
+    deliveryDayTab !== "all";
 
   // Handle export
   // ---- Export helpers ----
@@ -1294,7 +1221,8 @@ export function Orders() {
                       title={`Placed ${getPendingAgeDays(order)} days ago — please confirm or cancel it before piling on new orders.`}
                     >
                       <Clock className="h-2.5 w-2.5" />
-                      {getPendingAgeDays(order)}d pending
+                      {getPendingAgeDays(order)}{" "}
+                      {getPendingAgeDays(order) === 1 ? "day" : "days"} pending
                     </span>
                   )}
                 </td>
@@ -1438,92 +1366,226 @@ export function Orders() {
   // already handles rendering the illustration in each tab body.
   const isEmpty = orders.length === 0;
 
-  // Render helper — the Delivery Day pill row + Beat/Non-Beat tab
-  // row, parameterised on a counts object. Same JSX powers the New
-  // tab and the Confirmed tab so the surfaces stay in lockstep.
-  type BucketCounts = ReturnType<typeof buildBucketCounts>;
-  const renderDayAndBeatFilters = (counts: BucketCounts) => (
-    <div className="px-6 pt-4 pb-2 border-b flex-shrink-0 space-y-2">
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-xs font-medium text-gray-600 uppercase tracking-wide mr-1">
-          Delivery day:
-        </span>
-        <button
-          onClick={() => handleConfirmedDayChange("all")}
-          className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-            confirmedDeliveryDay === "all"
-              ? "bg-gray-900 text-white border-gray-900"
-              : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-          }`}
-        >
-          All days ({counts.all})
-        </button>
-        {counts.dayBuckets.map((b) => {
-          const isActive = confirmedDeliveryDay === b.date;
-          const label = formatDeliveryPillLabel(b.date);
-          const today = getOrdersToday();
-          const tone =
-            b.date === today
-              ? isActive
-                ? "bg-red-600 text-white border-red-600"
-                : "bg-red-50 text-red-800 border-red-200 hover:bg-red-100"
-              : isActive
-                ? "bg-blue-600 text-white border-blue-600"
-                : "bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100";
-          return (
+  // Search bar — sits under the filters, as on the original screen.
+  // Clear resets every filter (search, delivery day, order type and
+  // the drawer filters) in one go.
+  const renderSearchBar = () => (
+    <div className="px-6 py-4 border-b flex-shrink-0">
+      <div className="flex items-center gap-3">
+        <div className="relative max-w-md flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder="Search by order ID, retailer name..."
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="pl-10 pr-10"
+          />
+          {searchQuery && (
             <button
-              key={b.date}
-              onClick={() => handleConfirmedDayChange(b.date)}
-              className={`text-xs px-3 py-1.5 rounded-full border transition-colors gap-1.5 inline-flex items-center ${tone}`}
-              title={b.date}
+              onClick={() => setSearchQuery("")}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              aria-label="Clear search"
             >
-              <CalendarDays className="h-3 w-3" />
-              {label} ({b.count})
+              <X className="h-4 w-4" />
             </button>
-          );
-        })}
-      </div>
-
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-xs font-medium text-gray-600 uppercase tracking-wide mr-1">
-          Order type:
-        </span>
-        <button
-          onClick={() => handleConfirmedBeatModeChange("all")}
-          className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-            confirmedBeatMode === "all"
-              ? "bg-gray-900 text-white border-gray-900"
-              : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-          }`}
-        >
-          All ({counts.beat + counts.nonBeat})
-        </button>
-        <button
-          onClick={() => handleConfirmedBeatModeChange("beat")}
-          className={`text-xs px-3 py-1.5 rounded-full border transition-colors gap-1.5 inline-flex items-center ${
-            confirmedBeatMode === "beat"
-              ? "bg-emerald-600 text-white border-emerald-600"
-              : "bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
-          }`}
-        >
-          <Route className="h-3 w-3" />
-          Beat orders ({counts.beat})
-        </button>
-        <button
-          onClick={() => handleConfirmedBeatModeChange("non-beat")}
-          className={`text-xs px-3 py-1.5 rounded-full border transition-colors gap-1.5 inline-flex items-center ${
-            confirmedBeatMode === "non-beat"
-              ? "bg-amber-600 text-white border-amber-600"
-              : "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100"
-          }`}
-        >
-          <Zap className="h-3 w-3" />
-          Non-beat orders ({counts.nonBeat})
-        </button>
+          )}
+        </div>
+        {hasActiveFilters && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+            className="text-sm text-gray-500 gap-1"
+          >
+            <X className="h-4 w-4" />
+            Clear filters
+          </Button>
+        )}
       </div>
     </div>
   );
 
+  // Delivery filters — the rows under the toolbar:
+  //   1. Delivery day: All Days · Monday … Sunday (weekday, every week)
+  //   2. Only once a weekday is picked: that weekday's actual dates
+  //      with their order counts.
+  //   3. Order type: All · Beat · Non-beat.
+  // Same pill styling the old date-wise Delivery Day row used: dark
+  // for All, blue for the selected day, emerald = beat, amber =
+  // non-beat. Rows scroll sideways on narrow screens.
+  const renderDeliveryFilters = () => {
+    const pill = (active: boolean, activeTone: string, empty = false) =>
+      `shrink-0 inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border transition-colors whitespace-nowrap ${
+        active
+          ? activeTone
+          : `bg-white border-gray-300 hover:bg-gray-50 ${empty ? "text-gray-400" : "text-gray-700"}`
+      }`;
+    const rowLabel =
+      "shrink-0 w-28 inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 uppercase tracking-wide";
+    const weekdayLabel =
+      WEEKDAY_TABS.find((w) => w.day === deliveryDayTab)?.label ?? "";
+
+    return (
+      <div className="px-6 py-3 border-b flex-shrink-0 space-y-2">
+        {/* 1 — weekday */}
+        <div className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none]">
+          <span className={rowLabel}>
+            <CalendarDays className="h-3.5 w-3.5" />
+            Delivery day
+          </span>
+          <button
+            onClick={() => handleDeliveryDayTabChange("all")}
+            className={pill(
+              deliveryDayTab === "all",
+              "bg-gray-900 text-white border-gray-900",
+            )}
+          >
+            All Days ({deliveryDayCounts.all})
+          </button>
+          {WEEKDAY_TABS.map(({ day, label }) => {
+            const count = deliveryDayCounts.byDay.get(day) ?? 0;
+            return (
+              <button
+                key={day}
+                onClick={() => handleDeliveryDayTabChange(day)}
+                className={pill(
+                  deliveryDayTab === day,
+                  "bg-blue-600 text-white border-blue-600",
+                  count === 0,
+                )}
+              >
+                {label} ({count})
+              </button>
+            );
+          })}
+        </div>
+
+        {/* 2 — that weekday's actual dates */}
+        {deliveryDayTab !== "all" && (
+          <div className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none] rounded-lg bg-blue-50/50 py-1.5 -mx-1 px-1">
+            <span className={rowLabel}>Dates</span>
+            <button
+              onClick={() => {
+                setDeliveryDate("all");
+                setSelectedOrders([]);
+                setCurrentPage(1);
+              }}
+              className={pill(
+                deliveryDate === "all",
+                "bg-blue-600 text-white border-blue-600",
+              )}
+            >
+              All {weekdayLabel}s ({deliveryDateBuckets.total})
+            </button>
+            {deliveryDateBuckets.dates.length === 0 && (
+              <span className="text-xs text-gray-500">
+                No {weekdayLabel} deliveries for the current filters.
+              </span>
+            )}
+            {deliveryDateBuckets.dates.map((d) => {
+              const active = deliveryDate === d.date;
+              return (
+                <button
+                  key={d.date}
+                  onClick={() => handleDeliveryDateChange(d.date)}
+                  className={pill(
+                    active,
+                    "bg-blue-600 text-white border-blue-600",
+                  )}
+                >
+                  {formatDeliveryPillLabel(d.date)} ({d.count})
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* 3 — order type */}
+        <div className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none]">
+          <span className={rowLabel}>
+            <Route className="h-3.5 w-3.5" />
+            Order type
+          </span>
+          <button
+            onClick={() => handleRouteChange("all")}
+            className={pill(
+              routeFilter === "all",
+              "bg-gray-900 text-white border-gray-900",
+            )}
+          >
+            All ({routeCounts.all})
+          </button>
+          <button
+            onClick={() => handleRouteChange("beat")}
+            className={pill(
+              routeFilter === "beat",
+              "bg-emerald-600 text-white border-emerald-600",
+              routeCounts.beat === 0,
+            )}
+          >
+            <Route className="h-3 w-3" />
+            Beat ({routeCounts.beat})
+          </button>
+          <button
+            onClick={() => handleRouteChange("non-beat")}
+            className={pill(
+              routeFilter === "non-beat",
+              "bg-amber-600 text-white border-amber-600",
+              routeCounts.nonBeat === 0,
+            )}
+          >
+            <Zap className="h-3 w-3" />
+            Non-beat ({routeCounts.nonBeat})
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // Status tabs — original grey segmented style, "All (35)" labels.
+  // Kept data-driven so the Logistics tab can drop in and out with the
+  // logistics flag.
+  const statusTabs: {
+    value: TabType;
+    label: string;
+    count: number;
+    icon?: typeof Clock;
+    title?: string;
+  }[] = [
+    { value: "all", label: "All", count: summary.all },
+    { value: "new", label: "New", count: summary.new, icon: ShoppingCart },
+    {
+      value: "confirmed",
+      label: "Confirmed",
+      count: summary.confirmed,
+      icon: CheckCircle2,
+    },
+    ...(logisticsEnabled
+      ? [
+          {
+            value: "logistics" as TabType,
+            label: "Logistics",
+            count: summary.logistics,
+            icon: Truck,
+          },
+        ]
+      : []),
+    {
+      value: "delivered",
+      label: "Delivered",
+      count: summary.delivered,
+      icon: PackageCheck,
+    },
+    {
+      value: "cancelled",
+      label: "Cancelled",
+      count: summary.cancelled,
+      icon: XCircle,
+    },
+  ];
   return (
     <div className="h-full flex flex-col bg-gray-50">
       {/* Page area — Card stretches; only the rows inside each tab
@@ -1544,52 +1606,22 @@ export function Orders() {
                 <div className="flex items-center justify-between gap-4 overflow-x-auto">
                   {/* Tab Toggle */}
                   <TabsList className="bg-gray-100 p-1 rounded-lg inline-flex gap-1 h-auto flex-shrink-0">
-                    <TabsTrigger
-                      value="all"
-                      className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2 transition-all whitespace-nowrap"
-                    >
-                      <span className="font-medium">All ({summary.all})</span>
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="new"
-                      className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2 transition-all whitespace-nowrap"
-                    >
-                      <ShoppingCart className="h-4 w-4 mr-2" />
-                      <span className="font-medium">New ({summary.new})</span>
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="confirmed"
-                      className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2 transition-all whitespace-nowrap"
-                    >
-                      <CheckCircle2 className="h-4 w-4 mr-2" />
-                      <span className="font-medium">Confirmed ({summary.confirmed})</span>
-                    </TabsTrigger>
-                    {/* Only meaningful once the seller can actually
-                        hand orders off, so it's gated on the same flag
-                        as the Request 3PL Logistics action. */}
-                    {logisticsEnabled && (
-                      <TabsTrigger
-                        value="logistics"
-                        className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2 transition-all whitespace-nowrap"
-                      >
-                        <Truck className="h-4 w-4 mr-2" />
-                        <span className="font-medium">3PL Logistics ({summary.logistics})</span>
-                      </TabsTrigger>
-                    )}
-                    <TabsTrigger
-                      value="delivered"
-                      className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2 transition-all whitespace-nowrap"
-                    >
-                      <PackageCheck className="h-4 w-4 mr-2" />
-                      <span className="font-medium">Delivered ({summary.delivered})</span>
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="cancelled"
-                      className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2 transition-all whitespace-nowrap"
-                    >
-                      <XCircle className="h-4 w-4 mr-2" />
-                      <span className="font-medium">Cancelled ({summary.cancelled})</span>
-                    </TabsTrigger>
+                    {statusTabs.map((t) => {
+                      const Icon = t.icon;
+                      return (
+                        <TabsTrigger
+                          key={t.value}
+                          value={t.value}
+                          title={t.title}
+                          className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2 transition-all whitespace-nowrap"
+                        >
+                          {Icon && <Icon className="h-4 w-4 mr-2" />}
+                          <span className="font-medium">
+                            {t.label} ({t.count})
+                          </span>
+                        </TabsTrigger>
+                      );
+                    })}
                   </TabsList>
 
                   {/* Action Buttons */}
@@ -1603,6 +1635,11 @@ export function Orders() {
                     >
                       <Filter className="h-4 w-4" />
                       Filters
+                      {drawerFilterCount > 0 && (
+                        <span className="ml-0.5 inline-flex items-center justify-center h-5 min-w-5 px-1 rounded-full bg-gray-900 text-white text-[10px] font-semibold">
+                          {drawerFilterCount}
+                        </span>
+                      )}
                     </Button>
 
                     {/* Export Button */}
@@ -1616,12 +1653,6 @@ export function Orders() {
                   </div>
                   )}
                 </div>
-
-                {/* Bulk Action Buttons for New Tab */}
-                {/* Removed - now beside search bar */}
-
-                {/* Bulk Action Buttons for Confirmed Tab */}
-                {/* Removed - now beside search bar */}
               </div>
 
               {/* Order Summary strip — three figures (Customers,
@@ -1663,21 +1694,18 @@ export function Orders() {
                 </div>
               )}
 
-              {/* Applied Filter Tags */}
-              {(selectedBrandFilters.length > 0 || selectedStatusFilters.length > 0 || marketplaceFilter !== "all") && (
+              {/* Delivery day / Dates / Order type */}
+              {!isEmpty && renderDeliveryFilters()}
+
+              {/* Applied drawer-filter tags — the quick bar above
+                  already shows its own state, so only drawer filters
+                  need a reminder here. */}
+              {drawerFilterCount > 0 && (
                 <div className="px-6 py-2 border-b flex flex-wrap items-center gap-2 flex-shrink-0">
                   {selectedBrandFilters.map((brand) => (
                     <Badge key={brand} variant="secondary" className="gap-1 pl-2 pr-1 py-1 text-xs bg-purple-50 text-purple-700 border-purple-200">
                       {brand}
                       <button onClick={() => setSelectedBrandFilters(selectedBrandFilters.filter(b => b !== brand))} className="ml-1 hover:bg-purple-200 rounded-full p-0.5">
-                        <X className="h-3 w-3" />
-                      </button>
-                    </Badge>
-                  ))}
-                  {selectedStatusFilters.map((status) => (
-                    <Badge key={status} variant="secondary" className="gap-1 pl-2 pr-1 py-1 text-xs bg-blue-50 text-blue-700 border-blue-200">
-                      {status}
-                      <button onClick={() => setSelectedStatusFilters(selectedStatusFilters.filter(s => s !== status))} className="ml-1 hover:bg-blue-200 rounded-full p-0.5">
                         <X className="h-3 w-3" />
                       </button>
                     </Badge>
@@ -1690,38 +1718,22 @@ export function Orders() {
                       </button>
                     </Badge>
                   )}
-                  <Button variant="ghost" size="sm" onClick={clearFilters} className="text-gray-500 text-xs h-6">
-                    Clear all
-                  </Button>
+                  {(startDate || endDate) && (
+                    <Badge variant="secondary" className="gap-1 pl-2 pr-1 py-1 text-xs bg-blue-50 text-blue-700 border-blue-200">
+                      Ordered {startDate ? shortDate(startDate) : "…"} – {endDate ? shortDate(endDate) : "…"}
+                      <button onClick={() => { setStartDate(""); setEndDate(""); }} className="ml-1 hover:bg-blue-200 rounded-full p-0.5">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  )}
                 </div>
               )}
+
+              {/* Search */}
+              {!isEmpty && renderSearchBar()}
 
             {/* Tab Contents */}
             <TabsContent value="all" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
-              {!isEmpty && (
-              <div className="px-6 py-4 border-b flex-shrink-0">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="relative max-w-md flex-1">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input
-                      placeholder="Search by order ID, retailer name..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10 pr-10"
-                    />
-                    {searchQuery && (
-                      <button
-                        onClick={() => setSearchQuery("")}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-              )}
-
               {/* Table */}
               {renderOrderTable(paginatedOrders)}
               {!isEmpty && (
@@ -1736,28 +1748,9 @@ export function Orders() {
             </TabsContent>
 
             <TabsContent value="new" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
-              {!isEmpty && renderDayAndBeatFilters(newBucketCounts)}
-              {!isEmpty && (
-              <div className="px-6 py-4 border-b flex-shrink-0">
+              {!isEmpty && selectedOrders.length > 0 && (
+              <div className="px-6 py-2 border-b flex-shrink-0 bg-purple-50/60">
                 <div className="flex items-center justify-between gap-4">
-                  <div className="relative max-w-md flex-1">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input
-                      placeholder="Search by order ID, retailer name..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10 pr-10"
-                    />
-                    {searchQuery && (
-                      <button
-                        onClick={() => setSearchQuery("")}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-
                   {/* Bulk Action Buttons — Confirm / Cancel keep the
                       green/red destructive treatment; View on Map sits
                       first because the seller usually wants to eyeball
@@ -1812,30 +1805,10 @@ export function Orders() {
             </TabsContent>
 
             <TabsContent value="confirmed" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
-              {!isEmpty && (
+              {!isEmpty && selectedOrders.length > 0 && (
                 <>
-                  {renderDayAndBeatFilters(confirmedBucketCounts)}
-
-                  <div className="px-6 py-4 border-b flex-shrink-0">
+                  <div className="px-6 py-2 border-b flex-shrink-0 bg-purple-50/60">
                     <div className="flex items-center justify-between gap-4">
-                      <div className="relative max-w-md flex-1">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                        <Input
-                          placeholder="Search by order ID, retailer name..."
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          className="pl-10 pr-10"
-                        />
-                        {searchQuery && (
-                          <button
-                            onClick={() => setSearchQuery("")}
-                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        )}
-                      </div>
-
                       {/* Bulk Action Buttons — View on Map (route the
                           day's confirmed deliveries) anchors the row,
                           then the two fulfilment routes, then the
@@ -1905,26 +1878,8 @@ export function Orders() {
                 which in production arrives from the delivery-partner
                 app via LBNP rather than from a button here. */}
             <TabsContent value="logistics" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
-              {!isEmpty && renderDayAndBeatFilters(logisticsBucketCounts)}
-              <div className="px-6 py-4 border-b flex-shrink-0">
-                <div className="relative max-w-md">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="Search by order ID, retailer name..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 pr-10"
-                  />
-                  {searchQuery && (
-                    <button
-                      onClick={() => setSearchQuery("")}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-                <p className="mt-3 text-xs text-gray-500">
+              <div className="px-6 py-2 border-b flex-shrink-0 bg-blue-50/50">
+                <p className="text-xs text-gray-600">
                   These orders are with the logistics partner. They move to Delivered automatically once the delivery partner completes them.
                 </p>
               </div>
@@ -1943,28 +1898,6 @@ export function Orders() {
             </TabsContent>
 
             <TabsContent value="delivered" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
-              {!isEmpty && (
-              <div className="px-6 py-4 border-b flex-shrink-0">
-                <div className="relative max-w-md">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="Search by order ID, retailer name..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 pr-10"
-                  />
-                  {searchQuery && (
-                    <button
-                      onClick={() => setSearchQuery("")}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-              </div>
-              )}
-
               {/* Table */}
               {renderOrderTable(paginatedOrders)}
             </TabsContent>
@@ -1977,7 +1910,7 @@ export function Orders() {
                       seller can audit buyer drop-offs vs their own
                       cancellations in one click. Mirrors the Confirmed
                       tab's delivery-window chips for visual rhythm. */}
-                  <div className="px-6 pt-4 pb-2 border-b flex-shrink-0 flex items-center gap-2 flex-wrap">
+                  <div className="px-6 py-2 border-b flex-shrink-0 flex items-center gap-2 flex-wrap">
                     <span className="text-xs font-medium text-gray-600 uppercase tracking-wide mr-1">
                       Cancelled By:
                     </span>
@@ -2020,26 +1953,6 @@ export function Orders() {
                     >
                       Seller ({cancelledByCounts.seller})
                     </button>
-                  </div>
-
-                  <div className="px-6 py-4 border-b flex-shrink-0">
-                    <div className="relative max-w-md">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                      <Input
-                        placeholder="Search by order ID, retailer name..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-10 pr-10"
-                      />
-                      {searchQuery && (
-                        <button
-                          onClick={() => setSearchQuery("")}
-                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
                   </div>
                 </>
               )}
@@ -2183,7 +2096,8 @@ export function Orders() {
                   </div>
                   <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap border border-amber-200 bg-amber-50 text-amber-800">
                     <Clock className="h-3 w-3" />
-                    {getPendingAgeDays(o)}d pending
+                    {getPendingAgeDays(o)}{" "}
+                    {getPendingAgeDays(o) === 1 ? "day" : "days"} pending
                   </span>
                   <span className="text-[10px] text-gray-600 whitespace-nowrap">
                     ₹{o.orderValue.toLocaleString()}
@@ -2689,7 +2603,7 @@ export function Orders() {
             >
               {/* Header */}
               <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                <h2 className="text-lg font-semibold text-gray-900">Filter Orders</h2>
+                <h2 className="text-lg font-semibold text-gray-900">More Filters</h2>
                 <button
                   onClick={() => setIsFilterDialogOpen(false)}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -2713,17 +2627,6 @@ export function Orders() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Status</Label>
-                    <MultiSelect
-                      options={statusOptions}
-                      selected={selectedStatusFilters}
-                      onChange={setSelectedStatusFilters}
-                      placeholder="All Status"
-                      className="w-full"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
                     <Label htmlFor="marketplaceFilter">Marketplace</Label>
                     <Select
                       value={marketplaceFilter}
@@ -2741,72 +2644,27 @@ export function Orders() {
                     </Select>
                   </div>
 
+                  {/* Status, delivery day and Beat / Non-Beat live in
+                      the tabs and the quick filter bar now, so the
+                      drawer only keeps the less-used slicers. */}
                   <div className="space-y-2">
-                    <Label htmlFor="dateRange">Order Date Range</Label>
-                    <div className="flex flex-col gap-2">
+                    <Label>Order placed between</Label>
+                    <div className="flex items-center gap-2">
                       <Input
                         type="date"
+                        aria-label="Order date from"
                         value={startDate}
+                        max={endDate || undefined}
                         onChange={(e) => setStartDate(e.target.value)}
-                        className="w-full"
-                        placeholder="Start Date"
                       />
+                      <span className="text-xs text-gray-400">to</span>
                       <Input
                         type="date"
+                        aria-label="Order date to"
                         value={endDate}
+                        min={startDate || undefined}
                         onChange={(e) => setEndDate(e.target.value)}
-                        className="w-full"
-                        placeholder="End Date"
                       />
-                    </div>
-                  </div>
-
-                  {/* Delivery filters — June 2026 retired the relative
-                      bucket multi-select (Today / Tomorrow / Overdue)
-                      and the Tomorrow-only / Urgent-only quick toggles
-                      together with the broader Tomorrow indicator
-                      cleanup. Sellers slice deliveries by a concrete
-                      Delivery Day range (or via the pill row on the
-                      New / Confirmed tabs). Delivery Type stays as an
-                      Urgent vs Regular slicer. */}
-                  <div className="pt-2 border-t border-gray-100">
-                    <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-700 mb-3">
-                      Delivery
-                    </h4>
-
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label>Delivery Day Range</Label>
-                        <div className="flex flex-col gap-2">
-                          <Input
-                            type="date"
-                            value={deliveryStartDate}
-                            onChange={(e) =>
-                              setDeliveryStartDate(e.target.value)
-                            }
-                            placeholder="From"
-                          />
-                          <Input
-                            type="date"
-                            value={deliveryEndDate}
-                            onChange={(e) =>
-                              setDeliveryEndDate(e.target.value)
-                            }
-                            placeholder="To"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Delivery Type</Label>
-                        <MultiSelect
-                          options={deliveryTypeOptions}
-                          selected={selectedDeliveryTypes}
-                          onChange={setSelectedDeliveryTypes}
-                          placeholder="Urgent / Regular"
-                          className="w-full"
-                        />
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -2817,7 +2675,12 @@ export function Orders() {
                 <Button
                   variant="outline"
                   className="flex-1"
-                  onClick={clearFilters}
+                  onClick={() => {
+                    setMarketplaceFilter("all");
+                    setSelectedBrandFilters([]);
+                    setStartDate("");
+                    setEndDate("");
+                  }}
                 >
                   Clear Filters
                 </Button>

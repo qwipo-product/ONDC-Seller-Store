@@ -1,0 +1,59 @@
+1
+00:00:00,500 --> 00:00:12,910
+Hello! In this short video, let us look at the new filters on the Orders page of the Qwipo Seller Store. These filters help you find and plan your orders quickly.
+
+2
+00:00:14,310 --> 00:00:25,970
+This is the Orders page. At the top are the status tabs. Below them, you can see the totals, then the new filters, and then the search bar.
+
+3
+00:00:27,370 --> 00:00:39,200
+The status tabs show All, New, Confirmed, Logistics, Delivered and Cancelled orders. The number on each tab tells you how many orders are in it.
+
+4
+00:00:40,600 --> 00:00:50,750
+This line shows the number of customers, the number of orders, and the total order value. It changes every time you apply a filter.
+
+5
+00:00:52,150 --> 00:01:05,280
+This is the new Delivery Day filter. You can see All Days, and every day of the week, from Monday to Sunday. The number shows how many orders are delivered on that day.
+
+6
+00:01:06,680 --> 00:01:21,580
+When you click a day, like Monday, a new row opens with the real dates. For example, Monday the fifth of October, and Monday the twelfth of October. Orders from all Mondays are shown together.
+
+7
+00:01:22,980 --> 00:01:31,040
+Click a date to see only the orders for that date. Click the same date again to go back to all Mondays.
+
+8
+00:01:32,440 --> 00:01:43,960
+Next is the Order Type filter. You can choose All, Beat orders, or Non-beat orders. Here, we are seeing only the non-beat orders.
+
+9
+00:01:45,360 --> 00:01:57,000
+You can use the filters together. Here we picked Saturday, the tenth of October, and Beat orders. Now we see only the beat orders for that date.
+
+10
+00:01:58,400 --> 00:02:08,940
+Notice that the numbers on the status tabs also change. So you can quickly see how many of these orders are new, confirmed, or delivered.
+
+11
+00:02:10,340 --> 00:02:21,000
+Open the New tab to see only the new orders for your filters. You can select orders here, and confirm or cancel them, just like before.
+
+12
+00:02:22,400 --> 00:02:30,940
+The search bar is just below the filters. Type an order ID or a retailer name to find an order quickly.
+
+13
+00:02:32,340 --> 00:02:36,920
+To remove all the filters at once, click Clear filters.
+
+14
+00:02:38,320 --> 00:02:48,930
+If a new order is waiting for a long time, you will see a label like, three days pending. This reminds you to confirm or cancel that order.
+
+15
+00:02:50,330 --> 00:03:00,460
+That's all! Use the Delivery Day, Dates and Order Type filters to plan your deliveries easily. Thank you for watching.
