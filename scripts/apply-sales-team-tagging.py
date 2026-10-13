@@ -55,6 +55,7 @@ ALIASES = {
     "md salam": "Mohd Salam",
     "md khaleel": "Mohammed Khaleel Ullah",
     "d srikanth": "Devasani Srikanth",
+    "deeti satish kumar": "Deeti Satishkumar",
 }
 
 ID, NAME, BUSINESS, MOBILE, BSTATUS, BTYPE, STATUS, SP_NAME, SP_NUM, CLUSTER, \
@@ -172,18 +173,21 @@ def main():
     pin_centre = {p: (statistics.median(a for a, _ in pts), statistics.median(b for _, b in pts))
                   for p, pts in pin_points.items()}
 
-    added, taken = [], set(by_mobile)
+    added, skipped, taken = [], [], set(by_mobile)
     for r in new:
         mobile = norm_phone(r[MOBILE])
         if not mobile:
             stats["new: skipped, invalid mobile"] += 1
+            skipped.append((r, "invalid mobile"))
             continue
         if mobile in taken:
             stats["new: skipped, duplicate mobile"] += 1
+            skipped.append((r, "duplicate mobile"))
             continue
         centre = pin_centre.get(str(r[PINCODE] or "").strip())
         if not centre:
             stats["new: skipped, no location for pincode"] += 1
+            skipped.append((r, "no location for pincode"))
             continue
         taken.add(mobile)
         name = canon(r[SP_NAME])
@@ -224,6 +228,9 @@ def main():
         print(f"  {k}: {v}")
     print(f"  salesperson-tagging.json: {len(tags)} -> {len(remaining)}")
     print(f"seed now {len(rows)} customers")
+    for r, why in skipped:
+        print(f"  not added ({why}): {r[ID]} | {(r[BUSINESS] or r[NAME] or '').strip()} | "
+              f"{r[MOBILE]} | pincode {r[PINCODE]!r} | {' '.join(str(r[CITY] or '').split())}")
 
 
 if __name__ == "__main__":

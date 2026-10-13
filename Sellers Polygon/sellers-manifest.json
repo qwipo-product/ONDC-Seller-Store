@@ -81,11 +81,20 @@
   "beats": 5
  },
  {
+  "seller": "Dev",
+  "business": "Dev",
+  "phone": "8919751137",
+  "status": "Active",
+  "localId": "seller-prod-dev",
+  "companies": 1,
+  "beats": 0
+ },
+ {
   "seller": "ASHOK PAREEK",
   "business": "DEV AGENCIES",
   "phone": "8500011128",
   "status": "Active",
-  "localId": "seller-prod-dev",
+  "localId": "seller-prod-dev-1128",
   "companies": 1,
   "beats": 6
  },
@@ -102,7 +111,7 @@
   "seller": "SRIKANTH CHALLA",
   "business": "DWARAKA SAI ENTERPRISES",
   "phone": "9381822741",
-  "status": "Active",
+  "status": "Inactive",
   "localId": "seller-prod-dwaraka-sai-enterprises",
   "companies": 5,
   "beats": 40
@@ -123,7 +132,7 @@
   "status": "Active",
   "localId": "seller-prod-gr-trading-company",
   "companies": 4,
-  "beats": 18
+  "beats": 19
  },
  {
   "seller": "KURA SRINIVAS",
@@ -150,7 +159,7 @@
   "status": "Active",
   "localId": "seller-prod-jagadish",
   "companies": 1,
-  "beats": 17
+  "beats": 46
  },
  {
   "seller": "POLAPAKA RUPESH KUMAR",
@@ -159,7 +168,7 @@
   "status": "Active",
   "localId": "seller-prod-jai-ganesh",
   "companies": 1,
-  "beats": 13
+  "beats": 54
  },
  {
   "seller": "SIVVA MOUNIKA",
@@ -174,7 +183,7 @@
   "seller": "APURI JYOTHI",
   "business": "JYOTHI AGENCY",
   "phone": "9966982345",
-  "status": "Active",
+  "status": "Inactive",
   "localId": "seller-prod-jyothi-agency",
   "companies": 1,
   "beats": 6
@@ -252,6 +261,42 @@
   "beats": 24
  },
  {
+  "seller": "MAGULURI HARSHITHA",
+  "business": "MH ENTERPRISES",
+  "phone": "9052757799",
+  "status": "Active",
+  "localId": "seller-prod-mh-enterprises",
+  "companies": 2,
+  "beats": 10
+ },
+ {
+  "seller": "BHARGAVI GANGA",
+  "business": "MS SRI BHAVANI TRADERS",
+  "phone": "9700452335",
+  "status": "Active",
+  "localId": "seller-prod-ms-sri-bhavani-traders",
+  "companies": 7,
+  "beats": 70
+ },
+ {
+  "seller": "RAJI REDDY UMMAREDDY",
+  "business": "MS SRI RAGHAVENDRA AGENCIES",
+  "phone": "9849930095",
+  "status": "Inactive",
+  "localId": "seller-prod-ms-sri-raghavendra-agencies",
+  "companies": 3,
+  "beats": 18
+ },
+ {
+  "seller": "NAGARANI THALLAPALLI",
+  "business": "MS SUVARNA LAXMI MARKETING",
+  "phone": "9666663417",
+  "status": "Active",
+  "localId": "seller-prod-ms-suvarna-laxmi-marketing",
+  "companies": 2,
+  "beats": 6
+ },
+ {
   "seller": "HOLGE AJA YKUMA",
   "business": "NAGOBA AGENCIES",
   "phone": "8500075649",
@@ -311,8 +356,8 @@
   "phone": "8686673441",
   "status": "Active",
   "localId": "seller-prod-s-r",
-  "companies": 4,
-  "beats": 24
+  "companies": 5,
+  "beats": 30
  },
  {
   "seller": "ILIAS PASHA",
@@ -381,7 +426,7 @@
   "seller": "MEDISHETTI SAI KIRAN",
   "business": "SBH TRADERS",
   "phone": "8801846164",
-  "status": "Active",
+  "status": "Inactive",
   "localId": "seller-prod-sbh-traders",
   "companies": 3,
   "beats": 18
@@ -393,7 +438,7 @@
   "status": "Active",
   "localId": "seller-prod-sai-krishna",
   "companies": 37,
-  "beats": 280
+  "beats": 740
  },
  {
   "seller": "KOPPULA SINDHUJA",
@@ -421,6 +466,15 @@
   "localId": "seller-prod-sln-enterprises",
   "companies": 6,
   "beats": 36
+ },
+ {
+  "seller": "VEMULA VENKATESH",
+  "business": "SREE LAXMINARSIMHA ENTERPRISES",
+  "phone": "9966888788",
+  "status": "Inactive",
+  "localId": "seller-prod-sree-laxminarsimha-enterprises",
+  "companies": 5,
+  "beats": 20
  },
  {
   "seller": "SOLATI RAVINDER",
@@ -462,7 +516,7 @@
   "seller": "SUNDER KUMAR",
   "business": "SRI MANJUNATHA ENTERPRISES",
   "phone": "9948938920",
-  "status": "Active",
+  "status": "Inactive",
   "localId": "seller-prod-sri-manjunatha-enterprises",
   "companies": 4,
   "beats": 28
@@ -507,7 +561,7 @@
   "seller": "SRI SRINIVASA ENTERPRISES",
   "business": "SRI SRINIVASA ENTERPRISES",
   "phone": "9849399770",
-  "status": "Inactive",
+  "status": "Active",
   "localId": "seller-prod-sri-srinivasa-enterprises",
   "companies": 2,
   "beats": 16
@@ -588,10 +642,19 @@
   "seller": "SHANKPAL PRASHANTH KUMAR",
   "business": "THANVIKA ENTERPRISES",
   "phone": "9553904974",
-  "status": "Active",
+  "status": "Inactive",
   "localId": "seller-prod-thanvika-enterprises",
   "companies": 3,
   "beats": 18
+ },
+ {
+  "seller": "VEERAMALLA PANDU RANGAIAH",
+  "business": "V V ENTERPRISES",
+  "phone": "9866073750",
+  "status": "Active",
+  "localId": "seller-prod-v-v-enterprises",
+  "companies": 3,
+  "beats": 7
  },
  {
   "seller": "SACHIN AINAPUR",

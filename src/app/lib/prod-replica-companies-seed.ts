@@ -155,7 +155,7 @@ export const PROD_REPLICA_COMPANIES: {
       {
         "id": "br-prod-64d4dac6",
         "name": "Vivi",
-        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/f6702090-7b93-4440-b262-84442b7bb78b_20260630-145900.png"
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/82800912-5cbf-457f-ab14-c591ef42efea_20261006-113512.jpg"
       }
     ]
   },
@@ -490,6 +490,17 @@ export const PROD_REPLICA_COMPANIES: {
     ]
   },
   {
+    "id": "co-prod-grb-dairy-foods-pvt-ltd",
+    "name": "GRB DAIRY FOODS PVT.LTD.",
+    "brands": [
+      {
+        "id": "br-prod-8005df35",
+        "name": "GRB",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/abeed291-d764-45de-a8f6-4f55618e9941_20260530-181955.png"
+      }
+    ]
+  },
+  {
     "id": "co-prod-colgate-palmolive",
     "name": "Colgate-Palmolive",
     "brands": [
@@ -599,7 +610,7 @@ export const PROD_REPLICA_COMPANIES: {
       {
         "id": "br-prod-03618acb",
         "name": "Patanjali",
-        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/6df7bef5-0f90-4611-8274-af695fe75c3b_20260916-130126.png"
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/677fa868-da41-4b2c-84ff-353e464e7d3e_20261003-152729.png"
       }
     ]
   },
@@ -658,17 +669,6 @@ export const PROD_REPLICA_COMPANIES: {
     ]
   },
   {
-    "id": "co-prod-grb-dairy-foods-pvt-ltd",
-    "name": "GRB DAIRY FOODS PVT.LTD.",
-    "brands": [
-      {
-        "id": "br-prod-8005df35",
-        "name": "GRB",
-        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/abeed291-d764-45de-a8f6-4f55618e9941_20260530-181955.png"
-      }
-    ]
-  },
-  {
     "id": "co-prod-raghav-lifestyle-products",
     "name": "Raghav Lifestyle Products",
     "brands": [
@@ -698,6 +698,11 @@ export const PROD_REPLICA_COMPANIES: {
         "id": "br-prod-0477ffbd",
         "name": "A S Brand",
         "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/a88faceb-7bfa-4970-ad1a-aeaa52a2ecd9_20260603-171039.png"
+      },
+      {
+        "id": "br-prod-697124d4",
+        "name": "Sri Tejas",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/df80ed9b-ef77-4868-88ff-62f16c0b2e41_20261005-134550.jpg"
       }
     ]
   },
@@ -748,7 +753,7 @@ export const PROD_REPLICA_COMPANIES: {
       {
         "id": "br-prod-d7ee5868",
         "name": "T-Shine",
-        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/c7637699-6773-4195-9a52-7fc49040778f_20260926-173045.png"
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/6d01564c-04c7-4f65-819f-2ec3fdddf7b6_20260930-215939.jpg"
       },
       {
         "id": "br-prod-0658eefe",
@@ -786,7 +791,7 @@ export const PROD_REPLICA_COMPANIES: {
       {
         "id": "br-prod-ddd4fd83",
         "name": "Langer",
-        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/8d89a6e3-8cc7-4424-957e-5a2a096a9ba5_20260921-205445.png"
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/ddfccc2c-06d9-41e6-8845-814eed8f48fc_20261005-163620.jpg"
       }
     ]
   },
@@ -912,7 +917,7 @@ export const PROD_REPLICA_COMPANIES: {
       {
         "id": "br-prod-832edb50",
         "name": "Mrs Food rite",
-        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/d8a53d52-70b8-41d1-8e5b-cf8de923e481_20260908-112527.png"
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/d7716ae3-b5f5-461f-b90c-1f6d260a8b2e_20261005-115738.jpg"
       }
     ]
   },
@@ -1065,6 +1070,86 @@ export const PROD_REPLICA_COMPANIES: {
     ]
   },
   {
+    "id": "co-prod-parle-agro-private-limited",
+    "name": "Parle Agro Private Limited",
+    "brands": [
+      {
+        "id": "br-prod-a4d591a2",
+        "name": "Appy Fizz",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/87dce925-f99c-4df8-b17c-38d66710bc24_20260930-215625.jpg"
+      },
+      {
+        "id": "br-prod-97faa1a8",
+        "name": "Frooti",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/45e22888-792a-40a7-a9f8-e4d9334c6833_20261003-102321.jpg"
+      },
+      {
+        "id": "br-prod-1b4cf44b",
+        "name": "Smoodh",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/2d8e4e72-db91-4dd8-8d0b-27f0703268c6_20260825-100647.png"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-navabharth-limited",
+    "name": "Navabharth limited",
+    "brands": [
+      {
+        "id": "br-prod-f322f7c6",
+        "name": "Supermati",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/c7100856-41d5-4b89-8447-641ab8f5cf40_20261003-140031.png"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-dharampal-satyapal-group",
+    "name": "Dharampal Satyapal Group",
+    "brands": [
+      {
+        "id": "br-prod-bf2eb509",
+        "name": "Pulse",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/5df917e2-c55c-4aea-992b-148e3130a385_20260831-171942.jpg"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-ecof-industries-private-limited",
+    "name": "Ecof Industries Private Limited",
+    "brands": [
+      {
+        "id": "br-prod-6365fe3e",
+        "name": "Citrus Plus",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/b5a0234d-b3ea-4b92-950c-2389e05f3953_20261009-131228.png"
+      },
+      {
+        "id": "br-prod-80eaf125",
+        "name": "Kite Exceed",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/e88c67d1-cc5b-4806-9735-51a988a27a58_20261009-131228.png"
+      },
+      {
+        "id": "br-prod-393a780c",
+        "name": "Kylo",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/32a513b7-9a5a-4689-861a-778749a48284_20261009-131228.png"
+      },
+      {
+        "id": "br-prod-28286141",
+        "name": "Sabena",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/1358e43b-5de0-4156-821c-1cf79107ba6f_20261009-131228.png"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-gujarat-tea-processors-and-packers-ltd",
+    "name": "Gujarat Tea Processors & Packers Ltd",
+    "brands": [
+      {
+        "id": "br-prod-8baee144",
+        "name": "Wagh Bakri",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/83c605d2-6f1d-4973-8192-90ebe68384a0_20260611-174408.png"
+      }
+    ]
+  },
+  {
     "id": "co-prod-garuda-polyflex-foods-private-limited",
     "name": "Garuda Polyflex Foods Private Limited",
     "brands": [
@@ -1169,13 +1254,13 @@ export const PROD_REPLICA_COMPANIES: {
     ]
   },
   {
-    "id": "co-prod-dharampal-satyapal-group",
-    "name": "Dharampal Satyapal Group",
+    "id": "co-prod-sri-kodandarama-ayurveda-nilayam",
+    "name": "Sri Kodandarama Ayurveda Nilayam",
     "brands": [
       {
-        "id": "br-prod-bf2eb509",
-        "name": "Pulse",
-        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/5df917e2-c55c-4aea-992b-148e3130a385_20260831-171942.jpg"
+        "id": "br-prod-324a7486",
+        "name": "Sastry Balm",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/0d425f09-7a8f-463f-8304-4104fc23c9f1_20260930-214634.jpg"
       }
     ]
   },
@@ -1438,7 +1523,7 @@ export const PROD_REPLICA_COMPANIES: {
       {
         "id": "br-prod-55b8bd5c",
         "name": "Kurnool Rice",
-        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/088ddcad-7ea5-48b0-a89d-7b7b561801cc_20260601-000541.png"
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/d77f178c-2010-4d45-bfae-93d3b7c85ea5_20261005-125515.jpg"
       }
     ]
   },
@@ -1493,7 +1578,7 @@ export const PROD_REPLICA_COMPANIES: {
       {
         "id": "br-prod-7fb1b01e",
         "name": "Cow Rice",
-        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/5a5d89f6-f78a-41f9-9621-ae9f28467d07_20260601-001350.png"
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/b33dbdea-29d4-495d-b902-600f4a603125_20261005-171515.jpg"
       }
     ]
   },
@@ -1635,7 +1720,7 @@ export const PROD_REPLICA_COMPANIES: {
       {
         "id": "br-prod-4d108253",
         "name": "SMS Rice",
-        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/8c33812a-087d-401e-be23-32a3bc762d42_20260601-002747.png"
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/758f3e1a-dd94-4a83-a7bc-934d399599d5_20261005-164317.jpg"
       }
     ]
   },
@@ -1657,7 +1742,7 @@ export const PROD_REPLICA_COMPANIES: {
       {
         "id": "br-prod-def24390",
         "name": "SSI Rice",
-        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/c99ba2be-bca8-4cb8-9696-fa57cc81c1e0_20260601-002827.png"
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/270ea055-7cd7-49f8-a6ce-6b54ee7987ec_20261006-172052.jpg"
       }
     ]
   },
@@ -1895,6 +1980,44 @@ export const PROD_REPLICA_COMPANIES: {
         "id": "br-prod-0b666509",
         "name": "Mr Muscle",
         "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/aea18cf9-049e-41da-9574-23b169c9548c_20260731-170136.jpg"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-greendot-health-foods-private-limited",
+    "name": "Greendot Health Foods Private Limited",
+    "brands": [
+      {
+        "id": "br-prod-f76f65e3",
+        "name": "Cornitos",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/9f8795e7-f914-485f-a4bd-421b34158dcb_20261007-220732.png"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-hindustan-unilever-limited",
+    "name": "Hindustan Unilever Limited",
+    "brands": [
+      {
+        "id": "br-prod-268a4d8b",
+        "name": "Brooke Bond",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/243817fa-4185-4d6a-bd7d-5a0e72377f20_20260905-101025.png"
+      },
+      {
+        "id": "br-prod-2fd115da",
+        "name": "Bru",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/2ce4ce9b-dc27-4092-82ad-41e128787de8_20261007-223608.png"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-racker-hygine-products-pvt-ltd",
+    "name": "Racker Hygine Products Pvt Ltd",
+    "brands": [
+      {
+        "id": "br-prod-c5983aae",
+        "name": "Racker",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/61d41791-18ab-4a6f-b20d-c8f9b512d4ec_20261007-221541.png"
       }
     ]
   },
@@ -2154,17 +2277,6 @@ export const PROD_REPLICA_COMPANIES: {
         "id": "br-prod-10a75585",
         "name": "Rik Rak",
         "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/e720ea17-e26e-44e5-bd5b-0e0cf10550f1_20260923-131748.png"
-      }
-    ]
-  },
-  {
-    "id": "co-prod-gujarat-tea-processors-and-packers-ltd",
-    "name": "Gujarat Tea Processors & Packers Ltd",
-    "brands": [
-      {
-        "id": "br-prod-8baee144",
-        "name": "Wagh Bakri",
-        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/83c605d2-6f1d-4973-8192-90ebe68384a0_20260611-174408.png"
       }
     ]
   },
