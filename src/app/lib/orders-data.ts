@@ -1547,12 +1547,31 @@ function shiftIdDate(id: string): string {
 const seedIdByLiveId = new Map<string, string>();
 const liveIdBySeedId = new Map<string, string>();
 
+/** Sunday is a holiday — nothing is ordered, delivered or cancelled on
+ *  it. Moves the leading YYYY-MM-DD of a shifted date off Sunday by
+ *  `step` days (-1 → Saturday, +1 → Monday), keeping any time suffix. */
+function offSunday<T extends string | undefined>(value: T, step: 1 | -1): T {
+  if (!value) return value;
+  const t = Date.parse(value.slice(0, 10) + "T00:00:00Z");
+  if (Number.isNaN(t) || new Date(t).getUTCDay() !== 0) return value;
+  const moved = new Date(t + step * 86400000).toISOString().slice(0, 10);
+  return (moved + value.slice(10)) as T;
+}
+
 function shiftSeedOrder(o: Order): Order {
   if (SEED_SHIFT_DAYS === 0) return o;
-  const orderDate = shiftSeedDate(o.orderDate);
+  // Placed / cancelled dates move back to Saturday and delivery dates
+  // forward to Monday, so order date ≤ delivery date still holds.
+  const orderDate = offSunday(shiftSeedDate(o.orderDate), -1);
   const id = withIdDate(o.id, orderDate);
   seedIdByLiveId.set(id, o.id);
   liveIdBySeedId.set(o.id, id);
+  // An actual delivery can't land in the future: if Monday would be
+  // after today, use Saturday instead.
+  let actualDeliveryDate = offSunday(shiftSeedDate(o.actualDeliveryDate), 1);
+  if (actualDeliveryDate && actualDeliveryDate > LIVE_TODAY) {
+    actualDeliveryDate = offSunday(shiftSeedDate(o.actualDeliveryDate), -1);
+  }
   return {
     ...o,
     id,
@@ -1560,9 +1579,9 @@ function shiftSeedOrder(o: Order): Order {
     // sharing the same customer order id.
     customerOrderId: o.customerOrderId && shiftIdDate(o.customerOrderId),
     orderDate,
-    expectedDeliveryDate: shiftSeedDate(o.expectedDeliveryDate),
-    actualDeliveryDate: shiftSeedDate(o.actualDeliveryDate),
-    cancellationTime: shiftSeedDate(o.cancellationTime),
+    expectedDeliveryDate: offSunday(shiftSeedDate(o.expectedDeliveryDate), 1),
+    actualDeliveryDate,
+    cancellationTime: offSunday(shiftSeedDate(o.cancellationTime), -1),
     logisticsRequestedAt: shiftSeedDate(o.logisticsRequestedAt),
   };
 }
