@@ -1095,7 +1095,7 @@ export function Orders() {
         if (who === "Buyer") {
           return (
             <Badge className="bg-amber-50 text-amber-800 border-amber-200">
-              Cancelled by Buyer
+              Cancelled by Customer
             </Badge>
           );
         }
@@ -1766,8 +1766,10 @@ export function Orders() {
                   Orders, Total Value) reading off `currentTabOrders`
                   so they react to every active filter. Lets the
                   seller eyeball the business shape of the slice
-                  they're looking at without exporting a report. */}
-              {!isEmpty && (
+                  they're looking at without exporting a report.
+                  Not shown on Delivered / Cancelled — like the filter
+                  rows, it's for planning open orders. */}
+              {!isEmpty && usesDeliveryFilters(activeTab) && (
                 <div className="px-6 py-2.5 border-b border-gray-100 bg-gradient-to-r from-purple-50/40 via-white to-emerald-50/40 flex-shrink-0 flex flex-wrap items-center gap-x-6 gap-y-2">
                   <div className="flex items-baseline gap-1.5">
                     <span className="text-[10px] uppercase tracking-wider font-semibold text-gray-500">
@@ -1835,6 +1837,59 @@ export function Orders() {
                     Clear all
                   </Button>
                 </div>
+              )}
+
+              {/* Cancelled-By quick filter — split a flat Cancelled
+                  list into who-pulled-the-plug buckets so the
+                  seller can audit buyer drop-offs vs their own
+                  cancellations in one click. Mirrors the Confirmed
+                  tab's delivery-window chips for visual rhythm. Sits above
+                  the search bar on the Cancelled tab. */}
+              {!isEmpty && activeTab === "cancelled" && (
+              <div className="px-6 pt-4 pb-2 border-b flex-shrink-0 flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-medium text-gray-600 uppercase tracking-wide mr-1">
+                  Cancelled By:
+                </span>
+                <button
+                  onClick={() => {
+                    setCancelledByFilter("all");
+                    setCurrentPage(1);
+                  }}
+                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                    cancelledByFilter === "all"
+                      ? "bg-gray-900 text-white border-gray-900"
+                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                  }`}
+                >
+                  All ({cancelledByCounts.all})
+                </button>
+                <button
+                  onClick={() => {
+                    setCancelledByFilter("Buyer");
+                    setCurrentPage(1);
+                  }}
+                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                    cancelledByFilter === "Buyer"
+                      ? "bg-amber-600 text-white border-amber-600"
+                      : "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100"
+                  }`}
+                >
+                  Customer ({cancelledByCounts.buyer})
+                </button>
+                <button
+                  onClick={() => {
+                    setCancelledByFilter("Seller");
+                    setCurrentPage(1);
+                  }}
+                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                    cancelledByFilter === "Seller"
+                      ? "bg-purple-600 text-white border-purple-600"
+                      : "bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100"
+                  }`}
+                >
+                  Seller ({cancelledByCounts.seller})
+                </button>
+              </div>
               )}
 
               {/* Search */}
@@ -1907,60 +1962,6 @@ export function Orders() {
             </TabsContent>
 
             <TabsContent value="cancelled" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
-              {!isEmpty && (
-                <>
-                  {/* Cancelled-By quick filter — split a flat Cancelled
-                      list into who-pulled-the-plug buckets so the
-                      seller can audit buyer drop-offs vs their own
-                      cancellations in one click. Mirrors the Confirmed
-                      tab's delivery-window chips for visual rhythm. */}
-                  <div className="px-6 pt-4 pb-2 border-b flex-shrink-0 flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-medium text-gray-600 uppercase tracking-wide mr-1">
-                      Cancelled By:
-                    </span>
-                    <button
-                      onClick={() => {
-                        setCancelledByFilter("all");
-                        setCurrentPage(1);
-                      }}
-                      className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                        cancelledByFilter === "all"
-                          ? "bg-gray-900 text-white border-gray-900"
-                          : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                      }`}
-                    >
-                      All ({cancelledByCounts.all})
-                    </button>
-                    <button
-                      onClick={() => {
-                        setCancelledByFilter("Buyer");
-                        setCurrentPage(1);
-                      }}
-                      className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                        cancelledByFilter === "Buyer"
-                          ? "bg-amber-600 text-white border-amber-600"
-                          : "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100"
-                      }`}
-                    >
-                      Buyer ({cancelledByCounts.buyer})
-                    </button>
-                    <button
-                      onClick={() => {
-                        setCancelledByFilter("Seller");
-                        setCurrentPage(1);
-                      }}
-                      className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                        cancelledByFilter === "Seller"
-                          ? "bg-purple-600 text-white border-purple-600"
-                          : "bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100"
-                      }`}
-                    >
-                      Seller ({cancelledByCounts.seller})
-                    </button>
-                  </div>
-                </>
-              )}
-
               {/* Table */}
               {renderOrderTable(paginatedOrders)}
             </TabsContent>
