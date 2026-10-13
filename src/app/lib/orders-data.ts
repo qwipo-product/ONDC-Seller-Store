@@ -152,6 +152,27 @@ export interface OrderLineItem {
   lineTotal: number;
 }
 
+/**
+ * A seller-side quantity change on one order line, keyed on the order
+ * by SKU code. Seller edits can only trim a line (never add to it) and
+ * must land on a multiple of the SKU's inner pack — see
+ * {@link validateModifiedQty}.
+ */
+export interface LineQtyModification {
+  /** Quantity the buyer ordered — the "Actual Qty" column. */
+  actualQty: number;
+  /** Quantity the seller changed the line to. */
+  modifiedQty: number;
+  /** Unit price at the modified quantity. Re-evaluated against the
+   *  SKU's QPS slabs, so trimming a line can drop it to a lower slab
+   *  (or out of the offer entirely). */
+  pricePerUnit: number;
+  /** Line total as ordered — the baseline the order value adjusts from. */
+  actualLineTotal: number;
+  /** ISO 8601. */
+  modifiedAt: string;
+}
+
 export interface Order {
   id: string;
   brand: string;
@@ -258,6 +279,13 @@ export interface Order {
    *  (see {@link getCustomerOrderId}). Absent on legacy rows → the
    *  order is its own group. */
   customerOrderId?: string;
+  /** Seller quantity edits, keyed by SKU code. Absent until the
+   *  seller modifies a line. */
+  qtyModifications?: Record<string, LineQtyModification>;
+  /** Order value as placed by the buyer. Set on the first quantity
+   *  modification; from then on `orderValue` carries the revised
+   *  (final) value. */
+  originalOrderValue?: number;
 }
 
 // One distributor for the demo seller. Populates the Seller-*
@@ -283,7 +311,8 @@ export const seedOrders: Order[] = [
     source: "DMS-Bizom",
     retailerName: "Balaji Kirana Store",
     itemsSummary: "Sunflower Oil + 5 more",
-    orderValue: 12450,
+    // Sum of the six line totals below.
+    orderValue: 37224,
     paymentMode: "COD",
     orderDate: "2026-05-20",
     orderTime: "10:30 AM",
@@ -309,12 +338,14 @@ export const seedOrders: Order[] = [
         company: "Gemini Edibles & Fats India",
         brand: "Freedom",
         category: "Edible Oil",
-        qty: 25,
+        // 160 pcs = 10 inner packs of 16 — the order-modification demo
+        // line (edits must stay in multiples of the inner pack).
+        qty: 160,
         originalPricePerUnit: 171,
-        finalPricePerUnit: 162.45,
-        discountApplied: 213.75,
-        discountDetails: "Slab 2: 12–47 qty • 5% off vs ₹171.00",
-        lineTotal: 4061.25,
+        finalPricePerUnit: 153.9,
+        discountApplied: 2736,
+        discountDetails: "Slab 3: 48+ qty • 10% off vs ₹171.00",
+        lineTotal: 24624,
       },
       {
         skuCode: "SKU-AASH-10",
@@ -1604,6 +1635,120 @@ export function completeLogisticsOrders(ids: string[]): number {
 /** Every order currently out with the logistics partner. */
 export function getLogisticsInTransitOrders(): Order[] {
   return _orders.filter((o) => o.logisticsRequested && o.status === "Confirmed");
+}
+
+// ---------- Order modification ----------
+
+/** Packing from the SKU master: "Pack Size (Inner Pack)" and "UPC
+ *  (Unit Per Case)" on the SKU detail page, both in pieces. Shown
+ *  read-only in the Edit Quantity popup. */
+export interface SkuPackConfig {
+  innerPack: number;
+  upc: number;
+}
+
+// Demo stand-in for the SKU master lookup, covering the SKUs that
+// appear on seed order lines. A SKU missing here has no inner pack
+// configured, so its lines can be edited in single pieces.
+const SKU_PACK_CONFIG: Record<string, SkuPackConfig> = {
+  "180000008": { innerPack: 16, upc: 16 },
+  "SKU-AASH-10": { innerPack: 1, upc: 4 },
+  "SKU-SUNF-DF150": { innerPack: 10, upc: 60 },
+  "SKU-CLAS-NB172": { innerPack: 6, upc: 48 },
+  "SKU-BING-MA90": { innerPack: 10, upc: 80 },
+  "SKU-YIPP-240": { innerPack: 5, upc: 40 },
+};
+
+export function getSkuPackConfig(skuCode: string): SkuPackConfig | undefined {
+  return SKU_PACK_CONFIG[skuCode];
+}
+
+/** Line quantities can only be edited before the seller confirms. */
+export function canModifyOrderLines(o: { status: string }): boolean {
+  return o.status === "New";
+}
+
+/**
+ * Validate the quantity a seller typed into Edit Quantity. Returns the
+ * error to show, or null when the value can be saved. The value must
+ * be a whole number of pieces, at least one inner pack, a multiple of
+ * the inner pack, and no more than the buyer ordered.
+ */
+export function validateModifiedQty(
+  raw: string,
+  { actualQty, innerPack = 1 }: { actualQty: number; innerPack?: number },
+): string | null {
+  const value = raw.trim();
+  if (!/^\d+$/.test(value)) return "Enter the quantity in whole pieces.";
+  const qty = Number(value);
+  if (qty === 0) {
+    return innerPack > 1
+      ? `Quantity must be at least one inner pack (${innerPack} pcs).`
+      : "Quantity must be at least 1.";
+  }
+  if (qty % innerPack !== 0) {
+    const lower = Math.floor(qty / innerPack) * innerPack;
+    const nearest = [lower, lower + innerPack].filter(
+      (n) => n > 0 && n <= actualQty,
+    );
+    return (
+      `You are trying to modify a quantity which is not a multiple of the inner pack (${innerPack}). Please check the inner pack` +
+      (nearest.length ? ` — try ${nearest.join(" or ")}.` : ".")
+    );
+  }
+  if (qty > actualQty) {
+    return `Quantity can't be more than the ordered quantity (${actualQty}).`;
+  }
+  return null;
+}
+
+/**
+ * Record a seller-side quantity change on one line of a New order and
+ * re-derive the order value from the as-placed value. Setting a line
+ * back to its actual quantity clears that line's modification; clearing
+ * the last one restores the order as placed. Callers validate with
+ * {@link validateModifiedQty} first. Returns false when the order isn't
+ * found or can no longer be modified.
+ */
+export function modifyOrderLineQty(
+  orderId: string,
+  skuCode: string,
+  change: Omit<LineQtyModification, "modifiedAt">,
+): boolean {
+  let mutated = false;
+  _orders = _orders.map((o) => {
+    if (o.id !== orderId || !canModifyOrderLines(o)) return o;
+    mutated = true;
+    const mods = { ...o.qtyModifications };
+    if (change.modifiedQty === change.actualQty) delete mods[skuCode];
+    else mods[skuCode] = { ...change, modifiedAt: new Date().toISOString() };
+
+    const originalOrderValue = o.originalOrderValue ?? o.orderValue;
+    const {
+      qtyModifications: _m,
+      originalOrderValue: _v,
+      ...rest
+    } = o;
+    void _m;
+    void _v;
+    const remaining = Object.values(mods);
+    if (remaining.length === 0) {
+      return { ...rest, orderValue: originalOrderValue };
+    }
+    const reduction = remaining.reduce(
+      (sum, m) =>
+        sum + m.actualLineTotal - Math.round(m.modifiedQty * m.pricePerUnit * 100) / 100,
+      0,
+    );
+    return {
+      ...rest,
+      qtyModifications: mods,
+      originalOrderValue,
+      orderValue: Math.round((originalOrderValue - reduction) * 100) / 100,
+    };
+  });
+  if (mutated) notify();
+  return mutated;
 }
 
 /** Status-write helper — single source of truth for the cancellation

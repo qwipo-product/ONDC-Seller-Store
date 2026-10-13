@@ -1057,7 +1057,7 @@ export function Orders() {
           SELLER_INFO.contact,
           order.paymentMode,
           channelOrderIdFor(order),
-          order.orderValue,
+          order.originalOrderValue ?? order.orderValue,
           item.skuCode,
           item.productName,
           isWholesale ? "Wholesaler" : item.company,

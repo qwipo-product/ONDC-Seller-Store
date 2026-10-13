@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Badge } from "../../components/ui/badge";
 import {
@@ -35,6 +36,8 @@ import {
   Truck,
   AlertCircle,
   ExternalLink,
+  Pencil,
+  Lock,
 } from "lucide-react";
 import { toast } from "sonner";
 // Shared orders store — the detail page now looks up the right
@@ -47,9 +50,14 @@ import {
   updateOrderStatus,
   subscribeToOrders,
   synthesizeProducts,
+  getSkuPackConfig,
+  canModifyOrderLines,
+  validateModifiedQty,
+  modifyOrderLineQty,
   SELLER_INFO,
   type Order,
   type CancelledBy,
+  type SkuPackConfig,
 } from "../../lib/orders-data";
 import { sampleSKUs } from "../products/my-sku";
 
@@ -70,9 +78,15 @@ interface OrderProduct {
   skuId: string;
   /** Short Name from My SKU details — read-only, —  when not set. */
   shortName?: string;
+  /** Quantity the buyer ordered — the "Actual Qty" column. */
   orderedQuantity: number;
+  /** Seller-edited quantity; undefined while the line is as ordered. */
+  modifiedQty?: number;
+  /** Inner Pack / UPC from the SKU master; undefined when not configured. */
+  pack?: SkuPackConfig;
   availableStock: number;
   pricePerUnit: number;
+  /** Line total as ordered — see {@link priceLine} for the final pricing. */
   totalPrice: number;
   /** Base selling price before any QPS slab discount is applied (per unit). */
   basePrice?: number;
@@ -92,12 +106,74 @@ interface OrderProduct {
   };
 }
 
-// Slab-helper functions (slabLabelFor / findSlabIdx) lived here in
-// support of the Modify Items / Save Changes flow that re-evaluated
-// which slab a line belonged to as the seller edited qty. That flow
-// was retired in Phase 1, so the helpers were removed alongside it.
-// If a future read-only "open slab schedule" view comes back, the
-// helpers can be reintroduced trivially.
+// ---------- Line pricing ----------
+// A seller quantity edit re-prices the line against the SKU's QPS slab
+// schedule: trimming a line can drop it to a lower slab, or below the
+// first discounted slab so the offer no longer applies. Lines without
+// a slab schedule keep their ordered price.
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+const finalQtyFor = (p: OrderProduct) => p.modifiedQty ?? p.orderedQuantity;
+
+function findSlabIdx(slabs: QpsSlabDef[], qty: number): number {
+  return slabs.findIndex(
+    (s) => qty >= s.minQty && (s.maxQty === undefined || qty <= s.maxQty),
+  );
+}
+
+/** e.g. "Slab 2 · 12–47 qty" / "Slab 3 · 48+ qty". */
+function slabLabelFor(slabs: QpsSlabDef[], idx: number): string {
+  const s = slabs[idx];
+  const range = s.maxQty === undefined ? `${s.minQty}+` : `${s.minQty}–${s.maxQty}`;
+  return `Slab ${idx + 1} · ${range} qty`;
+}
+
+/** A slab with no discount means the offer doesn't apply. */
+const slabHasOffer = (s: QpsSlabDef | undefined) =>
+  !!s && s.discountLabel !== "—";
+
+interface LinePricing {
+  qty: number;
+  pricePerUnit: number;
+  lineTotal: number;
+  /** Offer saving on the line vs the base price. */
+  saving: number;
+  /** Index into `qps.slabs`; -1 when the line has no slab schedule. */
+  slabIdx: number;
+  slab?: QpsSlabDef;
+}
+
+/** Price `p` at `qty` pieces. The ordered quantity returns the line
+ *  exactly as ordered (no rounding drift against the order value). */
+function priceLine(p: OrderProduct, qty = finalQtyFor(p)): LinePricing {
+  const slabs = p.qps?.slabs;
+  const slabIdx = slabs ? findSlabIdx(slabs, qty) : -1;
+  const slab = slabs && slabIdx >= 0 ? slabs[slabIdx] : undefined;
+  if (qty === p.orderedQuantity) {
+    return {
+      qty,
+      pricePerUnit: p.pricePerUnit,
+      lineTotal: p.totalPrice,
+      saving: p.qps?.totalSaving ?? 0,
+      slabIdx,
+      slab,
+    };
+  }
+  const pricePerUnit = slab ? slab.pricePerUnit : p.pricePerUnit;
+  const base = p.basePrice ?? pricePerUnit;
+  return {
+    qty,
+    pricePerUnit,
+    lineTotal: round2(qty * pricePerUnit),
+    saving: p.qps ? round2((base - pricePerUnit) * qty) : 0,
+    slabIdx,
+    slab,
+  };
+}
+
+const formatRupees = (n: number) =>
+  `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 interface OrderDetails {
   orderId: string;
@@ -115,7 +191,10 @@ interface OrderDetails {
   sellerContact: string;
   channelOrderId: string;
   paymentMode: "COD" | "Prepaid";
+  /** Current (final) order value — reflects any quantity edits. */
   orderValue: number;
+  /** As-placed value; set only once a line quantity has been modified. */
+  originalOrderValue?: number;
   products: OrderProduct[];
   /** Cancellation reason — seller-picked option for seller-side
    *  cancellations, buyer-supplied copy for buyer-side cancellations.
@@ -182,11 +261,14 @@ function buildOrderDetailFromStore(order: Order): OrderDetails {
 
   // Attach Short Name from the SKU catalogue (BR-1). Falls back to
   // whatever is already on the product (rich-mock) or undefined.
+  // Seller quantity edits and the SKU's pack config ride along too.
   const products = rawProducts.map((p) => ({
     ...p,
     shortName:
       p.shortName ??
       sampleSKUs.find((s) => s.sku === p.skuId)?.shortName,
+    modifiedQty: order.qtyModifications?.[p.skuId]?.modifiedQty,
+    pack: getSkuPackConfig(p.skuId),
   }));
 
   // Status mapping — the store's OrderStatus is a subset of the
@@ -204,6 +286,7 @@ function buildOrderDetailFromStore(order: Order): OrderDetails {
     channelOrderId: order.channelOrderId ?? `${order.marketplace ?? "ONDC"}-${order.id}`,
     paymentMode: order.paymentMode,
     orderValue: order.orderValue,
+    originalOrderValue: order.originalOrderValue,
     products,
     cancellationReason: order.cancellationReason,
     cancelledBy: order.cancelledBy,
@@ -222,22 +305,22 @@ const RICH_PRODUCTS_FOR_SEED_ORDER: OrderProduct[] = [
   {
     // QPS-eligible line: SKU 180000008 has a 3-slab QPS scheme
     //   1–11 qty → ₹171/unit · 12–47 qty → 5% off (₹162.45) · 48+ qty → 10% off (₹153.90)
-    // This order has 25 units → falls in Slab 2, 5% off.
+    // This order has 160 units (10 inner packs of 16) → falls in Slab 3, 10% off.
     id: "1",
     name: "Freedom Refined Sunflower Oil 1L × 16",
     skuId: "180000008",
     shortName: "FFR1",
-    orderedQuantity: 25,
+    orderedQuantity: 160,
     availableStock: 642,
     basePrice: 171,
-    pricePerUnit: 162.45,
-    totalPrice: 4061.25,
+    pricePerUnit: 153.9,
+    totalPrice: 24624,
     qps: {
       offerCode: "QPS-180000008",
-      slabLabel: "Slab 2 · 12–47 qty",
-      discountLabel: "5% off",
-      savingPerUnit: 8.55,
-      totalSaving: 213.75,
+      slabLabel: "Slab 3 · 48+ qty",
+      discountLabel: "10% off",
+      savingPerUnit: 17.1,
+      totalSaving: 2736,
       slabs: [
         { minQty: 1, maxQty: 11, discountLabel: "—", pricePerUnit: 171 },
         { minQty: 12, maxQty: 47, discountLabel: "5% off", pricePerUnit: 162.45 },
@@ -333,18 +416,13 @@ export function OrderDetail() {
 
   // Resync when the URL changes (clicking a different order in a
   // new tab, or back/forward) AND when the store fires a write
-  // notification (bulk confirm/cancel/deliver from the list page).
+  // notification (bulk confirm/cancel/deliver from the list page,
+  // or a line quantity edit from this page).
   useEffect(() => {
     const refresh = () => {
       if (!orderId) return;
       const o = getOrderById(orderId);
-      if (!o) return;
-      setOrderData((prev) => ({
-        ...buildOrderDetailFromStore(o),
-        // Preserve in-flight product edits so a list write doesn't
-        // clobber the seller's edit-mode changes mid-stream.
-        products: prev.orderId === o.id ? prev.products : buildOrderDetailFromStore(o).products,
-      }));
+      if (o) setOrderData(buildOrderDetailFromStore(o));
     };
     refresh();
     return subscribeToOrders(refresh);
@@ -357,12 +435,55 @@ export function OrderDetail() {
   // they triggered it.
   const [isDeliverModalOpen, setIsDeliverModalOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
-  // Modify Items / edit-mode functionality was retired in this
-  // phase. The items table is now strictly read-only — qty and
-  // price per unit are whatever the order arrived with, and any
-  // line-level adjustments would need to happen via a future
-  // dedicated flow. Status transitions (Confirm / Cancel / Mark
-  // as Delivered) remain available on the action bar below.
+
+  // Order modification — per-line quantity edit, New orders only.
+  // `editTarget` outlives `isEditOpen` so the popup keeps its
+  // content through the close animation.
+  const [editTarget, setEditTarget] = useState<OrderProduct | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const canEdit = canModifyOrderLines(orderData);
+  const isModified = orderData.originalOrderValue !== undefined;
+  const modifiedLineCount = orderData.products.filter(
+    (p) => p.modifiedQty !== undefined,
+  ).length;
+  // Product / SKU / Short Name / Actual / Modified / Final / Price / Total (+ Edit)
+  const columnCount = canEdit ? 9 : 8;
+
+  const handleEditLine = (product: OrderProduct) => {
+    setEditTarget(product);
+    setIsEditOpen(true);
+  };
+
+  const handleSaveLineQty = (product: OrderProduct, qty: number) => {
+    const ordered = priceLine(product, product.orderedQuantity);
+    const revised = priceLine(product, qty);
+    const saved = modifyOrderLineQty(orderData.orderId, product.skuId, {
+      actualQty: product.orderedQuantity,
+      modifiedQty: qty,
+      pricePerUnit: revised.pricePerUnit,
+      actualLineTotal: product.totalPrice,
+    });
+    if (!saved) {
+      toast.error("This order can no longer be modified.");
+      return;
+    }
+    setIsEditOpen(false);
+    if (qty === product.orderedQuantity) {
+      toast.success(`${product.name} is back to the ordered quantity (${qty} pcs).`);
+      return;
+    }
+    const slabChanged = ordered.slabIdx !== revised.slabIdx;
+    toast.success(
+      `Quantity updated successfully — ${product.name}: ${product.orderedQuantity} → ${qty} pcs.`,
+      slabChanged && product.qps?.slabs
+        ? {
+            description: slabHasOffer(revised.slab)
+              ? `Offer revised to ${slabLabelFor(product.qps.slabs, revised.slabIdx)} — ${formatRupees(revised.pricePerUnit)}/unit.`
+              : `Offer ${product.qps.offerCode} no longer applies — ${formatRupees(revised.pricePerUnit)}/unit.`,
+          }
+        : undefined,
+    );
+  };
 
   const getStatusBadge = (data: OrderDetails) => {
     const status = data.status;
@@ -689,9 +810,20 @@ export function OrderDetail() {
               <div className="flex justify-between text-xs">
                 <span className="text-gray-500">Original Value</span>
                 <span className="text-gray-900 font-semibold">
-                  ₹{orderData.orderValue.toLocaleString("en-IN")}
+                  ₹{(orderData.originalOrderValue ?? orderData.orderValue).toLocaleString("en-IN")}
                 </span>
               </div>
+              {isModified && (
+                <div className="flex justify-between text-xs">
+                  <span className="text-gray-500">Final Value</span>
+                  <span className="text-green-700 font-semibold">
+                    ₹
+                    {orderData.orderValue.toLocaleString("en-IN", {
+                      minimumFractionDigits: orderData.orderValue % 1 ? 2 : 0,
+                    })}
+                  </span>
+                </div>
+              )}
 
               {/* Cancellation details — rendered inline as Order Meta
                   rows (same shape as Payment / Channel Order ID /
@@ -747,6 +879,11 @@ export function OrderDetail() {
             <CardTitle className="text-sm flex items-center gap-2">
               <Package className="h-4 w-4 text-purple-600" />
               Order Items ({orderData.products.length})
+              {modifiedLineCount > 0 && (
+                <Badge className="bg-amber-50 text-amber-800 border-amber-200 text-[10px] py-0">
+                  {modifiedLineCount} modified
+                </Badge>
+              )}
             </CardTitle>
           </CardHeader>
           {/* The `pb-0!` override is here because the shadcn
@@ -771,7 +908,13 @@ export function OrderDetail() {
                         Short Name
                       </th>
                       <th className="px-3 py-2 text-center text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
-                        Qty
+                        Actual Qty
+                      </th>
+                      <th className="px-3 py-2 text-center text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
+                        Modified Qty
+                      </th>
+                      <th className="px-3 py-2 text-center text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
+                        Final Qty
                       </th>
                       <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
                         Price/Unit
@@ -779,12 +922,25 @@ export function OrderDetail() {
                       <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
                         Total
                       </th>
+                      {canEdit && (
+                        <th className="px-3 py-2 text-center text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
+                          Action
+                        </th>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {orderData.products.map((product) => (
+                    {orderData.products.map((product) => {
+                      const isLineModified = product.modifiedQty !== undefined;
+                      const pricing = priceLine(product);
+                      const finalTotal = pricing.lineTotal;
+                      const isDiscounted =
+                        product.basePrice !== undefined &&
+                        pricing.pricePerUnit < product.basePrice;
+                      const priceChanged = pricing.pricePerUnit !== product.pricePerUnit;
+                      return (
                       <React.Fragment key={product.id}>
-                        <tr className="hover:bg-gray-50">
+                        <tr className={isLineModified ? "bg-amber-50/40 hover:bg-amber-50/70" : "hover:bg-gray-50"}>
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <p className="font-medium text-gray-900 text-sm">{product.name}</p>
@@ -811,67 +967,139 @@ export function OrderDetail() {
                             </p>
                           </td>
                           <td className="px-4 py-3 text-center">
-                            <p className="font-semibold text-gray-900">
-                              {product.orderedQuantity}
-                            </p>
+                            <p className="text-gray-700">{product.orderedQuantity}</p>
                           </td>
-                          <td className="px-4 py-3 text-right">
-                            {product.qps && product.basePrice ? (
+                          <td className="px-4 py-3 text-center">
+                            {isLineModified ? (
                               <div>
-                                <p className="text-[11px] text-gray-400 line-through">
-                                  ₹{product.basePrice.toFixed(2)}
+                                <p className="font-semibold text-amber-700">
+                                  {product.modifiedQty}
                                 </p>
-                                <p className="font-semibold text-green-700">
-                                  ₹{product.pricePerUnit.toFixed(2)}
+                                <p className="text-[10px] text-red-600">
+                                  −{product.orderedQuantity - product.modifiedQty!}
                                 </p>
                               </div>
                             ) : (
-                              <p className="text-gray-900">₹{product.pricePerUnit}</p>
+                              <span className="text-gray-400">—</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <p className="font-semibold text-gray-900">
+                              {finalQtyFor(product)}
+                            </p>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            {product.qps && isDiscounted ? (
+                              <div>
+                                <p className="text-[11px] text-gray-400 line-through">
+                                  ₹{product.basePrice!.toFixed(2)}
+                                </p>
+                                <p className="font-semibold text-green-700">
+                                  ₹{pricing.pricePerUnit.toFixed(2)}
+                                </p>
+                              </div>
+                            ) : (
+                              <p className="text-gray-900">
+                                ₹{product.qps ? pricing.pricePerUnit.toFixed(2) : pricing.pricePerUnit}
+                              </p>
+                            )}
+                            {priceChanged && (
+                              <p className="text-[10px] text-amber-700">
+                                was ₹{product.pricePerUnit.toFixed(2)}
+                              </p>
                             )}
                           </td>
                           <td className="px-4 py-3 text-right">
+                            {isLineModified && (
+                              <p className="text-[11px] text-gray-400 line-through">
+                                ₹
+                                {product.totalPrice.toLocaleString("en-IN", {
+                                  minimumFractionDigits: product.totalPrice % 1 ? 2 : 0,
+                                })}
+                              </p>
+                            )}
                             <p className="font-semibold text-sm text-gray-900">
                               ₹
-                              {product.totalPrice.toLocaleString("en-IN", {
-                                minimumFractionDigits: product.totalPrice % 1 ? 2 : 0,
+                              {finalTotal.toLocaleString("en-IN", {
+                                minimumFractionDigits: finalTotal % 1 ? 2 : 0,
                               })}
                             </p>
                           </td>
+                          {canEdit && (
+                            <td className="px-4 py-3 text-center">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 gap-1 px-2 text-xs"
+                                onClick={() => handleEditLine(product)}
+                                aria-label={`Edit quantity for ${product.name}`}
+                              >
+                                <Pencil className="h-3 w-3" />
+                                Edit
+                              </Button>
+                            </td>
+                          )}
                         </tr>
                         {product.qps && (
-                          <QpsImpactRow product={product} />
+                          <QpsImpactRow product={product} colSpan={columnCount} />
                         )}
                       </React.Fragment>
-                    ))}
+                      );
+                    })}
                   </tbody>
                   <tfoot className="bg-gray-50 border-t-2">
                     {(() => {
                       const totalQpsSaving = orderData.products.reduce(
-                        (sum, p) => sum + (p.qps?.totalSaving ?? 0),
+                        (sum, p) => sum + qpsSavingFor(p),
                         0,
                       );
+                      // Label cells span everything left of Total; the
+                      // Action column (New orders) gets an empty cell.
+                      const labelSpan = 7;
+                      const actionCell = canEdit ? <td /> : null;
                       return (
                         <>
                           {totalQpsSaving > 0 && (
                             <tr className="bg-purple-50">
-                              <td colSpan={5} className="px-4 py-3 text-right text-[11px] font-semibold text-purple-800">
+                              <td colSpan={labelSpan} className="px-4 py-3 text-right text-[11px] font-semibold text-purple-800">
                                 Total QPS discount on this order
                               </td>
                               <td className="px-4 py-3 text-right text-xs font-bold text-purple-700">
-                                −₹{totalQpsSaving.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                                −{formatRupees(totalQpsSaving)}
                               </td>
+                              {actionCell}
                             </tr>
                           )}
+                          {isModified && (
+                            <>
+                              <tr>
+                                <td colSpan={labelSpan} className="px-4 pt-3 pb-1 text-right text-xs text-gray-600">
+                                  Original Order Value:
+                                </td>
+                                <td className="px-4 pt-3 pb-1 text-right text-xs text-gray-700">
+                                  {formatRupees(orderData.originalOrderValue!)}
+                                </td>
+                                {actionCell}
+                              </tr>
+                              <tr>
+                                <td colSpan={labelSpan} className="px-4 py-1 text-right text-xs text-gray-600">
+                                  Modification adjustment:
+                                </td>
+                                <td className="px-4 py-1 text-right text-xs font-semibold text-red-600">
+                                  −{formatRupees(round2(orderData.originalOrderValue! - orderData.orderValue))}
+                                </td>
+                                {actionCell}
+                              </tr>
+                            </>
+                          )}
                           <tr>
-                            <td colSpan={5} className="px-4 py-3 text-right text-sm font-semibold">
-                              Total Order Value:
+                            <td colSpan={labelSpan} className="px-4 py-3 text-right text-sm font-semibold">
+                              {isModified ? "Final Order Value:" : "Total Order Value:"}
                             </td>
                             <td className="px-4 py-3 text-right font-bold text-base text-green-600">
-                              ₹
-                              {orderData.orderValue.toLocaleString("en-IN", {
-                                minimumFractionDigits: 2,
-                              })}
+                              {formatRupees(orderData.orderValue)}
                             </td>
+                            {actionCell}
                           </tr>
                         </>
                       );
@@ -1019,6 +1247,436 @@ export function OrderDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <EditQuantityDialog
+        product={editTarget}
+        open={isEditOpen}
+        onOpenChange={setIsEditOpen}
+        onSave={handleSaveLineQty}
+      />
+    </div>
+  );
+}
+
+// ---------- Edit Quantity popup ----------
+// Seller-side quantity edit for one line of a New order. Inner Pack
+// and UPC come from the SKU master and are shown as static values;
+// the new quantity must be a multiple of the inner pack and can't go
+// above what the buyer ordered. As the seller types, the line is
+// re-priced against its QPS slabs and the Ordered vs Revised offer
+// impact is shown before they save.
+function EditQuantityDialog({
+  product,
+  open,
+  onOpenChange,
+  onSave,
+}: {
+  product: OrderProduct | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSave: (product: OrderProduct, qty: number) => void;
+}) {
+  const [value, setValue] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  // Prefill with the line's current quantity each time the popup opens.
+  useEffect(() => {
+    if (!open || !product) return;
+    setValue(String(finalQtyFor(product)));
+    setError(null);
+  }, [open, product]);
+
+  if (!product) return null;
+
+  const innerPack = product.pack?.innerPack ?? 1;
+  const actualQty = product.orderedQuantity;
+  const currentQty = finalQtyFor(product);
+  const trimmed = value.trim();
+  const isValid = validateModifiedQty(trimmed, { actualQty, innerPack }) === null;
+  const newQty = isValid ? Number(trimmed) : undefined;
+  const isUnchanged = newQty === currentQty;
+  const ordered = priceLine(product, actualQty);
+  const revised = newQty !== undefined ? priceLine(product, newQty) : undefined;
+
+  const handleSave = () => {
+    const message = validateModifiedQty(trimmed, { actualQty, innerPack });
+    if (message) {
+      setError(message);
+      return;
+    }
+    onSave(product, Number(trimmed));
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-4xl max-h-[92vh] overflow-y-auto gap-3">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Pencil className="h-4 w-4 text-blue-600" />
+            Edit Quantity
+          </DialogTitle>
+          <DialogDescription>
+            {product.name} · <span className="font-mono">{product.skuId}</span>
+          </DialogDescription>
+        </DialogHeader>
+
+        {/* Static reference values — one compact row, not editable here. */}
+        <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-2 text-sm">
+            <div>
+              <p className="text-[11px] text-gray-500">Inner Pack</p>
+              <p className="font-semibold text-gray-900">
+                {product.pack ? `${product.pack.innerPack} pcs` : "Not configured"}
+              </p>
+            </div>
+            <div>
+              <p className="text-[11px] text-gray-500">UPC (Units per Case)</p>
+              <p className="font-semibold text-gray-900">
+                {product.pack ? `${product.pack.upc} pcs` : "Not configured"}
+              </p>
+            </div>
+            <div>
+              <p className="text-[11px] text-gray-500">Actual Qty (ordered)</p>
+              <p className="font-semibold text-gray-900">{actualQty} pcs</p>
+            </div>
+            <div>
+              <p className="text-[11px] text-gray-500">Price/Unit (ordered)</p>
+              <p className="font-semibold text-gray-900">
+                {formatRupees(product.pricePerUnit)}
+              </p>
+            </div>
+          </div>
+          <p className="mt-1.5 flex items-center gap-1 text-[11px] text-gray-500">
+            <Lock className="h-3 w-3" />
+            Inner Pack and UPC are configured on the SKU and can't be changed here.
+          </p>
+        </div>
+
+        {/* Two columns on desktop so nothing needs scrolling: entry +
+            offer status on the left, Ordered vs Revised on the right.
+            Both columns render from the start so the layout doesn't
+            jump while the seller types. */}
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="modifiedQty">
+                Modified Quantity (pcs) <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="modifiedQty"
+                type="number"
+                inputMode="numeric"
+                min={innerPack}
+                max={actualQty}
+                step={innerPack}
+                value={value}
+                onChange={(e) => {
+                  setValue(e.target.value);
+                  setError(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !isUnchanged) handleSave();
+                }}
+                aria-invalid={error ? true : undefined}
+                aria-describedby="modifiedQty-help"
+                autoFocus
+              />
+              {error ? (
+                <p
+                  id="modifiedQty-help"
+                  role="alert"
+                  className="flex items-start gap-1.5 text-xs text-red-600"
+                >
+                  <AlertCircle className="h-3.5 w-3.5 mt-px shrink-0" />
+                  {error}
+                </p>
+              ) : (
+                <p id="modifiedQty-help" className="text-xs text-gray-500">
+                  {innerPack > 1
+                    ? `Enter a multiple of ${innerPack}, up to ${actualQty}.`
+                    : `Enter a quantity up to ${actualQty}.`}
+                </p>
+              )}
+            </div>
+
+            <OfferChangeBanner product={product} ordered={ordered} revised={revised} />
+            <SlabSchedule product={product} ordered={ordered} revised={revised} />
+          </div>
+
+          <PriceComparison product={product} ordered={ordered} revised={revised} />
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave} disabled={!trimmed || isUnchanged}>
+            Save Changes
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** QPS saving at the line's final quantity, after slab re-evaluation. */
+const qpsSavingFor = (p: OrderProduct) => (p.qps ? priceLine(p).saving : 0);
+
+// ---------- Offer impact (Edit Quantity popup) ----------
+// Three pieces laid out side by side in the popup: a banner naming
+// the slab change, the QPS slab schedule with the ordered + revised
+// slabs marked, and the Ordered vs Revised comparison. `revised` is
+// undefined while the typed quantity isn't valid yet.
+
+interface OfferImpactProps {
+  product: OrderProduct;
+  ordered: LinePricing;
+  revised?: LinePricing;
+}
+
+/** How the revised quantity moves the line across QPS slabs. */
+function offerChangeOf({ product, ordered, revised }: OfferImpactProps) {
+  const slabs = product.qps?.slabs;
+  const slabChanged = !!slabs && !!revised && ordered.slabIdx !== revised.slabIdx;
+  return {
+    slabs,
+    slabChanged,
+    offerLost: slabChanged && !slabHasOffer(revised!.slab),
+  };
+}
+
+function OfferChangeBanner(props: OfferImpactProps) {
+  const { product, ordered, revised } = props;
+  const { slabs, slabChanged, offerLost } = offerChangeOf(props);
+  const qps = product.qps;
+  // Nothing to say until there's a valid quantity that differs from
+  // the order, or for lines without a slab schedule.
+  if (!slabs || !qps || !revised || revised.qty === ordered.qty) return null;
+
+  if (!slabChanged) {
+    return (
+      <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-900">
+        <CheckCircle2 className="h-4 w-4 shrink-0 text-green-600" />
+        Still in {slabLabelFor(slabs, revised.slabIdx)} · {revised.slab?.discountLabel} —
+        price/unit unchanged.
+      </div>
+    );
+  }
+
+  return (
+    <div
+      role="status"
+      className={`flex items-start gap-2 rounded-lg border px-3 py-2 text-xs ${
+        offerLost
+          ? "border-red-200 bg-red-50 text-red-900"
+          : "border-amber-200 bg-amber-50 text-amber-900"
+      }`}
+    >
+      <AlertCircle
+        className={`h-4 w-4 shrink-0 ${offerLost ? "text-red-600" : "text-amber-600"}`}
+      />
+      <p>
+        {offerLost ? (
+          <>
+            <b>Offer {qps.offerCode} no longer applies.</b> {revised.qty} pcs is
+            below the {slabs.find(slabHasOffer)?.minQty} pcs minimum, so the line
+            goes back to the base price of {formatRupees(revised.pricePerUnit)}/unit.
+          </>
+        ) : (
+          <>
+            <b>
+              Slab dropped: Slab {ordered.slabIdx + 1} → Slab {revised.slabIdx + 1}.
+            </b>{" "}
+            Discount falls from {ordered.slab?.discountLabel} to{" "}
+            {revised.slab?.discountLabel}; price/unit rises to{" "}
+            {formatRupees(revised.pricePerUnit)}.
+          </>
+        )}{" "}
+        Offer saving drops by{" "}
+        <b>{formatRupees(round2(ordered.saving - revised.saving))}</b>.
+      </p>
+    </div>
+  );
+}
+
+function SlabSchedule(props: OfferImpactProps) {
+  const { product, ordered, revised } = props;
+  const { slabs, slabChanged, offerLost } = offerChangeOf(props);
+  const qps = product.qps;
+  if (!slabs || !qps) return null;
+  const showRevised = !!revised && revised.qty !== ordered.qty;
+
+  const revisedTone = offerLost
+    ? { row: "bg-red-50/60", chip: "bg-red-50 text-red-700 border-red-200" }
+    : slabChanged
+      ? { row: "bg-amber-50/60", chip: "bg-amber-50 text-amber-800 border-amber-200" }
+      : { row: "bg-green-50/60", chip: "bg-green-50 text-green-700 border-green-200" };
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-purple-200">
+      <p className="flex items-center gap-1.5 bg-purple-50 px-3 py-1.5 text-[11px] text-purple-900">
+        <Layers className="h-3 w-3 text-purple-600" />
+        QPS slabs · Offer <b className="font-mono">{qps.offerCode}</b>
+      </p>
+      <table className="w-full text-xs">
+        <thead className="text-[10px] uppercase tracking-wider text-gray-500">
+          <tr className="border-b border-purple-100">
+            <th className="px-3 py-1 text-left font-semibold">Slab</th>
+            <th className="px-3 py-1 text-left font-semibold">Qty</th>
+            <th className="px-3 py-1 text-left font-semibold">Discount</th>
+            <th className="px-3 py-1 text-right font-semibold">Price/Unit</th>
+            <th className="px-3 py-1" />
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-purple-50">
+          {slabs.map((s, i) => {
+            const isOrdered = i === ordered.slabIdx;
+            const isRevised = showRevised && i === revised!.slabIdx;
+            return (
+              <tr
+                key={i}
+                className={isRevised ? revisedTone.row : isOrdered ? "bg-gray-50" : undefined}
+              >
+                <td className="px-3 py-1 text-gray-700">Slab {i + 1}</td>
+                <td className="px-3 py-1 text-gray-700">
+                  {s.maxQty === undefined ? `${s.minQty}+` : `${s.minQty}–${s.maxQty}`}
+                </td>
+                <td className="px-3 py-1 text-gray-700">{s.discountLabel}</td>
+                <td className="px-3 py-1 text-right text-gray-900">
+                  {formatRupees(s.pricePerUnit)}
+                </td>
+                <td className="px-3 py-1 text-right">
+                  <span className="inline-flex gap-1">
+                    {isOrdered && (
+                      <Badge className="bg-blue-50 text-blue-700 border-blue-200 text-[10px] py-0">
+                        Ordered
+                      </Badge>
+                    )}
+                    {isRevised && (
+                      <Badge className={`${revisedTone.chip} text-[10px] py-0`}>
+                        Revised
+                      </Badge>
+                    )}
+                  </span>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function PriceComparison(props: OfferImpactProps) {
+  const { product, ordered, revised } = props;
+  const { slabs, slabChanged } = offerChangeOf(props);
+  const qps = product.qps;
+
+  const slabText = (p: LinePricing) =>
+    slabs && p.slabIdx >= 0 && slabHasOffer(p.slab)
+      ? slabLabelFor(slabs, p.slabIdx)
+      : "Not eligible";
+  const discountText = (p: LinePricing) =>
+    slabHasOffer(p.slab) ? p.slab!.discountLabel : "No discount";
+
+  // `revised` cells read "—" until the typed quantity is valid.
+  const rows: {
+    label: string;
+    ordered: string;
+    revised?: string;
+    tone?: "bad" | "strong";
+  }[] = [
+    { label: "Quantity", ordered: `${ordered.qty} pcs`, revised: revised && `${revised.qty} pcs` },
+    ...(slabs
+      ? [
+          {
+            label: "Offer slab",
+            ordered: slabText(ordered),
+            revised: revised && slabText(revised),
+            tone: slabChanged ? ("bad" as const) : undefined,
+          },
+          {
+            label: "Discount",
+            ordered: discountText(ordered),
+            revised: revised && discountText(revised),
+            tone: slabChanged ? ("bad" as const) : undefined,
+          },
+        ]
+      : []),
+    {
+      label: "Price/Unit",
+      ordered: formatRupees(ordered.pricePerUnit),
+      revised: revised && formatRupees(revised.pricePerUnit),
+      tone:
+        revised && revised.pricePerUnit > ordered.pricePerUnit ? "bad" : undefined,
+    },
+    ...(qps
+      ? [
+          {
+            label: "Offer saving",
+            ordered: formatRupees(ordered.saving),
+            revised: revised && formatRupees(revised.saving),
+          },
+        ]
+      : []),
+    {
+      label: "Line total",
+      ordered: formatRupees(ordered.lineTotal),
+      revised: revised && formatRupees(revised.lineTotal),
+      tone: "strong",
+    },
+  ];
+
+  return (
+    <div className="space-y-1.5">
+      <p className="text-sm font-medium text-gray-900">Price &amp; offer impact</p>
+      <div className="overflow-hidden rounded-lg border border-gray-200">
+        <table className="w-full text-xs">
+          <thead className="bg-gray-50 text-[10px] uppercase tracking-wider text-gray-500">
+            <tr>
+              <th className="px-3 py-1.5 text-left font-semibold" />
+              <th className="px-3 py-1.5 text-right font-semibold">Ordered</th>
+              <th className="px-3 py-1.5 text-right font-semibold">Revised</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {rows.map((r) => {
+              const changed = r.revised !== undefined && r.ordered !== r.revised;
+              return (
+                <tr key={r.label} className={r.tone === "strong" ? "bg-gray-50" : undefined}>
+                  <td className="px-3 py-2 text-gray-600">{r.label}</td>
+                  <td
+                    className={`px-3 py-2 text-right ${
+                      changed ? "text-gray-400 line-through" : "text-gray-700"
+                    }`}
+                  >
+                    {r.ordered}
+                  </td>
+                  <td
+                    className={`px-3 py-2 text-right ${
+                      r.revised === undefined
+                        ? "text-gray-400"
+                        : r.tone === "strong"
+                          ? "font-bold text-gray-900"
+                          : changed && r.tone === "bad"
+                            ? "font-semibold text-red-600"
+                            : "font-semibold text-gray-900"
+                    }`}
+                  >
+                    {r.revised ?? "—"}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {!qps && (
+        <p className="text-[11px] text-gray-500">
+          No offer on this SKU — price/unit stays as ordered.
+        </p>
+      )}
     </div>
   );
 }
@@ -1040,25 +1698,66 @@ export function OrderDetail() {
 // intentionally absent — they surface inside the Save Changes popup
 // once the seller commits. The "Active" column was also dropped
 // from the table; the row highlight communicates the same thing.
-function QpsImpactRow({ product }: { product: OrderProduct }) {
+function QpsImpactRow({
+  product,
+  colSpan,
+}: {
+  product: OrderProduct;
+  colSpan: number;
+}) {
   const qps = product.qps!;
   const base = product.basePrice ?? 0;
+  // After a quantity edit the line may sit in a lower slab (or none).
+  const pricing = priceLine(product);
+  const slabs = qps.slabs;
+  const slabChanged =
+    product.modifiedQty !== undefined &&
+    !!slabs &&
+    pricing.slabIdx !== findSlabIdx(slabs, product.orderedQuantity);
+  const offerLost = slabChanged && !slabHasOffer(pricing.slab);
   return (
     <tr className="bg-purple-50/40">
-      <td colSpan={6} className="px-4 py-3">
+      <td colSpan={colSpan} className="px-4 py-3">
         {/* Compact one-liner — the full slab schedule used to live
             below this strip but only rendered in Modify Items mode,
             which has been retired. Sellers who need the slab
             breakdown can open the QPS scheme in Offers & Schemes. */}
         <div className="flex items-center gap-2 text-[11px] text-purple-900 flex-wrap">
           <Layers className="h-3 w-3 text-purple-600 shrink-0" />
-          <span>
-            <b>{qps.slabLabel}</b> · {qps.discountLabel}
-            {base > 0 && <> vs ₹{base.toFixed(2)}</>}
-          </span>
+          {slabChanged && slabs ? (
+            <span>
+              <s className="text-purple-400">{qps.slabLabel}</s>
+              {" → "}
+              <b>
+                {offerLost
+                  ? "No offer slab"
+                  : `${slabLabelFor(slabs, pricing.slabIdx)} · ${pricing.slab!.discountLabel}`}
+              </b>
+              {base > 0 && !offerLost && <> vs ₹{base.toFixed(2)}</>}
+            </span>
+          ) : (
+            <span>
+              <b>{qps.slabLabel}</b> · {qps.discountLabel}
+              {base > 0 && <> vs ₹{base.toFixed(2)}</>}
+            </span>
+          )}
+          {slabChanged && (
+            <Badge
+              className={
+                offerLost
+                  ? "bg-red-50 text-red-700 border-red-200 text-[10px] py-0"
+                  : "bg-amber-50 text-amber-800 border-amber-200 text-[10px] py-0"
+              }
+            >
+              {offerLost ? "Offer lost" : "Slab dropped"}
+            </Badge>
+          )}
           <span className="text-purple-700 inline-flex items-center gap-1">
             <TrendingDown className="h-3 w-3" />
-            saved <b>₹{qps.totalSaving.toFixed(2)}</b>
+            saved <b>₹{pricing.saving.toFixed(2)}</b>
+            {slabChanged && (
+              <span className="text-purple-500">(was ₹{qps.totalSaving.toFixed(2)})</span>
+            )}
           </span>
           {/* Offer Code lives here, on the same line as the slab +
               discount + saving summary — keeps the trace next to
