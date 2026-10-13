@@ -18,6 +18,14 @@ import {
   DialogFooter,
 } from "../../components/ui/dialog";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "../../components/ui/dropdown-menu";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -35,6 +43,7 @@ import {
   PackageCheck,
   ExternalLink,
   Calendar,
+  ChevronDown,
   X,
   Filter,
   Eye,
@@ -71,7 +80,6 @@ import {
   setOrders as setOrdersStore,
   subscribeToOrders,
   updateOrderStatuses,
-  getOrdersToday,
   getOrderType,
   getOrderOperationMode,
   getCustomerOrderId,
@@ -91,16 +99,6 @@ import {
 // helper so call-sites read clearly at usage.
 function isBeatOrder(order: Order): boolean {
   return getOrderType(order) === "beat";
-}
-
-function shortDate(iso: string): string {
-  const d = Date.parse(iso + "T00:00:00Z");
-  if (Number.isNaN(d)) return iso;
-  return new Date(d).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    timeZone: "UTC",
-  });
 }
 
 // Delivery-day weekday tabs. Keyed by JS getUTCDay() (0 = Sunday) but
@@ -197,7 +195,8 @@ export function Orders() {
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [marketplaceFilter, setMarketplaceFilter] = useState<string>("all");
-  const [selectedBrandFilters, setSelectedBrandFilters] = useState<string[]>([]);
+  const [selectedCompanyFilters, setSelectedCompanyFilters] = useState<string[]>([]);
+  const [selectedStatusFilters, setSelectedStatusFilters] = useState<string[]>([]);
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
   // "Cancelled By" quick filter — only consulted on the Cancelled
@@ -209,10 +208,17 @@ export function Orders() {
   >("all");
 
   // Unique brands and statuses for filter options
-  const uniqueBrands = useMemo(
-    () => Array.from(new Set(orders.map((o) => o.brand))).sort(),
+  const uniqueCompanies = useMemo(
+    () => Array.from(new Set(orders.map((o) => o.company))).sort(),
     [orders]
   );
+  const statusOptions = [
+    { label: "New", value: "New" },
+    { label: "Confirmed", value: "Confirmed" },
+    { label: "Delivered", value: "Delivered" },
+    { label: "Cancelled", value: "Cancelled" },
+  ];
+
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -335,13 +341,25 @@ export function Orders() {
       return false;
     }
     if (
-      selectedBrandFilters.length > 0 &&
-      !selectedBrandFilters.includes(o.brand)
+      selectedCompanyFilters.length > 0 &&
+      !selectedCompanyFilters.includes(o.company)
     ) {
       return false;
     }
-    if (startDate && o.orderDate < startDate) return false;
-    if (endDate && o.orderDate > endDate) return false;
+    if (
+      selectedStatusFilters.length > 0 &&
+      !selectedStatusFilters.includes(o.status)
+    ) {
+      return false;
+    }
+    // Date range applies once both ends are set, as in the original
+    // drawer.
+    if (startDate && endDate) {
+      const orderDate = new Date(o.orderDate);
+      if (orderDate < new Date(startDate) || orderDate > new Date(endDate)) {
+        return false;
+      }
+    }
     if (!skip.includes("route") && !matchesRoute(o)) return false;
     // Weekday tab: orders with a missing / invalid delivery date never
     // match a specific weekday, but still show under All Days.
@@ -394,7 +412,8 @@ export function Orders() {
     orders,
     searchQuery,
     marketplaceFilter,
-    selectedBrandFilters,
+    selectedCompanyFilters,
+    selectedStatusFilters,
     startDate,
     endDate,
     routeFilter,
@@ -402,14 +421,23 @@ export function Orders() {
     deliveryDate,
   ];
 
-  // Tab counts follow the filter bar, so picking "This week" turns the
-  // tab strip into "this week's orders by status".
+  // Delivered and Cancelled are history, not planning — they don't
+  // show the Delivery day / Dates / Order type rows, so those filters
+  // are ignored there (search and the Filters drawer still apply).
+  const usesDeliveryFilters = (tab: TabType) =>
+    tab !== "delivered" && tab !== "cancelled";
+  const deliverySkip = (tab: TabType): ("route" | "weekday" | "date")[] =>
+    usesDeliveryFilters(tab) ? [] : ["route", "weekday", "date"];
+
+  // Tab counts follow the filters, so picking "Monday" turns the tab
+  // strip into "Monday's orders by status".
   const summary = useMemo(() => {
-    const filtered = orders.filter((o) => matchesCommonFilters(o));
     const count = (tab: TabType) =>
-      filtered.filter((o) => matchesTab(o, tab)).length;
+      orders.filter(
+        (o) => matchesTab(o, tab) && matchesCommonFilters(o, deliverySkip(tab)),
+      ).length;
     return {
-      all: filtered.length,
+      all: count("all"),
       new: count("new"),
       confirmed: count("confirmed"),
       logistics: count("logistics"),
@@ -424,7 +452,7 @@ export function Orders() {
         (o) =>
           matchesTab(o, activeTab) &&
           matchesCancelledBy(o) &&
-          matchesCommonFilters(o),
+          matchesCommonFilters(o, deliverySkip(activeTab)),
       ),
     [...filterDeps, activeTab, cancelledByFilter],
   );
@@ -559,7 +587,9 @@ export function Orders() {
   // of the bucket the seller would land on if they clicked it.
   const cancelledByCounts = useMemo(() => {
     const baseCancelled = orders.filter(
-      (o) => o.status === "Cancelled" && matchesCommonFilters(o),
+      (o) =>
+        o.status === "Cancelled" &&
+        matchesCommonFilters(o, deliverySkip("cancelled")),
     );
     const isBuyer = (o: Order) => (o.cancelledBy ?? "Seller") === "Buyer";
     return {
@@ -790,7 +820,8 @@ export function Orders() {
   const clearFilters = () => {
     setSearchQuery("");
     setMarketplaceFilter("all");
-    setSelectedBrandFilters([]);
+    setSelectedCompanyFilters([]);
+    setSelectedStatusFilters([]);
     setStartDate("");
     setEndDate("");
     setRouteFilter("all");
@@ -799,15 +830,13 @@ export function Orders() {
     setCurrentPage(1);
   };
 
-  // Drawer-only filters — drives the badge on the Filters button.
-  const drawerFilterCount =
-    (marketplaceFilter !== "all" ? 1 : 0) +
-    (selectedBrandFilters.length > 0 ? 1 : 0) +
-    (startDate || endDate ? 1 : 0);
-
   const hasActiveFilters =
-    !!searchQuery ||
-    drawerFilterCount > 0 ||
+    searchQuery ||
+    marketplaceFilter !== "all" ||
+    selectedCompanyFilters.length > 0 ||
+    selectedStatusFilters.length > 0 ||
+    startDate ||
+    endDate ||
     routeFilter !== "all" ||
     deliveryDayTab !== "all";
 
@@ -1371,39 +1400,113 @@ export function Orders() {
   // the drawer filters) in one go.
   const renderSearchBar = () => (
     <div className="px-6 py-4 border-b flex-shrink-0">
-      <div className="flex items-center gap-3">
-        <div className="relative max-w-md flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input
-            placeholder="Search by order ID, retailer name..."
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="pl-10 pr-10"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery("")}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              aria-label="Clear search"
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3 flex-1">
+          <div className="relative max-w-md flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search by order ID, retailer name..."
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="pl-10 pr-10"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                aria-label="Clear search"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          {hasActiveFilters && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearFilters}
+              className="text-sm text-gray-500 gap-1"
             >
               <X className="h-4 w-4" />
-            </button>
+              Clear filters
+            </Button>
           )}
         </div>
-        {hasActiveFilters && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={clearFilters}
-            className="text-sm text-gray-500 gap-1"
-          >
-            <X className="h-4 w-4" />
-            Clear filters
-          </Button>
-        )}
+
+        {/* Bulk actions — one "Actions" dropdown on the New and
+            Confirmed tabs, shown once at least one order is selected.
+            New: View on Map, Confirm. Confirmed: View on Map, Request
+            3PL Logistics (when enabled), Mark Delivered. Cancel Orders
+            sits last, split off as the destructive option. Each item
+            opens the same dialog the old buttons did. */}
+        {(activeTab === "new" || activeTab === "confirmed") &&
+          selectedOrders.length > 0 && (
+            <div className="flex items-center gap-3 flex-shrink-0">
+              <span className="text-sm text-gray-600">
+                {selectedOrders.length} selected
+              </span>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button className="group gap-2 bg-blue-600 hover:bg-blue-700 text-white">
+                    Actions
+                    <ChevronDown className="h-4 w-4 transition-transform group-data-[state=open]:rotate-180" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-60">
+                  <DropdownMenuLabel className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+                    {selectedOrders.length}{" "}
+                    {selectedOrders.length === 1 ? "order" : "orders"} selected
+                  </DropdownMenuLabel>
+                  <DropdownMenuItem
+                    onSelect={handleViewOnMap}
+                    className="gap-2 cursor-pointer"
+                  >
+                    <MapPin className="h-4 w-4" />
+                    View on Map
+                  </DropdownMenuItem>
+                  {activeTab === "new" && (
+                    <DropdownMenuItem
+                      onSelect={() => setIsConfirmDialogOpen(true)}
+                      className="gap-2 cursor-pointer"
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                      Confirm
+                    </DropdownMenuItem>
+                  )}
+                  {activeTab === "confirmed" && logisticsEnabled && (
+                    <DropdownMenuItem
+                      onSelect={() => setIsRequestLogisticsDialogOpen(true)}
+                      className="gap-2 cursor-pointer"
+                    >
+                      <Truck className="h-4 w-4" />
+                      Request 3PL Logistics
+                    </DropdownMenuItem>
+                  )}
+                  {activeTab === "confirmed" && (
+                    <DropdownMenuItem
+                      onSelect={() => setIsDeliverDialogOpen(true)}
+                      className="gap-2 cursor-pointer"
+                    >
+                      <PackageCheck className="h-4 w-4" />
+                      Mark Delivered
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onSelect={() => setIsCancelDialogOpen(true)}
+                    className="gap-2 cursor-pointer"
+                  >
+                    <XCircle className="h-4 w-4" />
+                    Cancel Orders
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )}
       </div>
     </div>
   );
@@ -1417,11 +1520,17 @@ export function Orders() {
   // for All, blue for the selected day, emerald = beat, amber =
   // non-beat. Rows scroll sideways on narrow screens.
   const renderDeliveryFilters = () => {
-    const pill = (active: boolean, activeTone: string, empty = false) =>
+    const pill = (
+      active: boolean,
+      activeTone: string,
+      empty = false,
+      idleTone?: string,
+    ) =>
       `shrink-0 inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border transition-colors whitespace-nowrap ${
         active
           ? activeTone
-          : `bg-white border-gray-300 hover:bg-gray-50 ${empty ? "text-gray-400" : "text-gray-700"}`
+          : (idleTone ??
+            `bg-white border-gray-300 hover:bg-gray-50 ${empty ? "text-gray-400" : "text-gray-700"}`)
       }`;
     const rowLabel =
       "shrink-0 w-28 inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 uppercase tracking-wide";
@@ -1524,6 +1633,7 @@ export function Orders() {
               routeFilter === "beat",
               "bg-emerald-600 text-white border-emerald-600",
               routeCounts.beat === 0,
+              "bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100",
             )}
           >
             <Route className="h-3 w-3" />
@@ -1535,6 +1645,7 @@ export function Orders() {
               routeFilter === "non-beat",
               "bg-amber-600 text-white border-amber-600",
               routeCounts.nonBeat === 0,
+              "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100",
             )}
           >
             <Zap className="h-3 w-3" />
@@ -1635,11 +1746,6 @@ export function Orders() {
                     >
                       <Filter className="h-4 w-4" />
                       Filters
-                      {drawerFilterCount > 0 && (
-                        <span className="ml-0.5 inline-flex items-center justify-center h-5 min-w-5 px-1 rounded-full bg-gray-900 text-white text-[10px] font-semibold">
-                          {drawerFilterCount}
-                        </span>
-                      )}
                     </Button>
 
                     {/* Export Button */}
@@ -1695,17 +1801,23 @@ export function Orders() {
               )}
 
               {/* Delivery day / Dates / Order type */}
-              {!isEmpty && renderDeliveryFilters()}
+              {!isEmpty && usesDeliveryFilters(activeTab) && renderDeliveryFilters()}
 
-              {/* Applied drawer-filter tags — the quick bar above
-                  already shows its own state, so only drawer filters
-                  need a reminder here. */}
-              {drawerFilterCount > 0 && (
+              {/* Applied Filter Tags */}
+              {(selectedCompanyFilters.length > 0 || selectedStatusFilters.length > 0 || marketplaceFilter !== "all") && (
                 <div className="px-6 py-2 border-b flex flex-wrap items-center gap-2 flex-shrink-0">
-                  {selectedBrandFilters.map((brand) => (
-                    <Badge key={brand} variant="secondary" className="gap-1 pl-2 pr-1 py-1 text-xs bg-purple-50 text-purple-700 border-purple-200">
-                      {brand}
-                      <button onClick={() => setSelectedBrandFilters(selectedBrandFilters.filter(b => b !== brand))} className="ml-1 hover:bg-purple-200 rounded-full p-0.5">
+                  {selectedCompanyFilters.map((company) => (
+                    <Badge key={company} variant="secondary" className="gap-1 pl-2 pr-1 py-1 text-xs bg-purple-50 text-purple-700 border-purple-200">
+                      {company}
+                      <button onClick={() => setSelectedCompanyFilters(selectedCompanyFilters.filter(c => c !== company))} className="ml-1 hover:bg-purple-200 rounded-full p-0.5">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                  {selectedStatusFilters.map((status) => (
+                    <Badge key={status} variant="secondary" className="gap-1 pl-2 pr-1 py-1 text-xs bg-blue-50 text-blue-700 border-blue-200">
+                      {status}
+                      <button onClick={() => setSelectedStatusFilters(selectedStatusFilters.filter(s => s !== status))} className="ml-1 hover:bg-blue-200 rounded-full p-0.5">
                         <X className="h-3 w-3" />
                       </button>
                     </Badge>
@@ -1718,14 +1830,9 @@ export function Orders() {
                       </button>
                     </Badge>
                   )}
-                  {(startDate || endDate) && (
-                    <Badge variant="secondary" className="gap-1 pl-2 pr-1 py-1 text-xs bg-blue-50 text-blue-700 border-blue-200">
-                      Ordered {startDate ? shortDate(startDate) : "…"} – {endDate ? shortDate(endDate) : "…"}
-                      <button onClick={() => { setStartDate(""); setEndDate(""); }} className="ml-1 hover:bg-blue-200 rounded-full p-0.5">
-                        <X className="h-3 w-3" />
-                      </button>
-                    </Badge>
-                  )}
+                  <Button variant="ghost" size="sm" onClick={clearFilters} className="text-gray-500 text-xs h-6">
+                    Clear all
+                  </Button>
                 </div>
               )}
 
@@ -1748,49 +1855,6 @@ export function Orders() {
             </TabsContent>
 
             <TabsContent value="new" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
-              {!isEmpty && selectedOrders.length > 0 && (
-              <div className="px-6 py-2 border-b flex-shrink-0 bg-purple-50/60">
-                <div className="flex items-center justify-between gap-4">
-                  {/* Bulk Action Buttons — Confirm / Cancel keep the
-                      green/red destructive treatment; View on Map sits
-                      first because the seller usually wants to eyeball
-                      delivery clustering before they confirm a wave of
-                      new orders. */}
-                  {selectedOrders.length > 0 && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-600 mr-2">{selectedOrders.length} selected</span>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="border-blue-300 text-blue-700 hover:bg-blue-50 gap-2"
-                        onClick={handleViewOnMap}
-                      >
-                        <MapPin className="h-4 w-4" />
-                        View on Map
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="bg-green-600 hover:bg-green-700 text-white gap-2"
-                        onClick={() => setIsConfirmDialogOpen(true)}
-                      >
-                        <CheckCircle2 className="h-4 w-4" />
-                        Confirm
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="border-red-300 text-red-700 hover:bg-red-50 gap-2"
-                        onClick={() => setIsCancelDialogOpen(true)}
-                      >
-                        <XCircle className="h-4 w-4" />
-                        Cancel
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </div>
-              )}
-
               {/* Table */}
               {renderOrderTable(paginatedOrders)}
               {!isEmpty && (
@@ -1805,67 +1869,6 @@ export function Orders() {
             </TabsContent>
 
             <TabsContent value="confirmed" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
-              {!isEmpty && selectedOrders.length > 0 && (
-                <>
-                  <div className="px-6 py-2 border-b flex-shrink-0 bg-purple-50/60">
-                    <div className="flex items-center justify-between gap-4">
-                      {/* Bulk Action Buttons — View on Map (route the
-                          day's confirmed deliveries) anchors the row,
-                          then the two fulfilment routes, then the
-                          destructive Cancel.
-
-                          Fulfilment is a choice, not a mode: a seller
-                          with Logistics enabled hands SOME orders to
-                          the 3PL network and still delivers the rest
-                          themselves, so "Request 3PL Logistics" sits
-                          alongside "Mark Delivered" rather than
-                          replacing it. */}
-                      {selectedOrders.length > 0 && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-gray-600 mr-2">{selectedOrders.length} selected</span>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="border-blue-300 text-blue-700 hover:bg-blue-50 gap-2"
-                            onClick={handleViewOnMap}
-                          >
-                            <MapPin className="h-4 w-4" />
-                            View on Map
-                          </Button>
-                          {logisticsEnabled && (
-                            <Button
-                              size="sm"
-                              className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
-                              onClick={() => setIsRequestLogisticsDialogOpen(true)}
-                            >
-                              <Truck className="h-4 w-4" />
-                              Request 3PL Logistics
-                            </Button>
-                          )}
-                          <Button
-                            size="sm"
-                            className="bg-green-600 hover:bg-green-700 text-white gap-2"
-                            onClick={() => setIsDeliverDialogOpen(true)}
-                          >
-                            <PackageCheck className="h-4 w-4" />
-                            Mark Delivered
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="border-red-300 text-red-700 hover:bg-red-50 gap-2"
-                            onClick={() => setIsCancelDialogOpen(true)}
-                          >
-                            <XCircle className="h-4 w-4" />
-                            Cancel
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </>
-              )}
-
               {/* Table */}
               {renderOrderTable(paginatedOrders)}
             </TabsContent>
@@ -1878,8 +1881,8 @@ export function Orders() {
                 which in production arrives from the delivery-partner
                 app via LBNP rather than from a button here. */}
             <TabsContent value="logistics" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
-              <div className="px-6 py-2 border-b flex-shrink-0 bg-blue-50/50">
-                <p className="text-xs text-gray-600">
+              <div className="px-6 py-3 border-b flex-shrink-0">
+                <p className="text-xs text-gray-500">
                   These orders are with the logistics partner. They move to Delivered automatically once the delivery partner completes them.
                 </p>
               </div>
@@ -1910,7 +1913,7 @@ export function Orders() {
                       seller can audit buyer drop-offs vs their own
                       cancellations in one click. Mirrors the Confirmed
                       tab's delivery-window chips for visual rhythm. */}
-                  <div className="px-6 py-2 border-b flex-shrink-0 flex items-center gap-2 flex-wrap">
+                  <div className="px-6 pt-4 pb-2 border-b flex-shrink-0 flex items-center gap-2 flex-wrap">
                     <span className="text-xs font-medium text-gray-600 uppercase tracking-wide mr-1">
                       Cancelled By:
                     </span>
@@ -2135,171 +2138,20 @@ export function Orders() {
         </DialogContent>
       </Dialog>
 
-      {/* Confirm Orders Dialog — pure confirmation surface, no
-          dispatch metadata captured here. The selection is grouped
-          by Delivery Day (the concrete committed date) so the
-          distributor can plan packing & dispatch per-day instead of
-          via the older Tomorrow / Beyond-Tomorrow relative buckets
-          retired in June 2026. */}
+      {/* Confirm Orders Dialog — a simple confirmation: how many orders,
+          then Cancel / Confirm Orders. */}
       <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-green-600" />
+            <DialogTitle className="flex items-center gap-2 text-green-600">
+              <CheckCircle2 className="h-5 w-5" />
               Confirm Orders
             </DialogTitle>
             <DialogDescription>
-              Review the selected orders, grouped by Delivery Day, then
-              confirm.
+              Confirm {selectedOrders.length} order
+              {selectedOrders.length === 1 ? "" : "s"}.
             </DialogDescription>
           </DialogHeader>
-
-          {(() => {
-            const selectedOrderObjects = orders.filter((o) =>
-              selectedOrders.includes(o.id),
-            );
-            const today = getOrdersToday();
-            const eligible = selectedOrderObjects;
-
-            const groupByDay = (rows: Order[]) => {
-              const map = new Map<string, Order[]>();
-              for (const o of rows) {
-                const key = o.expectedDeliveryDate;
-                const arr = map.get(key);
-                if (arr) arr.push(o);
-                else map.set(key, [o]);
-              }
-              return Array.from(map.entries()).sort(([a], [b]) =>
-                a.localeCompare(b),
-              );
-            };
-
-            const renderRow = (o: Order) => (
-              <li
-                key={o.id}
-                className="flex items-center justify-between gap-2 text-xs bg-white rounded px-2 py-1.5 border border-gray-100"
-              >
-                <div className="flex flex-col min-w-0">
-                  <span className="font-medium text-gray-900 truncate">
-                    {o.retailerName}
-                  </span>
-                  <span className="text-[10px] text-gray-500">{o.id}</span>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span
-                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap border ${
-                      getOrderType(o) === "beat"
-                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                        : "border-amber-200 bg-amber-50 text-amber-800"
-                    }`}
-                  >
-                    {getOrderType(o) === "beat" ? (
-                      <Route className="h-3 w-3" />
-                    ) : (
-                      <Zap className="h-3 w-3" />
-                    )}
-                    {getOrderType(o) === "beat" ? "Beat" : "Non-Beat"}
-                  </span>
-                  <span className="text-[10px] text-gray-600 whitespace-nowrap">
-                    ₹{o.orderValue.toLocaleString()}
-                  </span>
-                </div>
-              </li>
-            );
-
-            return (
-              <div className="space-y-3 py-2 max-h-[60vh] overflow-y-auto pr-1">
-                {eligible.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                      <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
-                        Will be confirmed
-                      </p>
-                      <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">
-                        {eligible.length}
-                      </Badge>
-                    </div>
-                    {groupByDay(eligible).map(([day, rows]) => {
-                      const isToday = day === today;
-                      const tone = isToday
-                        ? "border-red-200 bg-red-50/60"
-                        : "border-blue-200 bg-blue-50/60";
-                      const iconTone = isToday
-                        ? "text-red-600"
-                        : "text-blue-600";
-                      return (
-                        <div
-                          key={day}
-                          className={`rounded-md border p-3 ${tone}`}
-                        >
-                          <div className="flex items-center gap-2 mb-2">
-                            <CalendarDays className={`h-4 w-4 ${iconTone}`} />
-                            <p className="text-sm font-semibold text-gray-900">
-                              {formatDeliveryPillLabel(day)}
-                            </p>
-                            <Badge
-                              variant="secondary"
-                              className="bg-white text-gray-700 border border-gray-200"
-                            >
-                              {rows.length}
-                            </Badge>
-                          </div>
-                          <ul className="space-y-1.5 max-h-40 overflow-y-auto">
-                            {rows.map(renderRow)}
-                          </ul>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {eligible.length === 0 && (
-                  <div className="flex items-start gap-2 p-2.5 rounded border border-amber-200 bg-amber-50 text-[11px] text-amber-900">
-                    <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                    <p>No orders selected.</p>
-                  </div>
-                )}
-              </div>
-            );
-          })()}
-
-          {/* Soft nudge — VIW-2026-06911. Doesn't block this confirm;
-              just flags older orders left behind so the seller can
-              fold them into the same batch. */}
-          {(() => {
-            const leftBehind = stalePendingOrders.filter(
-              (o) => !selectedOrders.includes(o.id),
-            );
-            if (leftBehind.length === 0) return null;
-            return (
-              <div className="flex items-start gap-2 p-2.5 rounded border border-amber-200 bg-amber-50 text-[11px] text-amber-900">
-                <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                <p className="flex-1">
-                  You also have {leftBehind.length} order
-                  {leftBehind.length === 1 ? "" : "s"} pending for more than{" "}
-                  {STALE_PENDING_NUDGE_DAYS} days that {leftBehind.length === 1 ? "isn't" : "aren't"} in
-                  this batch. Consider confirming{" "}
-                  {leftBehind.length === 1 ? "it" : "them"} too.
-                </p>
-                <button
-                  type="button"
-                  className="shrink-0 underline font-medium hover:text-amber-950"
-                  onClick={() =>
-                    setSelectedOrders((prev) => [
-                      ...prev,
-                      ...leftBehind
-                        .map((o) => o.id)
-                        .filter((id) => !prev.includes(id)),
-                    ])
-                  }
-                >
-                  Add to batch
-                </button>
-              </div>
-            );
-          })()}
-
           <DialogFooter>
             <Button
               variant="outline"
@@ -2307,21 +2159,14 @@ export function Orders() {
             >
               Cancel
             </Button>
-            {(() => {
-              const count = selectedOrders.length;
-              return (
-                <Button
-                  onClick={handleConfirmOrders}
-                  disabled={count === 0}
-                  className="gap-2"
-                >
-                  <CheckCircle2 className="h-4 w-4" />
-                  {count === 0
-                    ? "Nothing to confirm"
-                    : `Confirm ${count} order${count === 1 ? "" : "s"}`}
-                </Button>
-              );
-            })()}
+            <Button
+              onClick={handleConfirmOrders}
+              disabled={selectedOrders.length === 0}
+              className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              Confirm Orders
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -2603,7 +2448,7 @@ export function Orders() {
             >
               {/* Header */}
               <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                <h2 className="text-lg font-semibold text-gray-900">More Filters</h2>
+                <h2 className="text-lg font-semibold text-gray-900">Filter Orders</h2>
                 <button
                   onClick={() => setIsFilterDialogOpen(false)}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -2616,12 +2461,25 @@ export function Orders() {
               <div className="flex-1 overflow-y-auto p-6">
                 <div className="space-y-6">
                   <div className="space-y-2">
-                    <Label>Company / Brand</Label>
+                    <Label>Company</Label>
                     <MultiSelect
-                      options={uniqueBrands.map((b) => ({ label: b, value: b }))}
-                      selected={selectedBrandFilters}
-                      onChange={setSelectedBrandFilters}
-                      placeholder="All Brands"
+                      options={uniqueCompanies.map((c) => ({ label: c, value: c }))}
+                      selected={selectedCompanyFilters}
+                      onChange={setSelectedCompanyFilters}
+                      placeholder="All Companies"
+                      allLabel="All Companies"
+                      className="w-full"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Status</Label>
+                    <MultiSelect
+                      options={statusOptions}
+                      selected={selectedStatusFilters}
+                      onChange={setSelectedStatusFilters}
+                      placeholder="All Status"
+                      allLabel="All Status"
                       className="w-full"
                     />
                   </div>
@@ -2644,29 +2502,26 @@ export function Orders() {
                     </Select>
                   </div>
 
-                  {/* Status, delivery day and Beat / Non-Beat live in
-                      the tabs and the quick filter bar now, so the
-                      drawer only keeps the less-used slicers. */}
                   <div className="space-y-2">
-                    <Label>Order placed between</Label>
-                    <div className="flex items-center gap-2">
+                    <Label htmlFor="dateRange">Date Range</Label>
+                    <div className="flex flex-col gap-2">
                       <Input
                         type="date"
-                        aria-label="Order date from"
                         value={startDate}
-                        max={endDate || undefined}
                         onChange={(e) => setStartDate(e.target.value)}
+                        className="w-full"
+                        placeholder="Start Date"
                       />
-                      <span className="text-xs text-gray-400">to</span>
                       <Input
                         type="date"
-                        aria-label="Order date to"
                         value={endDate}
-                        min={startDate || undefined}
                         onChange={(e) => setEndDate(e.target.value)}
+                        className="w-full"
+                        placeholder="End Date"
                       />
                     </div>
                   </div>
+
                 </div>
               </div>
 
@@ -2675,12 +2530,7 @@ export function Orders() {
                 <Button
                   variant="outline"
                   className="flex-1"
-                  onClick={() => {
-                    setMarketplaceFilter("all");
-                    setSelectedBrandFilters([]);
-                    setStartDate("");
-                    setEndDate("");
-                  }}
+                  onClick={clearFilters}
                 >
                   Clear Filters
                 </Button>
