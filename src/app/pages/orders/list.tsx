@@ -101,8 +101,10 @@ function isBeatOrder(order: Order): boolean {
   return getOrderType(order) === "beat";
 }
 
-// Delivery-day weekday tabs. Keyed by JS getUTCDay() (0 = Sunday) but
+// Delivery-day weekday tabs. Keyed by JS getUTCDay() (0 = Sunday) and
 // listed Monday-first, the way distributors plan their beat week.
+// Sunday is a holiday, so it has no tab; any Sunday-dated order still
+// shows under All Days.
 const WEEKDAY_TABS: { day: number; label: string }[] = [
   { day: 1, label: "Monday" },
   { day: 2, label: "Tuesday" },
@@ -110,7 +112,6 @@ const WEEKDAY_TABS: { day: number; label: string }[] = [
   { day: 4, label: "Thursday" },
   { day: 5, label: "Friday" },
   { day: 6, label: "Saturday" },
-  { day: 0, label: "Sunday" },
 ];
 
 /** Weekday (0 = Sunday) of a YYYY-MM-DD delivery date, or null when the
