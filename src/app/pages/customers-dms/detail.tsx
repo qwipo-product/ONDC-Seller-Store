@@ -1,5 +1,5 @@
 // =====================================================================
-// Customer Onboarding — detail.
+// New Onboarding — detail.
 //
 // Deliberately the same skeleton as the live Customers detail page
 // (pages/customers/detail.tsx): two-column layout — Basic Information /
@@ -144,10 +144,10 @@ export function CustomerDmsDetail() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => navigate("/customer-onboarding")}
+            onClick={() => navigate("/new-onboarding")}
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Customer Onboarding
+            Back to New Onboarding
           </Button>
         </div>
       </div>
@@ -175,7 +175,7 @@ export function CustomerDmsDetail() {
         <Button
           variant="outline"
           size="icon"
-          onClick={() => navigate("/customer-onboarding")}
+          onClick={() => navigate("/new-onboarding")}
           className="hover:bg-gray-100"
         >
           <ArrowLeft className="h-5 w-5" />

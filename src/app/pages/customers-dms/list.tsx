@@ -13,13 +13,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../components/ui/select";
-import { Tabs, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { ListPagination } from "../../components/ui/list-pagination";
 import { EmptyState } from "../../components/empty-state";
 import { CopyOnHover } from "../../components/copy-on-hover";
 import {
   Building2,
-  Clock,
   Download,
   Eye,
   Filter,
@@ -41,17 +39,17 @@ import {
 } from "../../lib/customers-dms-data";
 
 // =====================================================================
-// Customer Onboarding — list.
+// New Onboarding — list.
 //
-// New-customer requests from the buyer app. A single New Registrations
-// tab: the distributor downloads the requests (see EXPORT_COLUMNS),
+// New-customer requests from the buyer app, as one plain list (no
+// tabs). The distributor downloads the requests (see EXPORT_COLUMNS),
 // hands the file to the company, and the company creates the customers
 // in its DMS. There is no approval workflow on this page.
 //
-// Follows the design-system List Page Anatomy (Orders pattern): tab
-// strip with Filters + Download on the right, applied-filter chips,
-// search row with the "N selected" caption, table, pagination. The
-// company filter lives in the standard right-side Filters drawer.
+// Follows the design-system List Page Anatomy (Customers pattern):
+// toolbar with search left and the "N selected" caption, Filters and
+// Download right, applied-filter chips, table, pagination. The company
+// filter lives in the standard right-side Filters drawer.
 // =====================================================================
 
 const PAGE_SIZE = 8;
@@ -132,48 +130,60 @@ export function CustomersDms() {
     <div className="h-full flex flex-col bg-gray-50">
       <div className="flex-1 overflow-hidden p-6">
         <Card className="h-full flex flex-col overflow-hidden p-0 gap-0">
-          {/* Tab strip — Filters + Download right */}
-          <div className="border-b border-gray-200 p-3 flex-shrink-0">
-            <div className="flex items-center justify-between gap-4 overflow-x-auto">
-              <Tabs value="new">
-                <TabsList className="bg-gray-100 p-1 rounded-lg inline-flex gap-1 h-auto flex-shrink-0">
-                  <TabsTrigger
-                    value="new"
-                    className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2 transition-all whitespace-nowrap"
-                  >
-                    <Clock className="h-4 w-4 mr-2" />
-                    <span className="font-medium">
-                      New Registrations ({requests.length})
-                    </span>
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-              <div className="flex gap-2 flex-shrink-0">
-                <Button
-                  variant="outline"
-                  className="gap-2"
-                  onClick={() => setIsFilterDrawerOpen(true)}
+          {/* Toolbar — search left, Filters + Download right */}
+          <div className="border-b border-gray-200 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 flex-wrap flex-shrink-0">
+            <div className="relative flex-1 w-full sm:max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Search by shop, owner, mobile or request ID..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setPage(1);
+                }}
+                className="pl-10 pr-10 h-9"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  aria-label="Clear search"
                 >
-                  <Filter className="h-4 w-4" />
-                  Filters
-                  {activeCompany && (
-                    <Badge className="bg-blue-600 text-white border-blue-600 ml-1 h-5 px-1.5 text-[10px]">
-                      1
-                    </Badge>
-                  )}
-                </Button>
-                <Button className="gap-2" onClick={handleDownload}>
-                  <Download className="h-4 w-4" />
-                  Download
-                  {selectedRows.length > 0 && ` (${selectedRows.length})`}
-                </Button>
-              </div>
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {selectedRows.length > 0 && (
+                <span className="text-sm text-gray-600 mr-2">
+                  {selectedRows.length} selected
+                </span>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={() => setIsFilterDrawerOpen(true)}
+              >
+                <Filter className="h-4 w-4" />
+                Filters
+                {activeCompany && (
+                  <Badge className="bg-blue-600 text-white border-blue-600 ml-1 h-5 px-1.5 text-[10px]">
+                    1
+                  </Badge>
+                )}
+              </Button>
+              <Button size="sm" className="gap-2" onClick={handleDownload}>
+                <Download className="h-4 w-4" />
+                Download
+                {selectedRows.length > 0 && ` (${selectedRows.length})`}
+              </Button>
             </div>
           </div>
 
           {/* Applied filter chips */}
           {activeCompany && (
-            <div className="px-6 py-2 border-b flex flex-wrap items-center gap-2 flex-shrink-0">
+            <div className="px-4 py-2 border-b flex flex-wrap items-center gap-2 flex-shrink-0">
               <Badge
                 variant="secondary"
                 className="gap-1 pl-2 pr-1 py-1 text-xs bg-blue-50 text-blue-700 border-blue-200"
@@ -208,37 +218,6 @@ export function CustomersDms() {
             </div>
           ) : (
             <>
-              {/* Search + selection caption */}
-              <div className="px-6 py-4 border-b flex-shrink-0">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="relative max-w-md flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input
-                      placeholder="Search by shop, owner, mobile or request ID..."
-                      value={searchQuery}
-                      onChange={(e) => {
-                        setSearchQuery(e.target.value);
-                        setPage(1);
-                      }}
-                      className="pl-10 pr-10"
-                    />
-                    {searchQuery && (
-                      <button
-                        onClick={() => setSearchQuery("")}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                        aria-label="Clear search"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-                  {selectedRows.length > 0 && (
-                    <span className="text-sm text-gray-600">
-                      {selectedRows.length} selected
-                    </span>
-                  )}
-                </div>
-              </div>
 
               {/* Table */}
               <div className="flex-1 overflow-auto">
@@ -325,7 +304,7 @@ export function CustomersDms() {
                                 <button
                                   type="button"
                                   onClick={() =>
-                                    navigate(`/customer-onboarding/${c.id}`)
+                                    navigate(`/new-onboarding/${c.id}`)
                                   }
                                   className="text-left hover:underline focus:outline-none focus-visible:underline"
                                   title={`View details for ${c.shopName}`}
@@ -390,7 +369,7 @@ export function CustomersDms() {
                                 size="sm"
                                 className="gap-1 text-blue-700 hover:bg-blue-50 hover:text-blue-700 h-8"
                                 onClick={() =>
-                                  navigate(`/customer-onboarding/${c.id}`)
+                                  navigate(`/new-onboarding/${c.id}`)
                                 }
                                 title={`View details for ${c.shopName}`}
                               >

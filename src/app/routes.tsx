@@ -158,12 +158,12 @@ export const router = createBrowserRouter([
       { path: "customers/:customerId", Component: CustomerDemoDetail },
       // Legacy approval flow — kept for reference under the empty-
       // mode "Customers 2" sidebar entry.
-      // Customer Onboarding — new-customer requests from the buyer
+      // New Onboarding — new-customer requests from the buyer
       // app, downloaded and handed to the company to create in its
       // DMS. Mounted on its own path so the live /customers module is
       // untouched.
-      { path: "customer-onboarding", Component: CustomersDms },
-      { path: "customer-onboarding/:customerId", Component: CustomerDmsDetail },
+      { path: "new-onboarding", Component: CustomersDms },
+      { path: "new-onboarding/:customerId", Component: CustomerDmsDetail },
       { path: "customers-demo", Component: Customers },
       { path: "customers-demo/:customerId", Component: CustomerDetail },
       { path: "profile", Component: Profile },

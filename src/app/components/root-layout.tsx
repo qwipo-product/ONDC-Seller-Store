@@ -78,11 +78,11 @@ const sellerNavigation: SellerNavItem[] = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "My SKU", href: "/products/my-sku", icon: Package },
   { name: "Customers", href: "/customers", icon: Users },
-  // Customer Onboarding — new-customer requests from the buyer app.
+  // New Onboarding — new-customer requests from the buyer app.
   // Shown for every seller persona (not empty-mode-only like the older
   // "Customers 2" trial) because the business team walks through it
   // against the regular seed data.
-  { name: "Customer Onboarding", href: "/customer-onboarding", icon: UserPlus },
+  { name: "New Onboarding", href: "/new-onboarding", icon: UserPlus },
   { name: "Offers & Schemes", href: "/offers", icon: Tag },
   { name: "Orders", href: "/orders", icon: ShoppingCart },
   { name: "Settings", href: "/settings", icon: Settings },
@@ -133,7 +133,7 @@ const getSellerPageTitle = (pathname: string): string => {
   if (pathname === "/") return "Dashboard";
   if (pathname.startsWith("/products/sku-detail")) return "SKU Details";
   if (pathname.startsWith("/products/my-sku")) return "My SKU List";
-  if (pathname.startsWith("/customer-onboarding")) return "Customer Onboarding";
+  if (pathname.startsWith("/new-onboarding")) return "New Onboarding";
   if (pathname.startsWith("/customers-demo")) return "Customers 2";
   if (pathname.startsWith("/customers")) return "Customer Management";
   if (pathname.startsWith("/offers-demo")) return "Offers & Schemes 2";
