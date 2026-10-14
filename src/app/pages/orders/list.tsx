@@ -53,7 +53,6 @@ import {
   MapPin,
   CalendarDays,
   Clock,
-  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "motion/react";
@@ -84,10 +83,8 @@ import {
   getOrderOperationMode,
   getCustomerOrderId,
   requestLogisticsForOrders,
-  getStalePendingOrders,
   getPendingAgeDays,
   isStalePendingOrder,
-  STALE_PENDING_NUDGE_DAYS,
 } from "../../lib/orders-data";
 
 // An order is a "beat" delivery when it rides a configured
@@ -240,21 +237,6 @@ export function Orders() {
   // the orders leave the seller's working list.
   const [isRequestLogisticsDialogOpen, setIsRequestLogisticsDialogOpen] =
     useState(false);
-  // Pending Orders Review — VIW-2026-06911 soft nudge. Opened from the
-  // New-tab banner; lets the seller pick which stale orders to act on
-  // (not all-or-nothing) and route the picked subset to either the
-  // existing Confirm or Cancel dialog.
-  const [isStaleReviewDialogOpen, setIsStaleReviewDialogOpen] =
-    useState(false);
-  const [staleReviewSelection, setStaleReviewSelection] = useState<string[]>(
-    [],
-  );
-  // Stale-pending nudge popup — VIW-2026-06911. A banner that sits in
-  // the page permanently pushes the order rows down and eats into
-  // scroll budget, which was the opposite of the goal (keep New
-  // orders visible). A pop-up interrupts once, forces an explicit
-  // close, and then gets out of the way entirely.
-  const [isStaleNudgePopupOpen, setIsStaleNudgePopupOpen] = useState(false);
 
   // Form data
   const [cancelReason, setCancelReason] = useState("");
@@ -513,74 +495,6 @@ export function Orders() {
     const beat = base.filter(isBeatOrder).length;
     return { all: base.length, beat, nonBeat: base.length - beat };
   }, [...filterDeps, activeTab, cancelledByFilter]);
-
-  // VIW-2026-06911 — Soft nudge only (Stage 1). New orders the seller
-  // has sat on past the threshold, across the whole list — not just
-  // the current page/filters — so the banner doesn't disappear just
-  // because a search or filter hides the stale rows. Nothing here
-  // disables the Accept/Confirm actions for newer orders; it's purely
-  // advisory, per the call to drop Stage 2's hard restriction.
-  const stalePendingOrders = useMemo(
-    () => getStalePendingOrders(orders),
-    [orders],
-  );
-
-  // Opens the review picker with every stale order pre-checked — the
-  // seller can then uncheck the ones they don't want to act on yet
-  // before routing the rest to Confirm or Cancel.
-  const handleReviewStaleOrders = () => {
-    setStaleReviewSelection(stalePendingOrders.map((o) => o.id));
-    setIsStaleReviewDialogOpen(true);
-  };
-
-  // Nudge popup dismissal — once-per-day, not once-per-exact-backlog.
-  // Re-showing it every time the stale set changes even slightly (e.g.
-  // the seller clears 3 of 5) felt like nagging for a problem they'd
-  // already started fixing. Instead: show it once when they first hit
-  // New each day, stay quiet for the rest of the day while they work
-  // through the picker, and only interrupt again *that same day* if
-  // the backlog gets worse than what they already saw (more stale
-  // orders than last time), not merely different.
-  const staleNudgeStorageKey = "stalePendingNudgeLastSeen";
-  useEffect(() => {
-    if (activeTab !== "new" || stalePendingOrders.length === 0) return;
-    let lastSeen: { date: string; count: number } | null = null;
-    try {
-      lastSeen = JSON.parse(
-        localStorage.getItem(staleNudgeStorageKey) ?? "null",
-      );
-    } catch {
-      lastSeen = null;
-    }
-    const isNewDay = lastSeen?.date !== todayIso;
-    const backlogGrew =
-      !isNewDay && stalePendingOrders.length > (lastSeen?.count ?? 0);
-    if (isNewDay || backlogGrew) {
-      setIsStaleNudgePopupOpen(true);
-    }
-  }, [activeTab, stalePendingOrders, todayIso]);
-
-  const dismissStaleNudgePopup = () => {
-    localStorage.setItem(
-      staleNudgeStorageKey,
-      JSON.stringify({ date: todayIso, count: stalePendingOrders.length }),
-    );
-    setIsStaleNudgePopupOpen(false);
-  };
-
-  // Hands the review picker's checked subset off to the existing
-  // Confirm / Cancel dialogs — same handlers the bulk action bar
-  // uses, so eligibility rules and toasts stay identical.
-  const handleStaleReviewConfirm = () => {
-    setSelectedOrders(staleReviewSelection);
-    setIsStaleReviewDialogOpen(false);
-    setIsConfirmDialogOpen(true);
-  };
-  const handleStaleReviewCancel = () => {
-    setSelectedOrders(staleReviewSelection);
-    setIsStaleReviewDialogOpen(false);
-    setIsCancelDialogOpen(true);
-  };
 
   // Counts for the Cancelled tab's "Cancelled By" quick filter.
   // Counts respect the search box + global filters, but not the
@@ -1987,158 +1901,6 @@ export function Orders() {
               : "Selected Orders"
         }
       />
-
-      {/* Stale-pending nudge pop-up — VIW-2026-06911. Interrupts once
-          on landing in New with a stale backlog, instead of sitting
-          in the page as a permanent banner. Must be explicitly
-          closed (X, "Not now", clicking outside, or Escape all route
-          through the same dismiss handler) — the seller has to
-          actually register it before it goes away, which was the
-          point of moving off the sticky banner. */}
-      <Dialog
-        open={isStaleNudgePopupOpen}
-        onOpenChange={(open) => {
-          if (!open) dismissStaleNudgePopup();
-        }}
-      >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-amber-600" />
-              Pending orders need attention
-            </DialogTitle>
-            <DialogDescription>
-              {stalePendingOrders.length} order
-              {stalePendingOrders.length === 1 ? "" : "s"} placed more than{" "}
-              {STALE_PENDING_NUDGE_DAYS} days ago{" "}
-              {stalePendingOrders.length === 1 ? "is" : "are"} still
-              unconfirmed. Please update their status before processing new
-              ones — you can still view and act on everything in the list.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-2 sm:gap-2">
-            <Button variant="outline" onClick={dismissStaleNudgePopup}>
-              Not now
-            </Button>
-            <Button
-              className="bg-amber-600 hover:bg-amber-700 text-white gap-1.5"
-              onClick={() => {
-                dismissStaleNudgePopup();
-                handleReviewStaleOrders();
-              }}
-            >
-              <Clock className="h-3.5 w-3.5" />
-              Review pending orders
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Pending Orders Review — VIW-2026-06911 soft nudge. Opened
-          from the stale-pending nudge pop-up. Lets the seller pick
-          which stale orders to act on (defaults to all checked) and
-          route the picked subset to either Confirm or Cancel — the
-          ticket's Stage 1 nudge is advisory, so partial action + either
-          outcome both have to stay available, not just "confirm all
-          or ignore". */}
-      <Dialog
-        open={isStaleReviewDialogOpen}
-        onOpenChange={setIsStaleReviewDialogOpen}
-      >
-        <DialogContent className="max-w-xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-amber-600" />
-              Review Pending Orders
-            </DialogTitle>
-            <DialogDescription>
-              These New orders have been sitting for more than{" "}
-              {STALE_PENDING_NUDGE_DAYS} days. Pick the ones you want to
-              act on now, then Confirm or Cancel — anything left
-              unchecked stays as-is.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-2 py-2 max-h-[60vh] overflow-y-auto pr-1">
-            <div className="flex items-center gap-2 px-2 py-1.5">
-              <Checkbox
-                checked={
-                  staleReviewSelection.length === stalePendingOrders.length &&
-                  stalePendingOrders.length > 0
-                }
-                onCheckedChange={(checked) =>
-                  setStaleReviewSelection(
-                    checked ? stalePendingOrders.map((o) => o.id) : [],
-                  )
-                }
-              />
-              <span className="text-xs font-medium text-gray-600">
-                {staleReviewSelection.length} of {stalePendingOrders.length}{" "}
-                selected
-              </span>
-            </div>
-            <ul className="space-y-1.5">
-              {stalePendingOrders.map((o) => (
-                <li
-                  key={o.id}
-                  className="flex items-center gap-3 text-xs bg-white rounded px-2 py-2 border border-gray-100"
-                >
-                  <Checkbox
-                    checked={staleReviewSelection.includes(o.id)}
-                    onCheckedChange={(checked) =>
-                      setStaleReviewSelection((prev) =>
-                        checked
-                          ? [...prev, o.id]
-                          : prev.filter((id) => id !== o.id),
-                      )
-                    }
-                  />
-                  <div className="flex flex-col min-w-0 flex-1">
-                    <span className="font-medium text-gray-900 truncate">
-                      {o.retailerName}
-                    </span>
-                    <span className="text-[10px] text-gray-500">{o.id}</span>
-                  </div>
-                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap border border-amber-200 bg-amber-50 text-amber-800">
-                    <Clock className="h-3 w-3" />
-                    {getPendingAgeDays(o)}{" "}
-                    {getPendingAgeDays(o) === 1 ? "day" : "days"} pending
-                  </span>
-                  <span className="text-[10px] text-gray-600 whitespace-nowrap">
-                    ₹{o.orderValue.toLocaleString()}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <DialogFooter className="gap-2 sm:gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setIsStaleReviewDialogOpen(false)}
-            >
-              Close
-            </Button>
-            <Button
-              variant="outline"
-              className="border-red-300 text-red-700 hover:bg-red-50 gap-2"
-              disabled={staleReviewSelection.length === 0}
-              onClick={handleStaleReviewCancel}
-            >
-              <XCircle className="h-4 w-4" />
-              Cancel {staleReviewSelection.length || ""}
-            </Button>
-            <Button
-              className="bg-green-600 hover:bg-green-700 text-white gap-2"
-              disabled={staleReviewSelection.length === 0}
-              onClick={handleStaleReviewConfirm}
-            >
-              <CheckCircle2 className="h-4 w-4" />
-              Confirm {staleReviewSelection.length || ""}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Confirm Orders Dialog — a simple confirmation: how many orders,
           then Cancel / Confirm Orders. */}
