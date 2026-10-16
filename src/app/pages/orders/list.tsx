@@ -46,7 +46,6 @@ import {
   Clock,
   AlertTriangle,
   Lock,
-  LockOpen,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "motion/react";
@@ -83,7 +82,6 @@ import {
   getPendingAgeDays,
   isStalePendingOrder,
   STALE_PENDING_NUDGE_DAYS,
-  URGENT_OVERRIDE_COOLDOWN_DAYS,
   getAttentionOrders,
 } from "../../lib/orders-data";
 
@@ -627,24 +625,9 @@ export function Orders() {
   // ── Feature 9 — Order Status Update Enforcement (hard restriction) ──
   // While any New order is older than the nudge age, fresh New orders
   // are masked and can't be confirmed until every one of those older
-  // orders is confirmed or cancelled. The only way around it is the
-  // urgent override: one day of access, once per
-  // URGENT_OVERRIDE_COOLDOWN_DAYS, with a written reason.
-  const overrideKey = "orderGateUrgentOverride";
-  const [urgentOverride, setUrgentOverride] = useState<{
-    date: string;
-    reason: string;
-  } | null>(() => {
-    try {
-      return JSON.parse(localStorage.getItem(overrideKey) ?? "null");
-    } catch {
-      return null;
-    }
-  });
+  // orders is confirmed or cancelled.
   const [isGatePopupOpen, setIsGatePopupOpen] = useState(false);
   const [gateSelection, setGateSelection] = useState<string[]>([]);
-  const [isOverrideDialogOpen, setIsOverrideDialogOpen] = useState(false);
-  const [overrideReason, setOverrideReason] = useState("");
 
   const attentionItems = useMemo(
     () => getAttentionOrders(orders),
@@ -654,26 +637,7 @@ export function Orders() {
     () => new Set(attentionItems.map((i) => i.order.id)),
     [attentionItems],
   );
-  const overrideActive = urgentOverride?.date === getOrdersToday();
-  const gateActive = attentionItems.length > 0 && !overrideActive;
-  // Days since the override was last used; null when never used.
-  const daysSinceOverride = urgentOverride
-    ? Math.round(
-        (Date.parse(getOrdersToday() + "T00:00:00Z") -
-          Date.parse(urgentOverride.date + "T00:00:00Z")) /
-          86400000,
-      )
-    : null;
-  const overrideAvailable =
-    daysSinceOverride === null ||
-    daysSinceOverride >= URGENT_OVERRIDE_COOLDOWN_DAYS;
-  const overrideNextDate = urgentOverride
-    ? (() => {
-        const d = new Date(urgentOverride.date + "T00:00:00Z");
-        d.setUTCDate(d.getUTCDate() + URGENT_OVERRIDE_COOLDOWN_DAYS);
-        return d.toISOString().split("T")[0];
-      })()
-    : null;
+  const gateActive = attentionItems.length > 0;
   // Fresh incoming orders: New, but not themselves part of the backlog.
   const isMaskedOrder = (o: Order) =>
     gateActive && o.status === "New" && !attentionIds.has(o.id);
@@ -727,22 +691,6 @@ export function Orders() {
     // The seller just worked the backlog from the gate pop-up, so the
     // daily soft nudge would only repeat it.
     dismissStaleNudgePopup();
-  };
-
-  const confirmUrgentOverride = () => {
-    if (!overrideAvailable || overrideReason.trim().length < 10) return;
-    const next = { date: getOrdersToday(), reason: overrideReason.trim() };
-    setUrgentOverride(next);
-    try {
-      localStorage.setItem(overrideKey, JSON.stringify(next));
-    } catch {
-      /* ignore */
-    }
-    toast.warning(
-      "New orders unlocked for today. Please update the pending orders soon. This is logged.",
-    );
-    setIsOverrideDialogOpen(false);
-    setOverrideReason("");
   };
 
   // Counts for the Cancelled tab's "Cancelled By" quick filter.
@@ -1286,6 +1234,16 @@ export function Orders() {
   // instead of the old past/today/tomorrow/future bucket chip.)
 
   const maskedText = "••••••••";
+
+  // "Wed, 13 May": weekday + date, rendered in UTC so it matches the
+  // ISO string whatever the viewer's timezone is.
+  const gateDate = (iso: string) =>
+    new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      timeZone: "UTC",
+    });
 
   // Render order table
   const renderOrderTable = (ordersToRender: Order[]) => {
@@ -1977,15 +1935,6 @@ export function Orders() {
                   </Button>
                 </div>
               )}
-              {!isEmpty && overrideActive && attentionItems.length > 0 && (
-                <div className="px-6 py-2 border-b bg-amber-50 flex items-center gap-2 text-xs text-amber-800 flex-shrink-0">
-                  <LockOpen className="h-3.5 w-3.5" />
-                  Urgent override active today: {attentionItems.length} previous
-                  order{attentionItems.length === 1 ? "" : "s"} still need
-                  updating. The lock returns tomorrow.
-                </div>
-              )}
-
               {/* Table */}
               {renderOrderTable(paginatedOrders)}
               {!isEmpty && (
@@ -2269,7 +2218,6 @@ export function Orders() {
         open={
           isStaleNudgePopupOpen &&
           !gateActive &&
-          !overrideActive &&
           stalePendingOrders.length > 0
         }
         onOpenChange={(open) => {
@@ -2692,21 +2640,12 @@ export function Orders() {
                 </span>
               )}
             </label>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 gap-1.5 text-gray-600"
-              onClick={() => setIsOverrideDialogOpen(true)}
-            >
-              <LockOpen className="h-3.5 w-3.5" />
-              Urgent order?
-            </Button>
           </div>
-          <div className="max-h-[40vh] overflow-auto rounded-md border divide-y">
+          <div className="max-h-[322px] overflow-auto rounded-md border divide-y">
             {gateView.items.map(({ order, overdueDays }) => (
               <div
                 key={order.id}
-                className="flex items-center justify-between gap-3 px-3 py-2"
+                className="flex items-center justify-between gap-3 px-3 py-1.5"
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <Checkbox
@@ -2725,6 +2664,15 @@ export function Orders() {
                       <span className="ml-2 text-xs font-normal text-gray-500 font-mono">
                         {order.buyerContact ?? "No mobile"}
                       </span>
+                    </p>
+                    <p className="text-xs text-gray-700">
+                      Ordered {gateDate(order.orderDate)}
+                      <span className="mx-1.5 text-gray-300">|</span>
+                      <span className="font-semibold">
+                        ₹{order.orderValue.toLocaleString("en-IN")}
+                      </span>
+                      <span className="mx-1.5 text-gray-300">|</span>
+                      {order.beatName ?? "No beat"}
                     </p>
                     <p className="text-xs text-red-700">
                       Not confirmed, placed {overdueDays} days ago.{" "}
@@ -2797,58 +2745,6 @@ export function Orders() {
             >
               <CheckCircle2 className="h-4 w-4" />
               Confirm Orders
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Feature 9 — Urgent override: unlock new orders for the day. */}
-      <Dialog
-        open={isOverrideDialogOpen}
-        onOpenChange={setIsOverrideDialogOpen}
-      >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <LockOpen className="h-5 w-5 text-amber-600" />
-              Unlock new orders for today
-            </DialogTitle>
-            <DialogDescription>
-              Use this only when you must process a new order right now. It
-              unlocks new orders for one day, can be used once every{" "}
-              {URGENT_OVERRIDE_COOLDOWN_DAYS} days, and is recorded for Qwipo
-              ops follow-up. The lock returns tomorrow if the previous orders
-              are still pending.
-            </DialogDescription>
-          </DialogHeader>
-          {!overrideAvailable && !overrideActive && (
-            <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded p-2.5">
-              You already used this on {urgentOverride?.date}. It is available
-              again on {overrideNextDate}. Please confirm or cancel the
-              pending orders to unlock new orders.
-            </p>
-          )}
-          <Textarea
-            disabled={!overrideAvailable}
-            placeholder="Why is this urgent? (min 10 characters)"
-            value={overrideReason}
-            onChange={(e) => setOverrideReason(e.target.value)}
-          />
-          <DialogFooter className="gap-2 sm:gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setIsOverrideDialogOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              className="bg-amber-600 hover:bg-amber-700 text-white"
-              disabled={
-                !overrideAvailable || overrideReason.trim().length < 10
-              }
-              onClick={confirmUrgentOverride}
-            >
-              Unlock for today
             </Button>
           </DialogFooter>
         </DialogContent>
