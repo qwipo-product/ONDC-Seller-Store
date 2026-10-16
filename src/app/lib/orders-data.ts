@@ -1883,6 +1883,43 @@ export function getStalePendingOrders(orders: Order[]): Order[] {
   return orders.filter(isStalePendingOrder);
 }
 
+/**
+ * Feature 9: Order Status Update Enforcement. While ANY New order is
+ * older than STALE_PENDING_NUDGE_DAYS, every fresh New order is masked
+ * and can't be confirmed. The lock lifts only when each of those older
+ * orders has been confirmed or cancelled; there is no count or age
+ * threshold that lets some of them slip through.
+ *
+ * Exception (so urgent processing is never fully blocked): the seller
+ * can unlock new orders for one day with a written reason via the
+ * urgent override, at most once every URGENT_OVERRIDE_COOLDOWN_DAYS.
+ * Recorded for ops follow-up.
+ */
+export const URGENT_OVERRIDE_COOLDOWN_DAYS = 7;
+
+export type AttentionReason = "unconfirmed";
+
+export interface AttentionItem {
+  order: Order;
+  reason: AttentionReason;
+  /** Days since the order was placed. */
+  overdueDays: number;
+}
+
+export function getAttentionOrders(orders: Order[]): AttentionItem[] {
+  const items: AttentionItem[] = [];
+  for (const order of orders) {
+    if (isStalePendingOrder(order)) {
+      items.push({
+        order,
+        reason: "unconfirmed",
+        overdueDays: getPendingAgeDays(order),
+      });
+    }
+  }
+  return items.sort((a, b) => b.overdueDays - a.overdueDays);
+}
+
 /** Day-of-week label for a YYYY-MM-DD date. Used by the
  *  "Friday Delivery" / "Monday Delivery" callouts on the row. */
 export function dayOfWeekLabel(iso: string): string {
