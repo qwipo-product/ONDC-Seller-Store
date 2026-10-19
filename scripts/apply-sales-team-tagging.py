@@ -10,7 +10,10 @@ Pincode, Registered Date) and is the source of truth for tagging.
 What it does
   1. Customers already in src/app/lib/customer-raw-seed.csv (matched by
      customer id, then mobile): salesperson name + number are replaced with
-     the sheet's. Names are normalised to the spellings used in the seed.
+     the sheet's. Each salesperson is shown under the sheet's own spelling
+     ("AjaykumarM", "Larence Ondc"); spelling variants of the same person are
+     recognised through the alias lists and renamed to it across the whole
+     seed and salesperson-tagging.json.
      Business Status, Business Type and Status are taken from the sheet, and
      Cluster too when the sheet has one. Across the whole seed those values
      use the sheet's spelling (InActive, TiffinCenters, PgHostel, None).
@@ -102,12 +105,17 @@ def main():
     by_mobile = {norm_phone(r["mobile_number"]): r for r in seed}
     by_mobile.pop(None, None)
 
-    # One number per salesperson, as the sheet has it.
+    # One number per salesperson, as the sheet has it. Names are matched on
+    # their canonical key; `display` maps that key to the sheet's spelling.
     number_of = {}
+    spellings = collections.defaultdict(collections.Counter)
     for r in sheet:
         name, num = canon(r[SP_NAME]), norm_phone(r[SP_NUM])
         if name and num:
             number_of.setdefault(name, num)
+        if name:
+            spellings[name][" ".join(str(r[SP_NAME]).split())] += 1
+    display = {name: c.most_common(1)[0][0] for name, c in spellings.items()}
 
     stats = collections.Counter()
     matched, new = set(), []
@@ -210,6 +218,13 @@ def main():
     # Appended, not re-sorted: seed rows get positional `seed-N` ids, and the
     # admin's removed-seed list in localStorage refers to those.
     rows = seed + added
+
+    # Show every salesperson the sheet knows under the sheet's spelling.
+    for s in rows:
+        key = canon(s["salesperson_name"]) if s["salesperson_name"] else None
+        if key in display and s["salesperson_name"] != display[key]:
+            s["salesperson_name"] = display[key]
+            stats["salesperson shown as sheet spelling"] += 1
     with open(SEED, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=fields, lineterminator="\n")
         w.writeheader()
@@ -217,6 +232,10 @@ def main():
 
     sheet_mobiles = {norm_phone(r[MOBILE]) for r in sheet}
     remaining = {k: v for k, v in tags.items() if k not in sheet_mobiles and k not in taken}
+    for v in remaining.values():
+        key = canon(v[0]) if v[0] else None
+        if key in display:
+            v[0] = display[key]
     with open(EXTRA, "w", encoding="utf-8") as f:
         f.write("{\n" + ",\n".join(
             f"  {json.dumps(k)}: {json.dumps(v, ensure_ascii=False)}"
