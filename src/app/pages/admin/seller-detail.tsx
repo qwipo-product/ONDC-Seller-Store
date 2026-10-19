@@ -69,6 +69,7 @@ import {
   SELLER_TYPE_LABELS,
 } from "../../components/seller-type-badge";
 import { WholesalerServiceability } from "../../components/wholesaler-serviceability";
+import { BeatVisibilitySetting } from "../../components/beat-visibility-setting";
 import { SellerChargesTab } from "./seller-charges-tab";
 import {
   Select,
@@ -806,6 +807,10 @@ export function AdminSellerDetail() {
                   An empty section on a hybrid seller is the signal that
                   that operation's setup is still pending. */}
               <div className="flex flex-col gap-8">
+                {/* Beat-Day Visibility Window — seller-wide, so it sits
+                    above the wholesale / distribution beat sections. */}
+                <BeatVisibilitySetting sellerId={seller.id} />
+
                 {/* Delivery Beats – Wholesale — day-wise zones shared by
                     all wholesale-mode companies. */}
                 {(sellerType === "wholesaler" || sellerType === "hybrid") && (
