@@ -30,7 +30,10 @@ export const adminNavigation: NavItem[] = [
   {
     name: "Dark Store",
     icon: Warehouse,
-    subItems: [{ name: "KPHB Dashboard", href: "/admin/dark-store/kphb" }],
+    subItems: [
+      { name: "KPHB Dashboard", href: "/admin/dark-store/kphb" },
+      { name: "Alwal Dashboard", href: "/admin/dark-store/alwal" },
+    ],
   },
   { name: "Companies & Brands", href: "/admin/companies", icon: Building2 },
   { name: "Category Master", href: "/admin/categories", icon: LayoutGrid },
@@ -67,6 +70,7 @@ export function getAdminPageTitle(pathname: string): string {
   if (pathname.startsWith("/admin/customers")) return "Customer Database";
   if (pathname.startsWith("/admin/reports")) return "Generate Report";
   if (pathname.startsWith("/admin/dark-store/kphb")) return "KPHB Dashboard";
+  if (pathname.startsWith("/admin/dark-store/alwal")) return "Alwal Dashboard";
   if (pathname.startsWith("/admin/dark-store")) return "Dark Store";
   if (pathname.startsWith("/admin/companies")) return "Companies & Brands";
   if (pathname.startsWith("/admin/categories")) return "Category Master";

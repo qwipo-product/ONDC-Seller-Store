@@ -9,6 +9,7 @@
 // (matchCustomer), so the two never disagree.
 
 import kphbZone from "./kphb-dark-store-zone.json";
+import alwalZone from "./alwal-dark-store-zone.json";
 import {
   csvEscape,
   getCustomers,
@@ -79,6 +80,13 @@ export const DARK_STORES: DarkStore[] = [
     shortName: "KPHB",
     locality: "Kukatpally, Hyderabad",
     zone: kphbZone,
+  }),
+  makeDarkStore({
+    id: "alwal",
+    name: "Alwal Dark Store",
+    shortName: "Alwal",
+    locality: "Alwal, Secunderabad",
+    zone: alwalZone,
   }),
 ];
 
