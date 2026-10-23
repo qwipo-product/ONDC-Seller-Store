@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { Card, CardContent } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
@@ -45,6 +45,7 @@ import {
   CalendarDays,
   Clock,
   AlertTriangle,
+  Lock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "motion/react";
@@ -81,6 +82,7 @@ import {
   getPendingAgeDays,
   isStalePendingOrder,
   STALE_PENDING_NUDGE_DAYS,
+  getAttentionOrders,
 } from "../../lib/orders-data";
 
 // An order is a "beat" delivery when it rides a configured
@@ -620,6 +622,77 @@ export function Orders() {
     setIsCancelDialogOpen(true);
   };
 
+  // ── Feature 9 — Order Status Update Enforcement (hard restriction) ──
+  // While any New order is older than the nudge age, fresh New orders
+  // are masked and can't be confirmed until every one of those older
+  // orders is confirmed or cancelled.
+  const [isGatePopupOpen, setIsGatePopupOpen] = useState(false);
+  const [gateSelection, setGateSelection] = useState<string[]>([]);
+
+  const attentionItems = useMemo(
+    () => getAttentionOrders(orders),
+    [orders],
+  );
+  const attentionIds = useMemo(
+    () => new Set(attentionItems.map((i) => i.order.id)),
+    [attentionItems],
+  );
+  const gateActive = attentionItems.length > 0;
+  // Fresh incoming orders: New, but not themselves part of the backlog.
+  const isMaskedOrder = (o: Order) =>
+    gateActive && o.status === "New" && !attentionIds.has(o.id);
+  const maskedCount = gateActive
+    ? orders.filter((o) => isMaskedOrder(o)).length
+    : 0;
+  // Selection survives only for orders still in the backlog.
+  const gateSelectedIds = gateSelection.filter((id) => attentionIds.has(id));
+  const oldestOverdue = attentionItems[0]?.overdueDays ?? 0;
+  // The gate pop-ups keep showing the last real numbers while they
+  // fade out, instead of flashing "0 orders" once the backlog clears.
+  const gateSnapRef = useRef({
+    items: attentionItems,
+    masked: maskedCount,
+    oldest: oldestOverdue,
+    selected: 0,
+  });
+  if (gateActive) {
+    gateSnapRef.current = {
+      items: attentionItems,
+      masked: maskedCount,
+      oldest: oldestOverdue,
+      selected: gateSelectedIds.length || gateSnapRef.current.selected,
+    };
+  }
+  const gateView = gateSnapRef.current;
+  // Open the pop-up each time the seller lands on New while gated.
+  // Deferred slightly so the tab click's focus change can't dismiss it.
+  useEffect(() => {
+    if (activeTab !== "new" || !gateActive) return;
+    const t = setTimeout(() => setIsGatePopupOpen(true), 150);
+    return () => clearTimeout(t);
+  }, [activeTab, gateActive]);
+
+  // Simple Yes/No confirm for the pop-up's multi-select (no review
+  // dialog, same as the portal's quick confirm).
+  const [isGateConfirmOpen, setIsGateConfirmOpen] = useState(false);
+  const handleGateConfirm = () => {
+    const ids = new Set(gateSelectedIds);
+    if (ids.size === 0) return;
+    setOrders((prev) =>
+      prev.map((o) =>
+        ids.has(o.id) ? { ...o, status: "Confirmed" as const } : o,
+      ),
+    );
+    toast.success(
+      `Confirmed ${ids.size} order${ids.size === 1 ? "" : "s"}.`,
+    );
+    setGateSelection([]);
+    setIsGateConfirmOpen(false);
+    // The seller just worked the backlog from the gate pop-up, so the
+    // daily soft nudge would only repeat it.
+    dismissStaleNudgePopup();
+  };
+
   // Counts for the Cancelled tab's "Cancelled By" quick filter.
   // Counts respect the search box + global filters, but not the
   // cancelled-by chip itself, so each chip always shows the size
@@ -648,7 +721,9 @@ export function Orders() {
   // Handle select all for current tab
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedOrders(currentTabOrders.map((o) => o.id));
+      setSelectedOrders(
+        currentTabOrders.filter((o) => !isMaskedOrder(o)).map((o) => o.id),
+      );
     } else {
       setSelectedOrders([]);
     }
@@ -1158,6 +1233,18 @@ export function Orders() {
   // surfaces Beat Name + Beat Delivery Day as first-class columns
   // instead of the old past/today/tomorrow/future bucket chip.)
 
+  const maskedText = "••••••••";
+
+  // "Wed, 13 May": weekday + date, rendered in UTC so it matches the
+  // ISO string whatever the viewer's timezone is.
+  const gateDate = (iso: string) =>
+    new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      timeZone: "UTC",
+    });
+
   // Render order table
   const renderOrderTable = (ordersToRender: Order[]) => {
     if (ordersToRender.length === 0) {
@@ -1272,12 +1359,16 @@ export function Orders() {
               >
                 {isActionable && (
                   <td className="px-3 py-2.5">
-                    <Checkbox
-                      checked={selectedOrders.includes(order.id)}
-                      onCheckedChange={(checked) =>
-                        handleSelectOrder(order.id, checked as boolean)
-                      }
-                    />
+                    {isMaskedOrder(order) ? (
+                      <Lock className="h-3.5 w-3.5 text-gray-400" />
+                    ) : (
+                      <Checkbox
+                        checked={selectedOrders.includes(order.id)}
+                        onCheckedChange={(checked) =>
+                          handleSelectOrder(order.id, checked as boolean)
+                        }
+                      />
+                    )}
                   </td>
                 )}
                 {/* Order Date — ISO date the order landed. */}
@@ -1322,12 +1413,17 @@ export function Orders() {
                 <td className="px-3 py-2.5">
                   <p
                     className="text-sm font-medium text-gray-900 truncate max-w-[160px]"
-                    title={order.company}
+                    title={isMaskedOrder(order) ? undefined : order.company}
                   >
-                    {order.company}
+                    {isMaskedOrder(order) ? maskedText : order.company}
                   </p>
                 </td>
                 <td className="px-3 py-2.5">
+                  {isMaskedOrder(order) ? (
+                    <p className="text-sm text-gray-400 select-none">
+                      {maskedText}
+                    </p>
+                  ) : (
                   <CopyOnHover value={order.retailerName} label="Business name">
                     <p
                       className="text-sm font-medium text-gray-900 truncate max-w-[160px]"
@@ -1336,9 +1432,14 @@ export function Orders() {
                       {order.retailerName}
                     </p>
                   </CopyOnHover>
+                  )}
                 </td>
                 <td className="px-3 py-2.5 whitespace-nowrap">
-                  {order.buyerContact ? (
+                  {isMaskedOrder(order) ? (
+                    <p className="text-xs text-gray-400 select-none">
+                      {maskedText}
+                    </p>
+                  ) : order.buyerContact ? (
                     <CopyOnHover value={order.buyerContact} label="Mobile number">
                       <p className="text-xs text-gray-700 font-mono">
                         {order.buyerContact}
@@ -1384,8 +1485,12 @@ export function Orders() {
                   )}
                 </td>
                 <td className="px-3 py-2.5 whitespace-nowrap text-right">
-                  <p className="text-sm font-semibold text-gray-900 tabular-nums">
-                    ₹{order.orderValue.toFixed(2)}
+                  <p
+                    className={`text-sm font-semibold tabular-nums ${isMaskedOrder(order) ? "text-gray-400 select-none" : "text-gray-900"}`}
+                  >
+                    {isMaskedOrder(order)
+                      ? "₹ ••••"
+                      : `₹${order.orderValue.toFixed(2)}`}
                   </p>
                 </td>
                 <td className="px-3 py-2.5 whitespace-nowrap">
@@ -1412,14 +1517,25 @@ export function Orders() {
                 )}
                 <td className="px-3 py-2.5 whitespace-nowrap">
                   <div className="flex items-center justify-center gap-2">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => navigate(`/orders/${order.id}`)}
-                      title="View Details"
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
+                    {isMaskedOrder(order) ? (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled
+                        title="Locked. Update your previous orders to view this order"
+                      >
+                        <Lock className="h-4 w-4" />
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => navigate(`/orders/${order.id}`)}
+                        title="View Details"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -1798,6 +1914,27 @@ export function Orders() {
               </div>
               )}
 
+              {/* Feature 9 — hard restriction. The detail lives in a
+                  pop-up (see "Order status update required" dialog);
+                  this slim strip only lets the seller reopen it. */}
+              {!isEmpty && gateActive && (
+                <div className="px-6 py-2 border-b bg-red-50/60 flex items-center justify-between gap-3 flex-shrink-0">
+                  <p className="text-xs text-red-800 flex items-center gap-2">
+                    <Lock className="h-3.5 w-3.5" />
+                    {maskedCount} new order{maskedCount === 1 ? "" : "s"}{" "}
+                    locked. Update {attentionItems.length} previous order
+                    {attentionItems.length === 1 ? "" : "s"} to unlock.
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 border-red-300 text-red-700 hover:bg-red-50"
+                    onClick={() => setIsGatePopupOpen(true)}
+                  >
+                    Update now
+                  </Button>
+                </div>
+              )}
               {/* Table */}
               {renderOrderTable(paginatedOrders)}
               {!isEmpty && (
@@ -2078,7 +2215,11 @@ export function Orders() {
           actually register it before it goes away, which was the
           point of moving off the sticky banner. */}
       <Dialog
-        open={isStaleNudgePopupOpen}
+        open={
+          isStaleNudgePopupOpen &&
+          !gateActive &&
+          stalePendingOrders.length > 0
+        }
         onOpenChange={(open) => {
           if (!open) dismissStaleNudgePopup();
         }}
@@ -2094,8 +2235,8 @@ export function Orders() {
               {stalePendingOrders.length === 1 ? "" : "s"} placed more than{" "}
               {STALE_PENDING_NUDGE_DAYS} days ago{" "}
               {stalePendingOrders.length === 1 ? "is" : "are"} still
-              unconfirmed. Please update their status before processing new
-              ones — you can still view and act on everything in the list.
+              unconfirmed. Please confirm or cancel them. New-order details stay
+              locked until you do.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-2">
@@ -2136,7 +2277,7 @@ export function Orders() {
             <DialogDescription>
               These New orders have been sitting for more than{" "}
               {STALE_PENDING_NUDGE_DAYS} days. Pick the ones you want to
-              act on now, then Confirm or Cancel — anything left
+              act on now, then Confirm or Cancel. Anything left
               unchecked stays as-is.
             </DialogDescription>
           </DialogHeader>
@@ -2368,20 +2509,6 @@ export function Orders() {
                   this batch. Consider confirming{" "}
                   {leftBehind.length === 1 ? "it" : "them"} too.
                 </p>
-                <button
-                  type="button"
-                  className="shrink-0 underline font-medium hover:text-amber-950"
-                  onClick={() =>
-                    setSelectedOrders((prev) => [
-                      ...prev,
-                      ...leftBehind
-                        .map((o) => o.id)
-                        .filter((id) => !prev.includes(id)),
-                    ])
-                  }
-                >
-                  Add to batch
-                </button>
               </div>
             );
           })()}
@@ -2468,6 +2595,156 @@ export function Orders() {
             >
               <XCircle className="h-4 w-4" />
               Cancel {selectedOrders.length} Order(s)
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Feature 9 — hard-restriction pop-up. Opens when the seller
+          lands on New with a serious backlog. Closing it keeps the
+          new orders masked; "Update now" on the strip reopens it. */}
+      <Dialog
+        open={isGatePopupOpen && gateActive}
+        onOpenChange={setIsGatePopupOpen}
+      >
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Lock className="h-5 w-5 text-red-600" />
+              Update {gateView.items.length} previous order
+              {gateView.items.length === 1 ? "" : "s"} to unlock{" "}
+              {gateView.masked} new order{gateView.masked === 1 ? "" : "s"}
+            </DialogTitle>
+            <DialogDescription>
+              Confirm or cancel these to unlock the new orders. Your oldest is{" "}
+              {gateView.oldest} days old.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center justify-between gap-2 px-1">
+            <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+              <Checkbox
+                checked={
+                  gateView.items.length > 0 &&
+                  gateSelectedIds.length === gateView.items.length
+                }
+                onCheckedChange={(checked) =>
+                  setGateSelection(
+                    checked ? gateView.items.map((i) => i.order.id) : [],
+                  )
+                }
+              />
+              Select all
+              {gateSelectedIds.length > 0 && (
+                <span className="text-gray-500">
+                  ({gateSelectedIds.length} selected)
+                </span>
+              )}
+            </label>
+          </div>
+          <div className="max-h-[322px] overflow-auto rounded-md border divide-y">
+            {gateView.items.map(({ order, overdueDays }) => (
+              <div
+                key={order.id}
+                className="flex items-center justify-between gap-3 px-3 py-1.5"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <Checkbox
+                    checked={gateSelectedIds.includes(order.id)}
+                    onCheckedChange={(checked) =>
+                      setGateSelection((prev) =>
+                        checked
+                          ? [...prev.filter((id) => id !== order.id), order.id]
+                          : prev.filter((id) => id !== order.id),
+                      )
+                    }
+                  />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {order.retailerName}
+                      <span className="ml-2 text-xs font-normal text-gray-500 font-mono">
+                        {order.buyerContact ?? "No mobile"}
+                      </span>
+                    </p>
+                    <p className="text-xs text-gray-700">
+                      Ordered {gateDate(order.orderDate)}
+                      <span className="mx-1.5 text-gray-300">|</span>
+                      <span className="font-semibold">
+                        ₹{order.orderValue.toLocaleString("en-IN")}
+                      </span>
+                      <span className="mx-1.5 text-gray-300">|</span>
+                      {order.beatName ?? "No beat"}
+                    </p>
+                    <p className="text-xs text-red-700">
+                      Not confirmed, placed {overdueDays} days ago.{" "}
+                      <a
+                        href={`/orders/${order.id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-blue-600 underline hover:text-blue-800"
+                      >
+                        View order
+                      </a>
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsGatePopupOpen(false)}>
+                Close
+              </Button>
+              <Button
+                variant="outline"
+                className="border-red-300 text-red-700 hover:bg-red-50 gap-1.5"
+                disabled={gateSelectedIds.length === 0}
+                onClick={() => {
+                  setSelectedOrders(gateSelectedIds);
+                  setIsCancelDialogOpen(true);
+                }}
+              >
+                <XCircle className="h-3.5 w-3.5" />
+                Cancel selected
+              </Button>
+              <Button
+                className="bg-green-600 hover:bg-green-700 text-white gap-1.5"
+                disabled={gateSelectedIds.length === 0}
+                onClick={() => setIsGateConfirmOpen(true)}
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Confirm selected{gateSelectedIds.length > 0 ? ` (${gateSelectedIds.length})` : ""}
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Feature 9 — quick confirm for the pop-up selection. Same
+          shape as the portal's confirm: title, one line, Cancel and
+          Confirm Orders. */}
+      <Dialog open={isGateConfirmOpen} onOpenChange={setIsGateConfirmOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-green-600">
+              <CheckCircle2 className="h-5 w-5" />
+              Confirm Orders
+            </DialogTitle>
+            <DialogDescription>
+              Confirm {gateView.selected} order
+              {gateView.selected === 1 ? "" : "s"}.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="outline" onClick={() => setIsGateConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5"
+              onClick={handleGateConfirm}
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              Confirm Orders
             </Button>
           </DialogFooter>
         </DialogContent>
