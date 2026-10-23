@@ -1213,7 +1213,7 @@ export function Orders() {
         if (who === "Buyer") {
           return (
             <Badge className="bg-amber-50 text-amber-800 border-amber-200">
-              Cancelled by Buyer
+              Cancelled by Customer
             </Badge>
           );
         }
@@ -2142,7 +2142,7 @@ export function Orders() {
                           : "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100"
                       }`}
                     >
-                      Buyer ({cancelledByCounts.buyer})
+                      Customer ({cancelledByCounts.buyer})
                     </button>
                     <button
                       onClick={() => {
