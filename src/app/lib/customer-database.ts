@@ -236,6 +236,17 @@ export function getCustomers(): DbCustomer[] {
   return ensureLoaded();
 }
 
+/**
+ * The business definition of an ACTIVE customer: Business Status
+ * "Active-User" AND roster Status "Active". Everything else (shut down,
+ * lost, KYC-pending, duplicate, internal, …) is a dormant account.
+ */
+export function isActiveCustomer(
+  c: Pick<DbCustomer, "businessStatus" | "status">,
+): boolean {
+  return c.businessStatus === "Active-User" && c.status === "Active";
+}
+
 export function getCustomerById(id: string): DbCustomer | undefined {
   return ensureLoaded().find((c) => c.id === id);
 }
@@ -746,6 +757,17 @@ export function buildReportRows(customers: DbCustomer[]): ReportRow[] {
 }
 
 /**
+ * buildReportRows without the shared result cache — for small
+ * sub-rosters (e.g. one dark-store zone) that must not evict the
+ * full-roster rows the Generate Report page keeps warm.
+ */
+export function buildReportRowsUncached(customers: DbCustomer[]): ReportRow[] {
+  const rows: ReportRow[] = [];
+  appendReportRows(rows, customers);
+  return rows;
+}
+
+/**
  * Same output as buildReportRows, but computed in slices with the
  * event loop released between them — the report page stays painted
  * (spinner, progress) instead of freezing while a 26k-customer roster
@@ -944,7 +966,7 @@ async function addRowsChunked<T>(
   }
 }
 
-function triggerDownload(blob: Blob, filename: string): void {
+export function triggerDownload(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -965,7 +987,7 @@ function headerFilter(headers: readonly string[]) {
   return { from: "A1", to: `${String.fromCharCode(64 + headers.length)}1` };
 }
 
-const csvEscape = (v: string | number) => {
+export const csvEscape = (v: string | number) => {
   const s = String(v);
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };

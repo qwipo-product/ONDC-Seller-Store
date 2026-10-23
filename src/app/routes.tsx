@@ -52,6 +52,7 @@ import { AdminConnectors } from "./pages/admin/connectors";
 import { AdminCustomers } from "./pages/admin/customers";
 import { AdminCustomerDetail } from "./pages/admin/customer-detail";
 import { AdminServiceabilityReport } from "./pages/admin/serviceability-report";
+import { AdminDarkStoreDashboard } from "./pages/admin/dark-store-dashboard";
 import { AdminCompanies } from "./pages/admin/companies";
 import { AdminCategories } from "./pages/admin/categories";
 import { ErrorScreensDemo } from "./pages/demos/error-screens";
@@ -98,6 +99,8 @@ export const router = createBrowserRouter([
       { path: "customers/:customerId", Component: AdminCustomerDetail },
       // Generate Report — customer × beat serviceability export
       { path: "reports", Component: AdminServiceabilityReport },
+      // Dark Store — zone coverage dashboard per store
+      { path: "dark-store/:storeId", Component: AdminDarkStoreDashboard },
       // Admin Connectors
       { path: "connectors", Component: AdminConnectors },
       { path: "connectors/:connectorId", Component: ConnectorDetail },
