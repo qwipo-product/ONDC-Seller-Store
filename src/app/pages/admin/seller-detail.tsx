@@ -43,6 +43,7 @@ import {
   MapPin,
   Truck,
   Receipt,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -1322,6 +1323,7 @@ export function SellerCatalogTab({
   // can order until the admin narrows it to registered-only.
   const [addPurchaseEligibility, setAddPurchaseEligibility] =
     useState<PurchaseEligibility>("all-customers");
+  const [addSyncSkus, setAddSyncSkus] = useState(true);
 
   // ---- Add Brands dialog (per-card "+ Add Brands" CTA) ----
   // Behaves as "extend only" — existing brand access is preserved and
@@ -1386,6 +1388,7 @@ export function SellerCatalogTab({
         ? {
             companyId: editTarget,
             brandIds: editAllBrands ? [] : editBrandIds,
+            syncSkusToMySku: s.syncSkusToMySku,
           }
         : s,
     );
@@ -1415,6 +1418,7 @@ export function SellerCatalogTab({
     setAddBrandIds([]);
     setAddOperationMode("distributor");
     setAddPurchaseEligibility("all-customers");
+    setAddSyncSkus(true);
     setAddOpen(true);
   };
 
@@ -1466,6 +1470,7 @@ export function SellerCatalogTab({
           addOperationMode === "distributor"
             ? addPurchaseEligibility
             : "all-customers",
+        syncSkusToMySku: addSyncSkus,
       },
     ];
     persistSelections(next);
@@ -1828,6 +1833,25 @@ export function SellerCatalogTab({
               </div>
             )}
           </div>
+
+          <label className="flex items-start gap-3 cursor-pointer select-none rounded-lg border border-gray-200 bg-gray-50 p-3">
+            <Checkbox
+              id="add-sync-skus"
+              checked={addSyncSkus}
+              onCheckedChange={(v) => setAddSyncSkus(!!v)}
+              className="mt-0.5"
+            />
+            <div>
+              <p className="text-sm font-medium text-gray-900">
+                Sync all SKUs to seller's MySKU
+              </p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                All SKUs for this company and its brands will be automatically
+                added to this seller's MySKU list.
+              </p>
+            </div>
+          </label>
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddOpen(false)}>
               Cancel
@@ -1968,6 +1992,16 @@ export function SellerCatalogTab({
                   </p>
                 )}
               </div>
+            </div>
+          )}
+
+          {editingSelection?.syncSkusToMySku && (
+            <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+              <RefreshCw className="h-3.5 w-3.5 shrink-0 text-blue-600" />
+              <span>
+                <b>Sync to MySKU is on</b> — newly added brands will be synced to
+                this seller's MySKU automatically.
+              </span>
             </div>
           )}
 

@@ -17,7 +17,7 @@ import { setDataMode as setGlobalDataMode } from "./data-mode";
 //     on the design-system handbook so PMs / designers / developers
 //     can browse tokens + components + patterns without bumping
 //     into seller chrome.
-export type Role = "admin" | "seller" | "designer";
+export type Role = "admin" | "seller" | "designer" | "catalog-admin" | "brand-manager";
 
 export interface AuthUser {
   id: string;
@@ -26,6 +26,8 @@ export interface AuthUser {
   role: Role;
   businessName?: string;
   avatarInitials: string;
+  /** admin-catalog company IDs this user is scoped to (brand managers only) */
+  companyIds?: string[];
   /**
    * Data presentation mode used for demos:
    *  - "demo"  (default) → all mock master data (sellers, companies,
@@ -63,7 +65,9 @@ function readStoredUser(): AuthUser | null {
       typeof parsed.id === "string" &&
       (parsed.role === "admin" ||
         parsed.role === "seller" ||
-        parsed.role === "designer")
+        parsed.role === "designer" ||
+        parsed.role === "catalog-admin" ||
+        parsed.role === "brand-manager")
     ) {
       return parsed as AuthUser;
     }

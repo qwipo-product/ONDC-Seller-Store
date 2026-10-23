@@ -13,3 +13,4 @@ Seller-Store/
 .deck-qa/
 server.log
 server.log.err
+.gstack/

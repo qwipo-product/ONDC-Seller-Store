@@ -31,6 +31,7 @@ import {
   type PurchaseEligibility,
 } from "../../lib/mock-store";
 import { isValidEmail, isValidMobile } from "../../lib/auth-credentials";
+import { Checkbox } from "../../components/ui/checkbox";
 import { ImageUploader } from "../../components/ui/image-uploader";
 import { CompanyComboBox } from "../../components/company-combobox";
 
@@ -41,6 +42,7 @@ interface SellerCompanySelection {
   /** Mandatory for distributor rows; ignored for wholesaler rows.
    *  Defaults to "all-customers" — anyone can order. */
   purchaseEligibility: PurchaseEligibility;
+  syncSkus: boolean;
 }
 
 export function AdminAddUser() {
@@ -185,6 +187,7 @@ export function AdminAddUser() {
       brandIds: [],
       operationMode: "distributor",
       purchaseEligibility: "all-customers",
+      syncSkus: true,
     },
   ]);
 
@@ -202,6 +205,7 @@ export function AdminAddUser() {
         brandIds: [],
         operationMode: "distributor",
         purchaseEligibility: "all-customers",
+        syncSkus: true,
       },
     ]);
   };
@@ -219,6 +223,7 @@ export function AdminAddUser() {
               brandIds: [],
               operationMode: s.operationMode,
               purchaseEligibility: s.purchaseEligibility,
+              syncSkus: true,
             }
           : s,
       ),
@@ -378,6 +383,7 @@ export function AdminAddUser() {
             r.operationMode === "distributor"
               ? r.purchaseEligibility
               : "all-customers",
+          syncSkusToMySku: r.syncSkus,
         })),
       });
       setIsSaving(false);
@@ -799,6 +805,22 @@ export function AdminAddUser() {
                           <X className="h-4 w-4 text-red-600" />
                         </Button>
                       </div>
+                    </div>
+
+                    {/* Sync toggle — per company */}
+                    <div className="flex items-center gap-2 pt-1">
+                      <Checkbox
+                        id={`syncSkus-${idx}`}
+                        checked={sel.syncSkus}
+                        onCheckedChange={(v) =>
+                          setSelections((prev) =>
+                            prev.map((s, i) => i === idx ? { ...s, syncSkus: !!v } : s)
+                          )
+                        }
+                      />
+                      <Label htmlFor={`syncSkus-${idx}`} className="text-xs cursor-pointer">
+                        Sync all SKUs to seller's MySKU
+                      </Label>
                     </div>
 
                     {/* Brand picker — appears once a company is chosen */}

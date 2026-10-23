@@ -88,6 +88,30 @@ export const DEMO_CREDENTIALS: Record<string, CredentialRecord> = {
       dataMode: "demo",
     },
   },
+  "5500000001": {
+    otp: "1234",
+    user: {
+      id: "catalog-admin-1",
+      name: "Catalog Admin",
+      email: "catalog@qwipo.com",
+      role: "catalog-admin",
+      avatarInitials: "CA",
+      dataMode: "demo",
+    },
+  },
+  "5500000002": {
+    otp: "1234",
+    user: {
+      id: "brand-manager-1",
+      name: "Arjun Mehta",
+      email: "arjun.mehta@itc.com",
+      role: "brand-manager",
+      businessName: "ITC Limited",
+      avatarInitials: "AM",
+      dataMode: "demo",
+      companyIds: ["co-itc"],
+    },
+  },
 };
 
 // ---- Login identifier ----

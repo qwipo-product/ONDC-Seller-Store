@@ -1,6 +1,19 @@
-import { createBrowserRouter } from "react-router";
+import { createBrowserRouter, Navigate } from "react-router";
 import { RootLayout } from "./components/root-layout";
 import { ProtectedRoute } from "./components/protected-route";
+import { CatalogAdminLogin } from "./pages/catalog-admin/login";
+import { CatalogAdminLayout } from "./pages/catalog-admin/layout";
+import { CatalogAdminDashboard } from "./pages/catalog-admin/dashboard";
+import { CatalogAdminRequests } from "./pages/catalog-admin/requests";
+import { CatalogAdminCatalog } from "./pages/catalog-admin/catalog";
+import { CatalogAdminSkuForm } from "./pages/catalog-admin/sku-form";
+import { CatalogAdminBrandManagers } from "./pages/catalog-admin/brand-managers";
+import { BrandManagerCompanies } from "./pages/catalog-admin/my-company";
+import { BrandManagerCatalog } from "./pages/brand-manager/catalog";
+import { BrandManagerDashboard } from "./pages/brand-manager/dashboard";
+import { BrandManagerRequests } from "./pages/brand-manager/requests";
+import { useAuth } from "./lib/auth-context";
+import { MyRequests } from "./pages/products/my-requests";
 import { Dashboard } from "./pages/dashboard";
 import { DashboardCompany } from "./pages/dashboard-company";
 import { Inventory } from "./pages/inventory";
@@ -58,7 +71,50 @@ import { AdminCategories } from "./pages/admin/categories";
 import { ErrorScreensDemo } from "./pages/demos/error-screens";
 import { LoadingScreensDemo } from "./pages/demos/loading-screens";
 
+function CatalogAdminIndex() {
+  const { user } = useAuth();
+  if (user?.role === "brand-manager") return <BrandManagerDashboard />;
+  return <CatalogAdminDashboard />;
+}
+
+// Same index logic used for the RootLayout-integrated catalog portal at /catalog-portal.
+function CatalogPortalIndex() {
+  const { user } = useAuth();
+  if (user?.role === "brand-manager") return <BrandManagerDashboard />;
+  return <CatalogAdminDashboard />;
+}
+
 export const router = createBrowserRouter([
+  // Catalog Admin Portal — separate login + standalone layout
+  {
+    path: "/catalog-admin/login",
+    Component: CatalogAdminLogin,
+  },
+  // Brand Manager login redirects to the shared portal login
+  {
+    path: "/brand-manager/login",
+    element: <Navigate to="/catalog-admin/login" replace />,
+  },
+  {
+    path: "/catalog-admin",
+    element: (
+      <ProtectedRoute allow={["catalog-admin", "brand-manager"]}>
+        <CatalogAdminLayout />
+      </ProtectedRoute>
+    ),
+    children: [
+      { index: true, Component: CatalogAdminIndex },
+      { path: "requests", Component: CatalogAdminRequests },
+      { path: "catalog", Component: CatalogAdminCatalog },
+      { path: "catalog/create", Component: CatalogAdminSkuForm },
+      { path: "catalog/:skuId", Component: CatalogAdminSkuForm },
+      { path: "companies", Component: AdminCompanies },
+      { path: "my-company", Component: BrandManagerCompanies },
+      { path: "brand-managers", Component: CatalogAdminBrandManagers },
+      { path: "my-catalog", Component: BrandManagerCatalog },
+      { path: "my-requests", Component: BrandManagerRequests },
+    ],
+  },
   {
     path: "/login",
     Component: Login,
@@ -122,16 +178,18 @@ export const router = createBrowserRouter([
       { path: "sellers/:sellerId/connectors/:connectorId", Component: ConnectorDetail },
     ],
   },
-  // Seller subtree — seller-only
+  // Seller subtree — sellers, catalog-admins, and brand-managers all share
+  // the RootLayout shell. Role-specific nav is injected in root-layout.tsx.
   {
     path: "/",
     element: (
-      <ProtectedRoute allow="seller">
+      <ProtectedRoute allow={["seller", "catalog-admin", "brand-manager"]}>
         <RootLayout />
       </ProtectedRoute>
     ),
     children: [
       { index: true, Component: Dashboard },
+      { path: "products/my-requests", Component: MyRequests },
       // Per-company drill-down — opens from the company table on the
       // Dashboard. Carries the dashboard's date range via the query
       // string so the window survives the navigation.
@@ -192,6 +250,19 @@ export const router = createBrowserRouter([
       { path: "error-screens", Component: ErrorScreensDemo },
       // Loading Screens demo gallery — same empty-mode-only treatment.
       { path: "loading-screens", Component: LoadingScreensDemo },
+      // Catalog Portal — catalog-admin and brand-manager roles integrated
+      // into the main RootLayout shell. Pages are re-used from the
+      // standalone /catalog-admin portal; the separate portal stays intact.
+      { path: "catalog-portal", Component: CatalogPortalIndex },
+      { path: "catalog-portal/requests", Component: CatalogAdminRequests },
+      { path: "catalog-portal/catalog", Component: CatalogAdminCatalog },
+      { path: "catalog-portal/catalog/create", Component: CatalogAdminSkuForm },
+      { path: "catalog-portal/catalog/:skuId", Component: CatalogAdminSkuForm },
+      { path: "catalog-portal/companies", Component: AdminCompanies },
+      { path: "catalog-portal/my-company", Component: BrandManagerCompanies },
+      { path: "catalog-portal/brand-managers", Component: CatalogAdminBrandManagers },
+      { path: "catalog-portal/my-catalog", Component: BrandManagerCatalog },
+      { path: "catalog-portal/my-requests", Component: BrandManagerRequests },
     ],
   },
 ]);

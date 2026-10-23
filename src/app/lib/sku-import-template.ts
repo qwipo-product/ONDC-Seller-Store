@@ -46,6 +46,13 @@ export interface SkuFieldDef {
    *  computes the value from other fields (currently used for
    *  Weight in KG which we derive from Measure Unit × SKU Weight). */
   computed?: boolean;
+  /**
+   * 1 = Product Store managed — taken from the Product Store catalog.
+   *     Included in the Catalog Admin / Brand Manager bulk import template.
+   * 2 = Seller managed — filled in by the seller (pricing, fulfilment,
+   *     customer care, etc.). Only included in the My SKU seller template.
+   */
+  fieldCategory: 1 | 2;
 }
 
 /**
@@ -232,6 +239,7 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     format: "Letters/digits/-/_",
     rules: "Required. Alphanumeric (letters, digits, dashes, underscores). Must be unique within the file and not collide with an existing SKU.",
     example: "180000005",
+    fieldCategory: 1,
   },
   {
     key: "skuName",
@@ -240,6 +248,7 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     format: "3–100 chars",
     rules: "Required. 3 to 100 characters. Plain text.",
     example: "FREEDOM REF. SUNFLOWER OIL 15 KG. TIN",
+    fieldCategory: 1,
   },
   {
     key: "shortName",
@@ -248,6 +257,7 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     format: "Max 20 chars — letters/digits/-/_",
     rules: "Optional. Up to 20 characters. Letters, digits, hyphens and underscores only — no spaces. Must be unique within the seller's catalog. Leave blank for no short name. In the Update Price & Stock template, enter CLEAR to explicitly remove an existing short name.",
     example: "FFR1",
+    fieldCategory: 1,
   },
   // Group Name lets the seller cluster variants of the same product
   // family (e.g. "Freedom Model" groups Freedom Model 50ml / 100ml /
@@ -263,6 +273,7 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     rules:
       "Optional. Up to 100 characters. Pick an existing group from the dropdown OR type a new one — new values get added to the group master.",
     example: "Freedom Model",
+    fieldCategory: 1,
   },
   {
     key: "shortDesc",
@@ -271,6 +282,7 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     format: "10–150 chars",
     rules: "Required. 10 to 150 characters. Plain text only — no links or HTML.",
     example: "Premium refined sunflower oil, 15 kg tin",
+    fieldCategory: 1,
   },
   {
     key: "longDesc",
@@ -279,6 +291,7 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     format: "Up to 200 chars",
     rules: "Optional. Up to 200 characters. Plain text only.",
     example: "Filtered for clarity, suitable for high-temperature cooking.",
+    fieldCategory: 1,
   },
 
   // --- Quantity & Inventory ---
@@ -290,6 +303,7 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     rules: "Required. Pick the SKU's measurement unit from the dropdown.",
     options: MEASURE_UNITS,
     example: "Liter",
+    fieldCategory: 1,
   },
   // Free-text companion to Measure Unit. Captures the pack size value
   // (e.g. "1.5" for a 1.5 L bottle); kept free-text because volume
@@ -302,6 +316,7 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     format: "Free text",
     rules: "Required. The pack size value paired with Measure Unit (e.g. 1.5 for a 1.5 L bottle).",
     example: "1.5",
+    fieldCategory: 1,
   },
   // Weight Measure + SKU Weight drive the auto-calculated Weight in KG.
   // Restricted to Gram / Kilogram because the kg conversion is exact
@@ -314,6 +329,7 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     rules: "Required. Pick the unit for SKU Weight — Gram or Kilogram.",
     options: WEIGHT_MEASURES,
     example: "Kilogram",
+    fieldCategory: 1,
   },
   {
     key: "measureValue",
@@ -322,6 +338,17 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     format: "Positive number > 0",
     rules: "Required. Positive number (decimals allowed). Paired with Weight Measure (e.g. 15 + Kilogram = 15 kg).",
     example: "15",
+    fieldCategory: 1,
+  },
+  {
+    key: "skuWeight",
+    header: "Weight in KG",
+    mandatory: false,
+    format: "Auto-calculated (kg)",
+    rules: "Auto-calculated from Weight Measure × SKU Weight. Do not fill — the importer computes this value.",
+    example: "15",
+    computed: true,
+    fieldCategory: 1,
   },
   {
     key: "unitizedCount",
@@ -330,6 +357,7 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     format: "Whole number ≥ 1",
     rules: "Optional. Positive whole number when filled.",
     example: "1",
+    fieldCategory: 1,
   },
   // Package Type + Package Type Value go side-by-side so the seller
   // can describe the physical container (Pouch, Bottle, Jar, …) and
@@ -343,6 +371,7 @@ export const SKU_FIELDS: SkuFieldDef[] = [
       "Optional. Pick the physical container the SKU ships in (Pouch, Bottle, Tin, etc.).",
     options: PACKAGE_TYPES,
     example: "Bottle",
+    fieldCategory: 1,
   },
   {
     key: "packageTypeValue",
@@ -352,6 +381,7 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     rules:
       "Optional. Numeric value paired with Package Type (e.g. 12 for a 12-bottle case). Decimals allowed.",
     example: "12",
+    fieldCategory: 1,
   },
   {
     key: "upc",
@@ -360,6 +390,62 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     format: "Numeric",
     rules: "Optional. Numeric value.",
     example: "8901234567890",
+    fieldCategory: 1,
+  },
+  {
+    key: "productCode",
+    header: "Product Code",
+    mandatory: false,
+    format: "Letters/digits/-/_",
+    rules: "Optional. External product / EAN code assigned by the manufacturer. Alphanumeric, hyphens and underscores allowed.",
+    example: "ITC-SUNF-001",
+    fieldCategory: 1,
+  },
+  {
+    key: "productLength",
+    header: "Length",
+    mandatory: false,
+    format: "Positive number (cm)",
+    rules: "Optional. Product length in centimetres. Positive number, decimals allowed. Used together with Width and Height to auto-calculate Volumetric Weight.",
+    example: "32",
+    fieldCategory: 1,
+  },
+  {
+    key: "productWidth",
+    header: "Width",
+    mandatory: false,
+    format: "Positive number (cm)",
+    rules: "Optional. Product width in centimetres. Positive number, decimals allowed.",
+    example: "20",
+    fieldCategory: 1,
+  },
+  {
+    key: "productHeight",
+    header: "Height",
+    mandatory: false,
+    format: "Positive number (cm)",
+    rules: "Optional. Product height in centimetres. Positive number, decimals allowed.",
+    example: "10",
+    fieldCategory: 1,
+  },
+  {
+    key: "volumetricWeight",
+    header: "Volumetric Weight",
+    mandatory: false,
+    format: "Auto-calculated (kg)",
+    rules: "Auto-calculated from Length × Width × Height ÷ 5000. Do not fill — the importer computes this from the three dimension columns.",
+    example: "1.28",
+    computed: true,
+    fieldCategory: 1,
+  },
+  {
+    key: "productImages",
+    header: "Product Images",
+    mandatory: false,
+    format: "Comma-separated image URLs",
+    rules: "Optional. One or more publicly accessible image URLs, comma-separated. First URL becomes the primary display image.",
+    example: "https://cdn.example.com/sku-front.jpg,https://cdn.example.com/sku-back.jpg",
+    fieldCategory: 1,
   },
   {
     key: "minimumOrderQty",
@@ -368,6 +454,7 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     format: "Whole number ≥ 1",
     rules: "Required. Positive whole number. Cannot be greater than Max Order Quantity.",
     example: "1",
+    fieldCategory: 2,
   },
   {
     key: "maximumOrderQty",
@@ -376,6 +463,7 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     format: "Whole number ≥ 1",
     rules: "Required. Positive whole number. Cannot be less than Min Order Quantity.",
     example: "100",
+    fieldCategory: 2,
   },
 
   // --- Category ---
@@ -390,6 +478,7 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     rules: "Required. Pick a category from the admin-managed list.",
     options: CATEGORY_OPTIONS,
     example: "Cooking Oils & Ghee",
+    fieldCategory: 1,
   },
 
   // --- ONDC attributes ---
@@ -401,6 +490,7 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     rules: "Required. Phase 1 default: No.",
     options: YES_NO,
     example: "No",
+    fieldCategory: 2,
   },
   {
     key: "cancellable",
@@ -410,6 +500,7 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     rules: "Required. Phase 1 default: No.",
     options: YES_NO,
     example: "No",
+    fieldCategory: 2,
   },
   {
     key: "availableOnCod",
@@ -419,6 +510,7 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     rules: "Required. Phase 1 default: Yes.",
     options: YES_NO,
     example: "Yes",
+    fieldCategory: 2,
   },
   {
     key: "timeToShip",
@@ -428,6 +520,7 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     rules: "Required. Pick the dispatch window.",
     options: TIME_TO_SHIP,
     example: "24 hours",
+    fieldCategory: 2,
   },
 
   // --- Customer Care ---
@@ -438,6 +531,7 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     format: "Letters only",
     rules: "Required. Alphabetical characters only.",
     example: "Customer Support",
+    fieldCategory: 2,
   },
   {
     key: "consumerCareContactEmail",
@@ -446,6 +540,7 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     format: "Valid email",
     rules: "Required. Valid email address (name@domain.tld).",
     example: "support@example.com",
+    fieldCategory: 2,
   },
   {
     key: "consumerCareContactPhone",
@@ -454,6 +549,7 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     format: "10 digits",
     rules: "Required. Exactly 10 digits, numeric only.",
     example: "9876543210",
+    fieldCategory: 2,
   },
 
   // --- Manufacturer ---
@@ -464,6 +560,7 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     format: "Linked company",
     rules: "Required. Must match a company linked to your seller account (see Manage Seller → Companies & Brands).",
     example: "ITC Limited",
+    fieldCategory: 1,
   },
   {
     key: "brandAttribute",
@@ -472,6 +569,7 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     format: "Linked brand",
     rules: "Required. Must be a brand under the selected Manufacturer.",
     example: "Aashirvaad",
+    fieldCategory: 1,
   },
   {
     key: "manufacturerAddress",
@@ -480,6 +578,7 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     format: "10–250 chars",
     rules: "Optional. 10 to 250 characters when filled. Should include a 6-digit PIN.",
     example: "Plot 14, MIDC, Mumbai 400072",
+    fieldCategory: 2,
   },
   {
     key: "countryOfOrigin",
@@ -489,6 +588,7 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     rules: "Required. Default: India.",
     options: COUNTRIES,
     example: "India",
+    fieldCategory: 1,
   },
 
   // --- Status ---
@@ -500,6 +600,7 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     rules: "Required. Active SKUs are visible to buyers; Inactive SKUs are hidden.",
     options: ITEM_STATUS,
     example: "Active",
+    fieldCategory: 2,
   },
 
   // --- Selling Unit ---
@@ -516,6 +617,7 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     rules:
       "Optional. Comma-separated list of positive whole numbers (e.g. 1,23,122). Each value must be ≥ 1. Duplicates within the same row are not allowed.",
     example: "1,16,96",
+    fieldCategory: 2,
   },
 
   // --- Tax ---
@@ -526,6 +628,7 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     format: "8-digit code",
     rules: "Optional. 8-digit Harmonised System Nomenclature code for this product.",
     example: "15121900",
+    fieldCategory: 1,
   },
   {
     key: "gstTax",
@@ -535,6 +638,7 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     rules: "Optional. GST slab applicable on this product.",
     options: ["0%", "3%", "5%", "12%", "18%", "28%"],
     example: "18%",
+    fieldCategory: 1,
   },
   {
     key: "gstCess",
@@ -544,8 +648,18 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     rules: "Optional. Additional cess on top of GST, if applicable.",
     options: ["0%", "1%", "3%", "5%", "12%", "22%"],
     example: "0%",
+    fieldCategory: 1,
   },
 ];
+
+/**
+ * Subset of SKU_FIELDS containing only Field Category 1 —
+ * fields managed by the Product Store / Catalog Admin.
+ * Used for the Catalog Admin and Brand Manager bulk import template.
+ */
+export const CATALOG_SKU_FIELDS: SkuFieldDef[] = SKU_FIELDS.filter(
+  (f) => f.fieldCategory === 1,
+);
 
 /** Convert a 0-based column index to its Excel letter (A, B, …, AA, AB). */
 const colToLetter = (idx: number): string => {
@@ -578,7 +692,11 @@ const escapeSheetName = (name: string) =>
  * SheetJS still owns the parser side because its sheet_to_json and
  * cell-resolution logic is best-in-class.
  */
-export const downloadSkuTemplate = async () => {
+export const downloadSkuTemplate = async (
+  prefillRows?: ParsedSkuRow[],
+  fields?: SkuFieldDef[],
+) => {
+  const activeFields = fields ?? SKU_FIELDS;
   const ExcelJS = (await import("exceljs")).default;
   const wb = new ExcelJS.Workbook();
   wb.creator = "Qwipo Seller Store";
@@ -617,7 +735,7 @@ export const downloadSkuTemplate = async () => {
   const masterSheet = wb.addWorksheet("Master Data");
   const masterColumns: { label: string; values: string[]; key: string }[] = [];
   const seenLabels = new Set<string>();
-  SKU_FIELDS.forEach((f) => {
+  activeFields.forEach((f) => {
     if (!f.options || seenLabels.has(f.header)) return;
     masterColumns.push({ label: f.header, values: f.options, key: f.key });
     seenLabels.add(f.header);
@@ -661,12 +779,12 @@ export const downloadSkuTemplate = async () => {
   // ---------- Sheet 1 — Main SKU Upload ----------
   const main = wb.addWorksheet("Main SKU Upload");
   // Row 1 = headers (mandatory carry a trailing *).
-  main.addRow(SKU_FIELDS.map((f) => f.header + (f.mandatory ? " *" : "")));
+  main.addRow(activeFields.map((f) => f.header + (f.mandatory ? " *" : "")));
   // Row 2 = frozen helper row with Mandatory/Optional + format.
   // Computed columns get the "Auto-calculated" tag so reviewers
   // know not to type a value there.
   main.addRow(
-    SKU_FIELDS.map((f) =>
+    activeFields.map((f) =>
       f.computed
         ? `Auto-calculated · ${f.format}`
         : `${f.mandatory ? "Mandatory" : "Optional"} · ${f.format}`,
@@ -677,7 +795,7 @@ export const downloadSkuTemplate = async () => {
   const headerRow = main.getRow(1);
   headerRow.height = 24;
   headerRow.eachCell((cell, col) => {
-    const f = SKU_FIELDS[col - 1];
+    const f = activeFields[col - 1];
     cell.font = HEADER_FONT;
     cell.fill = HEADER_FILL;
     cell.alignment = { vertical: "middle", horizontal: "left", wrapText: true };
@@ -698,7 +816,7 @@ export const downloadSkuTemplate = async () => {
   });
 
   // Column widths.
-  SKU_FIELDS.forEach((f, idx) => {
+  activeFields.forEach((f, idx) => {
     main.getColumn(idx + 1).width = Math.max(
       20,
       f.header.length + 4,
@@ -715,7 +833,7 @@ export const downloadSkuTemplate = async () => {
   // Master sheet — Excel rejects inline lists over 255 chars.
   const FIRST_DATA_ROW = 3;
   const LAST_DATA_ROW = 1000;
-  SKU_FIELDS.forEach((f, idx) => {
+  activeFields.forEach((f, idx) => {
     if (!f.options || f.options.length === 0) return;
     const colLetter = colToLetter(idx);
     // Use a named range when present, otherwise inline literal list.
@@ -756,7 +874,7 @@ export const downloadSkuTemplate = async () => {
     color: { argb: "FF64748B" }, // slate-500
     size: 10,
   };
-  SKU_FIELDS.forEach((f, idx) => {
+  activeFields.forEach((f, idx) => {
     if (!f.computed) return;
     const colLetter = colToLetter(idx);
     for (let r = FIRST_DATA_ROW; r <= LAST_DATA_ROW; r++) {
@@ -785,7 +903,7 @@ export const downloadSkuTemplate = async () => {
     "Validation Rules",
     "Example",
   ]);
-  SKU_FIELDS.forEach((f) => {
+  activeFields.forEach((f) => {
     validation.addRow([
       f.header,
       f.mandatory ? "Mandatory" : "Optional",
@@ -812,6 +930,22 @@ export const downloadSkuTemplate = async () => {
     validation.getCell(r, 4).alignment = { wrapText: true, vertical: "top" };
   }
   validation.views = [{ state: "frozen", ySplit: 1 }];
+
+  // Pre-fill example rows when provided (e.g. Product Store lookup template).
+  if (prefillRows && prefillRows.length > 0) {
+    const PRE_FILL: ExcelJSType.FillPattern = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FFF0FDF4" }, // green-50
+    };
+    prefillRows.forEach((row) => {
+      const values = activeFields.map((f) => row[f.key] ?? "");
+      const addedRow = main.addRow(values);
+      addedRow.eachCell((cell) => {
+        cell.fill = PRE_FILL;
+      });
+    });
+  }
 
   // Reorder sheets so the user lands on Main SKU Upload first when
   // they open the workbook.
@@ -1056,6 +1190,16 @@ export const parseSkuImportFile = async (
           const numericValue = parseFloat(row.measureValue ?? "");
           const kg = measureToKg(row.weightMeasure, numericValue);
           row.skuWeight = kg === null ? "" : String(kg);
+        }
+        if (f.key === "volumetricWeight") {
+          const l = parseFloat(row.productLength ?? "");
+          const w = parseFloat(row.productWidth ?? "");
+          const h = parseFloat(row.productHeight ?? "");
+          if (Number.isFinite(l) && Number.isFinite(w) && Number.isFinite(h)) {
+            row.volumetricWeight = String(Math.round((l * w * h / 5000) * 1000) / 1000);
+          } else {
+            row.volumetricWeight = "";
+          }
         }
       });
       return row;

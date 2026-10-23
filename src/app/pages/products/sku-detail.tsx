@@ -1,5 +1,6 @@
 import { useNavigate, useParams } from "react-router";
 import { useRef, useState } from "react";
+import { getMySkus } from "../../lib/my-sku-store";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
@@ -72,16 +73,10 @@ import {
 } from "../../components/ui/dialog";
 import { validateSKU, ValidationError } from "../../lib/ondc-validation";
 import { useAuth } from "../../lib/auth-context";
-import { getSellerById } from "../../lib/mock-store";
-import {
-  getCompanies as getAdminCatalogCompanies,
-  subscribeToCompanies as subscribeToAdminCatalog,
-} from "../../lib/admin-catalog";
 import {
   getProcessingTimeHours,
   formatProcessingTimeLabel,
 } from "../../lib/order-settings-data";
-import { useEffect } from "react";
 // Active-offers lookup + warning dialog — used by the Price &
 // Inventory tab to gate Save Price & Stock when the seller updates
 // the SP of a SKU that has Active or Scheduled QPS schemes mapped.
@@ -831,52 +826,6 @@ function OfferCard({ offer, currentQty = 1 }: { offer: Offer; currentQty?: numbe
 
 // Product Details Tab Component — DMS (read-only reference) + ONDC (editable) dual-column layout.
 function ProductDetailsTab({ sku }: { sku: any }) {
-  // ----- Seller-scoped Company / Brand picker source -----
-  // The Manufacturer/Packer Name dropdown is restricted to companies the
-  // super-admin tagged to this seller; the Brand dropdown is restricted to
-  // brands within the chosen company.
-  const { user } = useAuth();
-  const resolvedSellerId = user?.id ?? null;
-  const seller = resolvedSellerId ? getSellerById(resolvedSellerId) : null;
-  const [adminCompanies, setAdminCompanies] = useState(() => getAdminCatalogCompanies());
-  useEffect(
-    () => subscribeToAdminCatalog(() => setAdminCompanies([...getAdminCatalogCompanies()])),
-    [],
-  );
-  const sellerSelections = seller?.companyBrandSelections ?? [];
-  // Companies linked to this seller that are still active in the master catalog.
-  let sellerCompanies = sellerSelections
-    .map((sel) => {
-      const c = adminCompanies.find((co) => co.id === sel.companyId);
-      if (!c || c.isActive === false) return null;
-      const brands =
-        sel.brandIds.length === 0
-          ? c.brands
-          : c.brands.filter((b) => sel.brandIds.includes(b.id));
-      return { ...c, brands };
-    })
-    .filter((c): c is NonNullable<typeof c> => c !== null);
-
-  // Defensive: if the SKU ships with a prefilled company/brand (e.g. demo SKUs)
-  // that the seller record doesn't currently link, still surface that company
-  // in the dropdown so the prefilled value renders. This guards against stale
-  // localStorage and makes demo SKUs work even before the catalog is wired up.
-  const prefilledCompanyName = sku.ondcPrefilled?.manufacturerName as
-    | string
-    | undefined;
-  if (prefilledCompanyName) {
-    const already = sellerCompanies.some((c) => c.name === prefilledCompanyName);
-    const fromCatalog = adminCompanies.find(
-      (c) => c.name === prefilledCompanyName && c.isActive !== false,
-    );
-    if (!already && fromCatalog) {
-      sellerCompanies = [
-        { ...fromCatalog, brands: fromCatalog.brands },
-        ...sellerCompanies,
-      ];
-    }
-  }
-
   // DMS snapshot — read-only reference that comes from the DMS system of record.
   const dms = {
     itemStatus: sku.status === "Active" ? "enable" : "disable",
@@ -1007,21 +956,6 @@ function ProductDetailsTab({ sku }: { sku: any }) {
   const updateTax = (key: keyof typeof dmsTax, value: string) =>
     setOndcTax((prev) => ({ ...prev, [key]: value }));
 
-  // The Manufacturer/Packer Name dropdown stores the company name as text
-  // (matching the existing string field). We derive the company-id from the
-  // saved name so the Brand dropdown can filter to that company's brands.
-  const selectedSellerCompany = sellerCompanies.find(
-    (c) => c.name === ondc.manufacturerName,
-  );
-  const handleCompanyChange = (companyName: string) => {
-    update("manufacturerName", companyName);
-    // Reset Brand if it no longer belongs to the new company
-    const next = sellerCompanies.find((c) => c.name === companyName);
-    if (!next || !next.brands.some((b) => b.name === ondc.brandAttribute)) {
-      update("brandAttribute", "");
-    }
-  };
-
   // Inline error catalog — populated on Save with the validator's
   // output. The post-save popup has been retired in favour of
   // showing every error inline beneath its owning input.
@@ -1075,7 +1009,25 @@ function ProductDetailsTab({ sku }: { sku: any }) {
   >(null);
 
   const handleReset = () => {
-    setOndc({ ...blankOndc });
+    // Reset only the Category 2 (seller-editable) fields to their seeded defaults.
+    // Category 1 (Catalog-owned) fields are read-only displays and are not in state.
+    setOndc((prev) => ({
+      ...prev,
+      minimumOrderQty: seededOndc.minimumOrderQty,
+      maximumOrderQty: seededOndc.maximumOrderQty,
+      returnable: seededOndc.returnable,
+      cancellable: seededOndc.cancellable,
+      availableOnCod: seededOndc.availableOnCod,
+      timeToShip: seededOndc.timeToShip,
+      consumerCareContactName: seededOndc.consumerCareContactName,
+      consumerCareContactEmail: seededOndc.consumerCareContactEmail,
+      consumerCareContactPhone: seededOndc.consumerCareContactPhone,
+      manufacturerAddress: seededOndc.manufacturerAddress,
+      sellingUnits: seededOndc.sellingUnits,
+      itemStatus: seededOndc.itemStatus,
+      fulfillmentId: seededOndc.fulfillmentId,
+      locationId: seededOndc.locationId,
+    }));
     setPendingErrors([]);
     setOndcDirty(false);
     toast.success("ONDC values reset");
@@ -1159,6 +1111,13 @@ function ProductDetailsTab({ sku }: { sku: any }) {
     // Compliance is "no errors at all" — the moment the last gap closes
     // (BR-11), the SKU's badge flips automatically. There's no separate
     // publish step.
+    //
+    // TODO (user story): SKUs imported from Product Store start with MRP=0 and
+    // SP=0 (FC2 fields — seller must fill them in). When this user story is
+    // implemented, add a check here so that a SKU with MRP <= 0 or SP <= 0
+    // is NEVER marked ONDC compliant, regardless of whether the ONDC fields
+    // are filled. i.e.: const isNowCompliant = errors.length === 0 && mrp > 0 && sp > 0;
+    // (read mrp/sp from the Price & Inventory state, same as commitSave does.)
     const isNowCompliant = errors.length === 0;
 
     // No edits → button shouldn't have been enabled, defensive only.
@@ -1249,6 +1208,18 @@ function ProductDetailsTab({ sku }: { sku: any }) {
         </div>
       </div>
 
+      {/* Brand-managed fields callout */}
+      <div className="flex items-start gap-3 p-3 bg-teal-50 border border-teal-200 rounded-lg text-sm text-teal-900">
+        <ShieldCheck className="h-4 w-4 flex-shrink-0 mt-0.5 text-teal-600" />
+        <p>
+          <span className="font-medium">Brand-managed fields</span> — Fields marked{" "}
+          <span className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-semibold bg-teal-50 text-teal-700 border border-teal-200">
+            Catalog
+          </span>{" "}
+          are owned by the brand and maintained by Catalog Admin. Your editable fields (Min/Max Order Qty, Returnable, Cancellable, Consumer Care, etc.) have normal inputs.
+        </p>
+      </div>
+
       {/* Descriptor */}
       <DualSection title="Descriptor (Product Identity)" icon={<FileText className="h-5 w-5 text-blue-600" />}>
         <DualRow
@@ -1257,28 +1228,13 @@ function ProductDetailsTab({ sku }: { sku: any }) {
           ondcRequired
           help="Display name: brand + variant + pack size (3–100 chars)"
           dms={dms.itemName}
-          ondc={<TextInput value={ondc.itemName} onChange={(v) => update("itemName", v)} edited={isEdited("itemName")} required errorMessage={getError("itemName")} />}
+          ondc={<CatalogField value={seededOndc.itemName} />}
         />
-        {/* Group Name clusters variants of the same product family
-            so the My SKU list can render them together. Backed by a
-            search-as-you-type combobox so the list scales with
-            previously-imported groups (KNOWN_GROUP_NAMES — replace
-            with an API lookup in production). Optional — leaving it
-            blank is the "no group" choice. */}
         <DualRow
           label="Group Name"
-          help="Cluster variants of the same product family. Type to search or pick from the list."
+          help="Cluster variants of the same product family."
           dms={dms.groupName || "—"}
-          ondc={
-            <ComboboxInput
-              value={ondc.groupName}
-              onChange={(v) => update("groupName", v)}
-              edited={isEdited("groupName")}
-              options={KNOWN_GROUP_NAMES}
-              placeholder="Search or pick a group…"
-              clearable
-            />
-          }
+          ondc={<CatalogField value={seededOndc.groupName} />}
         />
         <DualRow
           label="SKU Code"
@@ -1300,9 +1256,9 @@ function ProductDetailsTab({ sku }: { sku: any }) {
         />
         <DualRow
           label="Short Name"
-          help="Internal alias for this SKU (e.g. FFR1). Max 20 chars — letters, digits, hyphens, underscores only. Used for quick search on the SKU list."
+          help="Internal alias for this SKU (e.g. FFR1). Max 20 chars."
           dms={""}
-          ondc={<TextInput value={ondc.shortName} onChange={(v) => update("shortName", v)} edited={isEdited("shortName")} placeholder="e.g. FFR1" />}
+          ondc={<CatalogField value={seededOndc.shortName} />}
         />
         <DualRow
           label="Short Description"
@@ -1310,7 +1266,7 @@ function ProductDetailsTab({ sku }: { sku: any }) {
           ondcRequired
           help="10–150 chars, plain text"
           dms={""}
-          ondc={<TextInput value={ondc.shortDesc} onChange={(v) => update("shortDesc", v)} edited={isEdited("shortDesc")} required errorMessage={getError("shortDesc")} />}
+          ondc={<CatalogField value={seededOndc.shortDesc} />}
         />
         <DualRow
           label="Long Description"
@@ -1319,7 +1275,7 @@ function ProductDetailsTab({ sku }: { sku: any }) {
           help="20–1000 chars, plain text"
           dms={""}
           multiline
-          ondc={<TextAreaInput value={ondc.longDesc} onChange={(v) => update("longDesc", v)} edited={isEdited("longDesc")} required errorMessage={getError("longDesc")} />}
+          ondc={<CatalogField value={seededOndc.longDesc} multiline />}
         />
       </DualSection>
 
@@ -1330,62 +1286,23 @@ function ProductDetailsTab({ sku }: { sku: any }) {
           required
           ondcRequired
           dms={""}
-          ondc={
-            <SelectInput
-              value={ondc.measureUnit}
-              onChange={(v) => update("measureUnit", v)}
-              edited={isEdited("measureUnit")}
-              errorMessage={getError("measureUnit")}
-              // Spec list — four mass / volume options, in business-friendly
-              // casing. Dozen + Ton were dropped because retail SKUs are
-              // virtually never priced at the ton level and Dozen has no
-              // defensible mass mapping for the Weight in KG column.
-              options={["Gram", "Kilogram", "Liter", "Milliliter"]}
-            />
-          }
+          ondc={<CatalogField value={seededOndc.measureUnit} />}
         />
-        {/* Unit Value — pairs with Measure Unit to describe pack size
-            (e.g. Measure Unit = "Liter" + Unit Value = "1.5" → 1.5 L
-            bottle). Separate from the physical weight pair below
-            because pack size and weight diverge for liquids. */}
         <DualRow
           label="Unit Value"
           required
           ondcRequired
           help="Number paired with Measure Unit (e.g. 1.5 for a 1.5 L bottle)."
           dms={""}
-          ondc={
-            <TextInput
-              value={ondc.measureValue}
-              onChange={(v) => update("measureValue", v)}
-              edited={isEdited("measureValue")}
-              required
-              type="number"
-              errorMessage={getError("measureValue")}
-              disabled={!ondc.measureUnit}
-              disabledHint="Pick a Measure Unit first."
-            />
-          }
+          ondc={<CatalogField value={seededOndc.measureValue} />}
         />
-        {/* Weight Measure — narrower than Measure Unit (Gram /
-            Kilogram only) because physical weight always rolls up
-            to mass. Paired with SKU Weight below to drive the
-            read-only Weight in KG column. */}
         <DualRow
           label="Weight Measure"
           required
           ondcRequired
           help="Gram or Kilogram — drives the auto-calculated Weight in KG."
           dms={""}
-          ondc={
-            <SelectInput
-              value={ondc.weightMeasure}
-              onChange={(v) => update("weightMeasure", v)}
-              edited={isEdited("weightMeasure")}
-              errorMessage={getError("weightMeasure")}
-              options={["Gram", "Kilogram"]}
-            />
-          }
+          ondc={<CatalogField value={seededOndc.weightMeasure} />}
         />
         <DualRow
           label="SKU Weight"
@@ -1393,30 +1310,19 @@ function ProductDetailsTab({ sku }: { sku: any }) {
           ondcRequired
           help="Physical weight in the chosen Weight Measure (up to 3 decimals)."
           dms={""}
-          ondc={
-            <TextInput
-              value={ondc.skuWeight}
-              onChange={(v) => update("skuWeight", v)}
-              edited={isEdited("skuWeight")}
-              required
-              type="number"
-              errorMessage={getError("skuWeight")}
-              disabled={!ondc.weightMeasure}
-              disabledHint="Pick a Weight Measure first."
-            />
-          }
+          ondc={<CatalogField value={seededOndc.skuWeight} />}
         />
         <DualRow
           label="Pack Size (Inner Pack)"
           help="Optional, 1–10,000"
           dms={""}
-          ondc={<TextInput value={ondc.unitizedCount} onChange={(v) => update("unitizedCount", v)} edited={isEdited("unitizedCount")} type="number" errorMessage={getError("unitizedCount")} />}
+          ondc={<CatalogField value={seededOndc.unitizedCount} />}
         />
         <DualRow
           label="UPC (Unit Per Case)"
           help="Number of units in one case"
           dms={""}
-          ondc={<TextInput value={ondc.upc} onChange={(v) => update("upc", v)} edited={isEdited("upc")} type="number" errorMessage={getError("upc")} />}
+          ondc={<CatalogField value={seededOndc.upc} />}
         />
         {/* Selling Units — chip input. Seller types a piece count
             (e.g. 1, 16, 96), hits Enter, and the number locks in as a
@@ -1485,65 +1391,43 @@ function ProductDetailsTab({ sku }: { sku: any }) {
           label="HSN Code"
           help="8-digit Harmonised System Nomenclature code for this product"
           dms={dmsTax.hsnCode || "—"}
-          ondc={
-            <TextInput
-              value={ondcTax.hsnCode}
-              onChange={(v) => updateTax("hsnCode", v)}
-              edited={ondcTax.hsnCode !== dmsTax.hsnCode}
-              placeholder="e.g. 15121900"
-            />
-          }
+          ondc={<CatalogField value={dmsTax.hsnCode} />}
         />
         <DualRow
           label="GST Tax %"
           help="GST slab applicable on this product"
           dms={dmsTax.gstTax || "—"}
-          ondc={
-            <SelectInput
-              value={ondcTax.gstTax}
-              onChange={(v) => updateTax("gstTax", v)}
-              edited={ondcTax.gstTax !== dmsTax.gstTax}
-              options={GST_TAX_OPTIONS}
-            />
-          }
+          ondc={<CatalogField value={dmsTax.gstTax} />}
         />
         <DualRow
           label="GST Cess %"
           help="Additional cess on top of GST, if applicable"
           dms={dmsTax.gstCess || "—"}
-          ondc={
-            <SelectInput
-              value={ondcTax.gstCess}
-              onChange={(v) => updateTax("gstCess", v)}
-              edited={ondcTax.gstCess !== dmsTax.gstCess}
-              options={GST_CESS_OPTIONS}
-            />
-          }
+          ondc={<CatalogField value={dmsTax.gstCess} />}
         />
       </DualSection>
 
       {/* Dimensions — Length / Width / Height in cm. Volumetric Weight
           is derived from the three (L × W × H ÷ 5000, the standard
-          courier formula) and surfaced as a read-only field, mirroring
-          how SKU Code is rendered. None of the inputs are mandatory. */}
+          courier formula) and surfaced as a read-only field. */}
       <DualSection title="Dimensions" icon={<Ruler className="h-5 w-5 text-amber-600" />}>
         <DualRow
           label="Length"
           help="Optional · in centimetres"
           dms={""}
-          ondc={<TextInput value={ondc.productLength} onChange={(v) => update("productLength", v)} edited={isEdited("productLength")} type="number" errorMessage={getError("productLength")} />}
+          ondc={<CatalogField value={seededOndc.productLength} />}
         />
         <DualRow
           label="Width"
           help="Optional · in centimetres"
           dms={""}
-          ondc={<TextInput value={ondc.productWidth} onChange={(v) => update("productWidth", v)} edited={isEdited("productWidth")} type="number" errorMessage={getError("productWidth")} />}
+          ondc={<CatalogField value={seededOndc.productWidth} />}
         />
         <DualRow
           label="Height"
           help="Optional · in centimetres"
           dms={""}
-          ondc={<TextInput value={ondc.productHeight} onChange={(v) => update("productHeight", v)} edited={isEdited("productHeight")} type="number" errorMessage={getError("productHeight")} />}
+          ondc={<CatalogField value={seededOndc.productHeight} />}
         />
         <DualRow
           label="Volumetric Weight"
@@ -1577,15 +1461,7 @@ function ProductDetailsTab({ sku }: { sku: any }) {
           ondcRequired
           help="ONDC eB2B taxonomy"
           dms={""}
-          ondc={
-            <SelectInput
-              value={ondc.categoryId}
-              onChange={(v) => update("categoryId", v)}
-              edited={isEdited("categoryId")}
-              errorMessage={getError("categoryId")}
-              options={CATEGORY_OPTIONS}
-            />
-          }
+          ondc={<CatalogField value={seededOndc.categoryId} />}
         />
         <DualRow
           label="Fulfillment ID"
@@ -1729,78 +1605,17 @@ function ProductDetailsTab({ sku }: { sku: any }) {
           required
           ondcRequired
           conditional
-          help="Pick a company linked to your account"
+          help="Owned by the brand — managed by Catalog Admin"
           dms={""}
-          ondc={
-            sellerCompanies.length === 0 ? (
-              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
-                No companies are linked to your account. Ask your administrator
-                to link companies under Manage Seller → Companies &amp; Brands.
-              </p>
-            ) : (
-              <Select
-                value={ondc.manufacturerName || ""}
-                onValueChange={handleCompanyChange}
-              >
-                <SelectTrigger
-                  className={`h-9 text-sm ${
-                    isEdited("manufacturerName")
-                      ? "border-blue-400 ring-1 ring-blue-200"
-                      : ""
-                  }`}
-                >
-                  <SelectValue placeholder="Select company…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {sellerCompanies.map((c) => (
-                    <SelectItem key={c.id} value={c.name}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )
-          }
+          ondc={<CatalogField value={seededOndc.manufacturerName} />}
         />
         <DualRow
           label="Brand"
           required
           ondcRequired
-          help="Brands available depend on the selected company"
+          help="Owned by the brand — managed by Catalog Admin"
           dms={""}
-          ondc={
-            !selectedSellerCompany ? (
-              <p className="text-xs text-gray-500">
-                Select a company first to choose a brand.
-              </p>
-            ) : selectedSellerCompany.brands.length === 0 ? (
-              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
-                No brands available for this company.
-              </p>
-            ) : (
-              <Select
-                value={ondc.brandAttribute || ""}
-                onValueChange={(v) => update("brandAttribute", v)}
-              >
-                <SelectTrigger
-                  className={`h-9 text-sm ${
-                    isEdited("brandAttribute")
-                      ? "border-blue-400 ring-1 ring-blue-200"
-                      : ""
-                  }`}
-                >
-                  <SelectValue placeholder="Select brand…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {selectedSellerCompany.brands.map((b) => (
-                    <SelectItem key={b.id} value={b.name}>
-                      {b.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )
-          }
+          ondc={<CatalogField value={seededOndc.brandAttribute} />}
         />
         <DualRow
           label="Manufacturer / Packer Address"
@@ -1820,25 +1635,12 @@ function ProductDetailsTab({ sku }: { sku: any }) {
           ondcRequired
           help="Where the SKU is manufactured / packed."
           dms={""}
-          ondc={
-            <SelectInput
-              value={ondc.countryOfOrigin}
-              onChange={(v) => update("countryOfOrigin", v)}
-              edited={isEdited("countryOfOrigin")}
-              errorMessage={getError("countryOfOrigin")}
-              // Spec: dropdown, default India. Add neighbouring sources
-              // commonly seen in distributor catalogs.
-              options={["India", "Bangladesh", "Sri Lanka", "Nepal", "Bhutan", "China", "Other"]}
-            />
-          }
+          ondc={<CatalogField value={seededOndc.countryOfOrigin} />}
         />
       </DualSection>
 
-      {/* Product Images — at least 1 mandatory, up to 5 total (1 + 4 more) */}
-      <ProductImagesSection
-        images={ondc.productImages}
-        onChange={(imgs) => update("productImages", imgs)}
-      />
+      {/* Product Images — managed by Catalog Admin, read-only for sellers */}
+      <ReadOnlyProductImages images={seededOndc.productImages} />
 
       {/* Post-save summary — surfaces the count of saved fields vs
           fields that still need fixing. Per-field error detail also
@@ -2336,6 +2138,63 @@ function ImageUploader({
         {images.length} image{images.length !== 1 ? "s" : ""} uploaded
       </p>
     </div>
+  );
+}
+
+// ---------- Read-only catalog field primitive ----------
+
+function CatalogField({ value, multiline }: { value: string; multiline?: boolean }) {
+  return (
+    <div
+      className={`flex items-start gap-2 py-1.5 px-2.5 rounded-md bg-gray-50 border border-gray-200 ${
+        multiline ? "min-h-[56px]" : "min-h-[36px]"
+      }`}
+    >
+      <p className={`flex-1 text-sm break-words ${value ? "text-gray-800" : "text-gray-400 italic"}`}>
+        {value || "—"}
+      </p>
+      <span className="inline-flex items-center shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-teal-50 text-teal-700 border border-teal-200 leading-none mt-0.5">
+        Catalog
+      </span>
+    </div>
+  );
+}
+
+// Read-only product images section for sellers — shows brand-uploaded images without upload controls.
+function ReadOnlyProductImages({ images }: { images: string[] }) {
+  return (
+    <Card>
+      <CardHeader className="py-2.5 px-4 border-b border-gray-100">
+        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+          <ImageIcon className="h-5 w-5 text-fuchsia-600" />
+          Product Images
+          <span className="inline-flex items-center shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-teal-50 text-teal-700 border border-teal-200 leading-none ml-1">
+            Catalog
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-4">
+        {images.length === 0 ? (
+          <p className="text-sm text-gray-400 italic">No images provided by the brand.</p>
+        ) : (
+          <div className="flex flex-wrap gap-3">
+            {images.map((src, idx) => (
+              <div
+                key={idx}
+                className="relative w-28 h-28 rounded-lg bg-gray-100 border border-gray-200 overflow-hidden"
+              >
+                <img src={src} alt={`Product ${idx + 1}`} className="w-full h-full object-cover" />
+                {idx === 0 && (
+                  <span className="absolute top-1 left-1 bg-blue-600 text-white text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded">
+                    Primary
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -3229,6 +3088,50 @@ function SellingUnitsChips({
  * record. The hand-authored entries in `skuData` (1, 2, 190000001)
  * still take precedence — this is only the fallback path.
  */
+function synthSkuFromStore(skuId: string) {
+  const s = getMySkus().find((sk) => sk.id === skuId);
+  if (!s) return null;
+  return {
+    id: s.id,
+    name: s.name,
+    sku: s.sku,
+    shortName: s.shortName ?? "",
+    category: s.category,
+    brand: s.brand,
+    source: s.source,
+    status: s.status,
+    lastUpdated: s.lastUpdated,
+    description: (s.ondcPrefilled?.longDesc as string) ?? "",
+    specifications: {
+      weight: s.ondcPrefilled?.skuWeight
+        ? `${s.ondcPrefilled.skuWeight} ${s.ondcPrefilled.weightMeasure ?? ""}`
+        : "",
+      packaging: "",
+      shelfLife: "",
+      manufacturer: (s.ondcPrefilled?.manufacturerName as string) ?? "",
+      countryOfOrigin: (s.ondcPrefilled?.countryOfOrigin as string) ?? "India",
+    },
+    pricing: {
+      mrp: s.mrp ?? 0,
+      sellingPrice: s.sellingPrice ?? 0,
+      costPrice: 0,
+      margin: "—",
+    },
+    mrp: s.mrp,
+    sellingPrice: s.sellingPrice,
+    availableStock: s.availableStock ?? 0,
+    inventory: {
+      currentStock: s.availableStock ?? 0,
+      minStockLevel: s.thresholdLevel ?? 0,
+      reorderPoint: 0,
+      warehouse: "",
+    },
+    ondcPrefilled: s.ondcPrefilled ?? null,
+    tax: s.tax ?? { hsnCode: "", gstTax: "", gstCess: "" },
+    productStoreId: s.productStoreId ?? null,
+  };
+}
+
 function synthSkuFromCatalog(skuId: string) {
   const c = findCatalogSku(skuId);
   if (!c) return null;
@@ -3280,6 +3183,7 @@ export function SKUDetail() {
   const sku =
     (skuId && skuData[skuId]) ||
     (skuId && synthSkuFromCatalog(skuId)) ||
+    (skuId && synthSkuFromStore(skuId)) ||
     skuData["1"];
 
   const getStatusBadge = (status: string) => {

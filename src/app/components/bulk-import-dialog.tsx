@@ -474,16 +474,8 @@ function ResultsStep({ result }: { result: BulkImportValidationResult }) {
 
       {/* Summary cards — Total / Valid / Invalid */}
       <div className="grid grid-cols-3 gap-3">
-        <SummaryCard
-          label="Total Records"
-          value={result.totalRows}
-          tone="neutral"
-        />
-        <SummaryCard
-          label="Valid Records"
-          value={result.validRows}
-          tone="success"
-        />
+        <SummaryCard label="Total Records" value={result.totalRows} tone="neutral" />
+        <SummaryCard label="Valid Records" value={result.validRows} tone="success" />
         <SummaryCard
           label="Invalid Records"
           value={result.invalidRows}
@@ -527,25 +519,11 @@ function ResultsStep({ result }: { result: BulkImportValidationResult }) {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {(() => {
-                  // Group errors by row. Show the raw SKU Code and
-                  // SKU Name exactly as the user typed them in the
-                  // file — including blanks (rendered as "—"). We
-                  // DON'T derive a synthetic label like "SKU 12345" or
-                  // "Row 7" for the visible columns, because the spec
-                  // wants the file's own values surfaced. Row number
-                  // is used purely as a grouping key for blank rows.
-                  type Bucket = {
-                    code: string;
-                    name: string;
-                    count: number;
-                  };
+                  type Bucket = { code: string; name: string; count: number };
                   const groups = new Map<string, Bucket>();
                   result.errors.forEach((e) => {
                     const code = e.skuCode?.trim() ?? "";
                     const name = e.skuName?.trim() ?? "";
-                    // Group key: code first, name second, row last so
-                    // even rows with blank SKU Code+Name still bucket
-                    // together per spreadsheet row.
                     const key = code || name || `__row_${e.row}`;
                     const bucket = groups.get(key);
                     if (bucket) {
@@ -556,34 +534,23 @@ function ResultsStep({ result }: { result: BulkImportValidationResult }) {
                       groups.set(key, { code, name, count: 1 });
                     }
                   });
-                  const rows = Array.from(groups.values()).sort(
-                    (a, b) => b.count - a.count,
-                  );
-                  return rows.map((b, i) => (
-                    <tr key={`${b.code}-${b.name}-${i}`} className="hover:bg-gray-50">
-                      <td
-                        className={`px-4 py-2 font-mono truncate max-w-[180px] ${
-                          b.code ? "text-gray-700" : "text-gray-400 italic"
-                        }`}
-                        title={b.code || "Blank in file"}
-                      >
-                        {b.code || "—"}
-                      </td>
-                      <td
-                        className={`px-4 py-2 truncate max-w-[420px] ${
-                          b.name ? "text-gray-900" : "text-gray-400 italic"
-                        }`}
-                        title={b.name || "Blank in file"}
-                      >
-                        {b.name || "—"}
-                      </td>
-                      <td className="px-4 py-2 text-right">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-red-50 text-red-700 border border-red-200">
-                          {b.count}
-                        </span>
-                      </td>
-                    </tr>
-                  ));
+                  return Array.from(groups.values())
+                    .sort((a, b) => b.count - a.count)
+                    .map((b, i) => (
+                      <tr key={`${b.code}-${b.name}-${i}`} className="hover:bg-gray-50">
+                        <td className={`px-4 py-2 font-mono truncate max-w-[180px] ${b.code ? "text-gray-700" : "text-gray-400 italic"}`} title={b.code || "Blank in file"}>
+                          {b.code || "—"}
+                        </td>
+                        <td className={`px-4 py-2 truncate max-w-[420px] ${b.name ? "text-gray-900" : "text-gray-400 italic"}`} title={b.name || "Blank in file"}>
+                          {b.name || "—"}
+                        </td>
+                        <td className="px-4 py-2 text-right">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-red-50 text-red-700 border border-red-200">
+                            {b.count}
+                          </span>
+                        </td>
+                      </tr>
+                    ));
                 })()}
               </tbody>
             </table>

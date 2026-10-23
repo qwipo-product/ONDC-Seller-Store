@@ -135,6 +135,8 @@ export interface CompanyBrandSelection {
    *  mappings, chosen at tag time. Legacy records (and wholesaler
    *  mappings, where it's meaningless) are treated as "all-customers". */
   purchaseEligibility?: PurchaseEligibility;
+  /** When true, all SKUs for this company and its brands are auto-synced to the seller's MySKU list. */
+  syncSkusToMySku?: boolean;
 }
 
 /** Seller business type — no longer chosen manually. Calculated from

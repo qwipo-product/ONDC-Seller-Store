@@ -21,6 +21,9 @@ import {
   X,
   Truck,
   ExternalLink,
+  Database,
+  Inbox,
+  Building2,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
@@ -47,6 +50,7 @@ import {
   adminNavigation,
   getAdminPageTitle,
 } from "../lib/admin-navigation";
+import { getPendingRequests } from "../lib/product-store-data";
 import { AlertOctagon, Loader2, UserPlus } from "lucide-react";
 import { RouteProgress } from "./ui/page-loader";
 import { ThemeToggle } from "./theme-toggle";
@@ -68,6 +72,7 @@ type SellerNavItem = {
   requiresLogistics?: boolean;
   icon: typeof LayoutDashboard;
   subItems?: { href: string; name: string }[];
+  badge?: number;
 };
 
 // The Logistics nav entry now sits in the base seller navigation
@@ -128,6 +133,20 @@ const sellerCustomersDemoNav = {
   icon: Users,
 };
 
+const getCatalogPortalPageTitle = (pathname: string): string => {
+  if (pathname === "/catalog-portal") return "Dashboard";
+  if (pathname.startsWith("/catalog-portal/requests")) return "Requests";
+  if (pathname.startsWith("/catalog-portal/catalog/create")) return "Create SKU";
+  if (pathname.startsWith("/catalog-portal/catalog/")) return "SKU Detail";
+  if (pathname.startsWith("/catalog-portal/catalog")) return "Browse Catalog";
+  if (pathname.startsWith("/catalog-portal/my-catalog")) return "My Catalog";
+  if (pathname.startsWith("/catalog-portal/my-requests")) return "Requests";
+  if (pathname.startsWith("/catalog-portal/companies")) return "Companies & Brands";
+  if (pathname.startsWith("/catalog-portal/my-company")) return "My Company";
+  if (pathname.startsWith("/catalog-portal/brand-managers")) return "Brand Managers";
+  return "Product Store";
+};
+
 // Get page title based on current route
 const getSellerPageTitle = (pathname: string): string => {
   if (pathname === "/") return "Dashboard";
@@ -154,6 +173,10 @@ export function RootLayout() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const isAdmin = user?.role === "admin";
+  const isCatalogAdmin = user?.role === "catalog-admin";
+  const isBrandManager = user?.role === "brand-manager";
+  const isCatalogPortal = isCatalogAdmin || isBrandManager;
+  const pendingCount = isCatalogPortal ? getPendingRequests().length : 0;
   // Theme-aware logo swap. We mount-guard with `themeReady` so the
   // first paint after hydration uses the persisted theme without a
   // visible flicker between the two PNG/SVG sources.
@@ -168,22 +191,54 @@ export function RootLayout() {
   // so reviewers can browse the error and loading galleries without
   // leaving the app.
   const isEmptyMode = user?.dataMode === "empty";
+
+  const catalogAdminPortalNav: SellerNavItem[] = [
+    { name: "Dashboard", href: "/catalog-portal", icon: LayoutDashboard },
+    {
+      name: "Requests",
+      href: "/catalog-portal/requests",
+      icon: Inbox,
+      badge: pendingCount > 0 ? pendingCount : undefined,
+    },
+    { name: "Browse Catalog", href: "/catalog-portal/catalog", icon: Database },
+    { name: "Create SKU", href: "/catalog-portal/catalog/create", icon: Package },
+    { name: "Companies & Brands", href: "/catalog-portal/companies", icon: Building2 },
+    { name: "Brand Managers", href: "/catalog-portal/brand-managers", icon: Users },
+  ];
+
+  const brandManagerPortalNav: SellerNavItem[] = [
+    { name: "Dashboard", href: "/catalog-portal", icon: LayoutDashboard },
+    { name: "My Catalog", href: "/catalog-portal/my-catalog", icon: Database },
+    {
+      name: "Requests",
+      href: "/catalog-portal/my-requests",
+      icon: Inbox,
+      badge: pendingCount > 0 ? pendingCount : undefined,
+    },
+    { name: "Create SKU", href: "/catalog-portal/catalog/create", icon: Package },
+    { name: "My Company", href: "/catalog-portal/my-company", icon: Building2 },
+  ];
+
   const navigation = isAdmin
     ? isEmptyMode
       ? [...adminNavigation, adminErrorScreensNav, adminLoadingScreensNav]
       : adminNavigation
-    : isEmptyMode
-      ? [
-          ...sellerNavigation,
-          sellerCustomersDemoNav,
-          sellerOffersDemoNav,
-          sellerErrorScreensNav,
-          sellerLoadingScreensNav,
-        ]
-      : sellerNavigation;
+    : isCatalogAdmin
+      ? catalogAdminPortalNav
+      : isBrandManager
+        ? brandManagerPortalNav
+        : isEmptyMode
+          ? [
+              ...sellerNavigation,
+              sellerCustomersDemoNav,
+              sellerOffersDemoNav,
+              sellerErrorScreensNav,
+              sellerLoadingScreensNav,
+            ]
+          : sellerNavigation;
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [expandedMenu, setExpandedMenu] = useState<string | null>(
-    isAdmin ? "User Management" : "Products",
+    isAdmin ? "User Management" : isCatalogPortal ? null : "Products",
   );
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -193,8 +248,8 @@ export function RootLayout() {
   };
 
   const isActive = (href: string) => {
-    // Exact match for the two "home" routes so subpages don't keep them highlighted
-    if (href === "/" || href === "/admin") {
+    // Exact match for home routes so subpages don't keep them highlighted
+    if (href === "/" || href === "/admin" || href === "/catalog-portal") {
       return location.pathname === href;
     }
     // For sub-routes, require either exact match or a "/" boundary
@@ -351,7 +406,16 @@ export function RootLayout() {
             }`}
           >
             <Icon className="h-5 w-5 flex-shrink-0" />
-            {!collapsed && <span className="text-sm">{item.name}</span>}
+            {!collapsed && (
+              <span className="text-sm flex-1 flex items-center justify-between gap-2">
+                <span>{item.name}</span>
+                {item.badge !== undefined && item.badge > 0 && (
+                  <Badge className="h-5 min-w-5 rounded-full bg-red-500 text-white text-[10px] px-1.5">
+                    {item.badge}
+                  </Badge>
+                )}
+              </span>
+            )}
           </Link>
         );
       })}
@@ -360,14 +424,24 @@ export function RootLayout() {
 
   const pageTitle = isAdmin
     ? getAdminPageTitle(location.pathname)
-    : getSellerPageTitle(location.pathname);
+    : isCatalogPortal
+      ? getCatalogPortalPageTitle(location.pathname)
+      : getSellerPageTitle(location.pathname);
 
   const displayName = user?.name ?? "Guest";
   const displaySubtitle = isAdmin
     ? "Super Admin Portal"
-    : user?.businessName ?? "";
+    : isCatalogAdmin
+      ? "Catalog Admin"
+      : isBrandManager
+        ? user?.businessName ?? "Brand Manager"
+        : user?.businessName ?? "";
   const avatarInitials = user?.avatarInitials ?? "?";
-  const avatarColor = isAdmin ? "bg-purple-600" : "bg-blue-600";
+  const avatarColor = isAdmin
+    ? "bg-purple-600"
+    : isCatalogPortal
+      ? "bg-teal-600"
+      : "bg-blue-600";
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
@@ -476,7 +550,7 @@ export function RootLayout() {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                {!isAdmin && (
+                {user?.role === "seller" && (
                   <>
                     <DropdownMenuItem onClick={() => navigate("/profile")}>
                       <User className="h-4 w-4 mr-2" />
