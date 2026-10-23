@@ -7,8 +7,12 @@
 // seller / company / cluster / customer tables — each exportable —
 // and the customer-level Beat Serviceability Report for the zone in
 // the same format as Generate Report.
+//
+// Two coverage views (?view=full): Dark Store Only — customers inside
+// the zone — and Dark Store + Seller Coverage — the zone plus the full
+// reach of every beat touching it, split inside / outside the zone.
 import { useEffect, useMemo, useState, type ComponentType } from "react";
-import { useNavigate, useParams } from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { Card, CardContent } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
@@ -52,9 +56,11 @@ import {
   Network,
   Search,
   Store,
+  Target,
   UserCheck,
   Users,
   Warehouse,
+  Waypoints,
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -71,14 +77,16 @@ import {
 import { subscribeToServiceabilityBeats } from "../../lib/serviceability-data";
 import {
   buildDarkStoreAnalysis,
-  CLUSTER_TABLE,
-  COMPANY_TABLE,
-  CUSTOMER_TABLE,
+  clusterTable,
+  companyTable,
+  customerTable,
   downloadAnalyticsXlsx,
   downloadTableCsv,
   getDarkStore,
-  SELLER_TABLE,
+  SCOPE_LABEL,
+  sellerTable,
   type Bucket,
+  type CoverageScope,
   type DarkStoreAnalysis,
 } from "../../lib/dark-store-data";
 
@@ -110,6 +118,10 @@ export function AdminDarkStoreDashboard() {
   const navigate = useNavigate();
   const { storeId = "" } = useParams();
   const store = getDarkStore(storeId);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const scope: CoverageScope = searchParams.get("view") === "full" ? "full" : "zone";
+  const setScope = (next: CoverageScope) =>
+    setSearchParams(next === "full" ? { view: "full" } : {}, { replace: true });
 
   const [customers, setCustomers] = useState(getCustomers());
   const [beatsVersion, setBeatsVersion] = useState(0);
@@ -122,23 +134,44 @@ export function AdminDarkStoreDashboard() {
     };
   }, []);
 
-  // Built off the render path so the loader paints before the
-  // point-in-polygon pass runs.
-  const [analysis, setAnalysis] = useState<DarkStoreAnalysis | null>(null);
+  // Both views, built off the render path so the loader paints before
+  // the point-in-polygon pass runs: the zone first (the default view),
+  // then the wider full-coverage pass — which the toggle also needs for
+  // its counts.
+  const [analyses, setAnalyses] = useState<
+    Partial<Record<CoverageScope, DarkStoreAnalysis>>
+  >({});
   useEffect(() => {
     if (!store) return;
-    setAnalysis(null);
-    const t = setTimeout(() => setAnalysis(buildDarkStoreAnalysis(store, customers)), 0);
-    return () => clearTimeout(t);
+    setAnalyses({});
+    let tFull: ReturnType<typeof setTimeout> | undefined;
+    const tZone = setTimeout(() => {
+      setAnalyses({ zone: buildDarkStoreAnalysis(store, customers, "zone") });
+      tFull = setTimeout(
+        () =>
+          setAnalyses((prev) => ({
+            ...prev,
+            full: buildDarkStoreAnalysis(store, customers, "full"),
+          })),
+        50,
+      );
+    }, 0);
+    return () => {
+      clearTimeout(tZone);
+      clearTimeout(tFull);
+    };
   }, [store, customers, beatsVersion]);
+  const analysis = analyses[scope] ?? null;
+  const full = scope === "full";
 
   // ---- Table state ----
   const [tab, setTab] = useState<TabKey>("sellers");
   const [search, setSearch] = useState("");
   const [exposure, setExposure] = useState("all");
   const [customerSort, setCustomerSort] = useState("nearest");
+  const [location, setLocation] = useState("all");
   const [page, setPage] = useState(1);
-  useEffect(() => setPage(1), [tab, search, exposure, customerSort]);
+  useEffect(() => setPage(1), [tab, search, exposure, customerSort, location, scope]);
   const [isExporting, setIsExporting] = useState(false);
   // Detailed report size = one row per matched beat (one for an
   // unmatched customer) — decides whether Excel can carry Raw Data.
@@ -177,6 +210,7 @@ export function AdminDarkStoreDashboard() {
     const rows = (analysis?.customers ?? []).filter((z) => {
       if (band && (z.companyNames.length < band.min || z.companyNames.length > band.max))
         return false;
+      if (full && location !== "all" && z.insideZone !== (location === "inside")) return false;
       if (!q) return true;
       const c = z.customer;
       return (
@@ -196,7 +230,7 @@ export function AdminDarkStoreDashboard() {
           : (a: (typeof rows)[number], b: (typeof rows)[number]) =>
               a.distanceKm - b.distanceKm;
     return [...rows].sort(by);
-  }, [analysis, q, exposure, customerSort]);
+  }, [analysis, q, exposure, customerSort, full, location]);
 
   if (!store) {
     return (
@@ -215,10 +249,21 @@ export function AdminDarkStoreDashboard() {
   }
 
   // ---- Downloads ----
-  const filePrefix = `${store.shortName.toLowerCase()}-dark-store`;
+  const filePrefix = `${store.shortName.toLowerCase()}-dark-store${full ? "-full-coverage" : ""}`;
 
-  const serviceabilityRows = () =>
-    buildReportRowsUncached((analysis?.customers ?? []).map((z) => z.customer));
+  const serviceabilityRows = () => {
+    const zoneCustomers = analysis?.customers ?? [];
+    const zoneBeatIds = new Set((analysis?.zoneBeats ?? []).map((b) => b.id));
+    return buildReportRowsUncached(
+      zoneCustomers.filter((z) => z.insideZone).map((z) => z.customer),
+    ).concat(
+      // Outside the zone only the beats touching it count — as on the page.
+      buildReportRowsUncached(
+        zoneCustomers.filter((z) => !z.insideZone).map((z) => z.customer),
+        (b) => zoneBeatIds.has(b.id),
+      ),
+    );
+  };
 
   const exportServiceabilityXlsx = async () => {
     setIsExporting(true);
@@ -262,7 +307,7 @@ export function AdminDarkStoreDashboard() {
     setIsExporting(true);
     try {
       await downloadAnalyticsXlsx(analysis, `${filePrefix}_analytics_${stamp()}.xlsx`);
-      toast.success("Downloaded dark store analytics workbook");
+      toast.success(`Downloaded ${SCOPE_LABEL[scope]} analytics workbook`);
     } finally {
       setIsExporting(false);
     }
@@ -270,12 +315,14 @@ export function AdminDarkStoreDashboard() {
 
   const exportTab = () => {
     const name = (slug: string) => `${filePrefix}_${slug}_${stamp()}.csv`;
-    if (tab === "sellers") downloadTableCsv(SELLER_TABLE, sellerRows, name("seller-wise"));
+    if (tab === "sellers")
+      downloadTableCsv(sellerTable(scope), sellerRows, name("seller-wise"));
     if (tab === "companies")
-      downloadTableCsv(COMPANY_TABLE, companyRows, name("company-wise"));
-    if (tab === "clusters") downloadTableCsv(CLUSTER_TABLE, clusterRows, name("cluster-wise"));
+      downloadTableCsv(companyTable(scope), companyRows, name("company-wise"));
+    if (tab === "clusters")
+      downloadTableCsv(clusterTable(scope), clusterRows, name("cluster-wise"));
     if (tab === "customers")
-      downloadTableCsv(CUSTOMER_TABLE, customerRows, name("customer-exposure"));
+      downloadTableCsv(customerTable(scope), customerRows, name("customer-exposure"));
     const count = {
       sellers: sellerRows.length,
       companies: companyRows.length,
@@ -348,12 +395,42 @@ export function AdminDarkStoreDashboard() {
         </DropdownMenu>
       </div>
 
+      {/* Coverage view */}
+      <div role="radiogroup" aria-label="Coverage view" className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <ScopeOption
+          active={!full}
+          onSelect={() => setScope("zone")}
+          icon={Target}
+          title={SCOPE_LABEL.zone}
+          description={`Active customers inside the ${store.radiusKm.toFixed(1)} km zone`}
+          stat={
+            analyses.zone
+              ? `${fmt(analyses.zone.customers.length)} active customers`
+              : undefined
+          }
+        />
+        <ScopeOption
+          active={full}
+          onSelect={() => setScope("full")}
+          icon={Waypoints}
+          title={SCOPE_LABEL.full}
+          description="The zone plus the full reach of every seller beat that touches it"
+          stat={
+            analyses.full
+              ? `${fmt(analyses.full.customers.length)} active customers · ${fmt(analyses.full.outsideCount)} outside the zone`
+              : undefined
+          }
+        />
+      </div>
+
       {!analysis ? (
         <Card>
           <CardContent className="p-12 flex flex-col items-center gap-4">
             <Loader2 className="h-8 w-8 text-blue-500 animate-spin" />
             <p className="text-sm font-medium text-gray-900">
-              Matching zone customers against beat polygons…
+              {full
+                ? "Following every zone beat past the boundary…"
+                : "Matching zone customers against beat polygons…"}
             </p>
           </CardContent>
         </Card>
@@ -365,8 +442,12 @@ export function AdminDarkStoreDashboard() {
               icon={Users}
               tone="blue"
               value={fmt(analysis.customers.length)}
-              label="Active Customers in Zone"
-              hint={`of ${fmt(analysis.totalInZone)} customers in the zone`}
+              label={full ? "Active Customers in Coverage" : "Active Customers in Zone"}
+              hint={
+                full
+                  ? `${fmt(analysis.insideCount)} inside the zone · ${fmt(analysis.outsideCount)} outside`
+                  : `of ${fmt(analysis.totalInZone)} customers in the zone`
+              }
             />
             <KpiCard
               icon={CheckCircle2}
@@ -380,7 +461,11 @@ export function AdminDarkStoreDashboard() {
               tone="red"
               value={fmt(analysis.notCovered)}
               label="Not Covered"
-              hint="no active seller's beat reaches them"
+              hint={
+                full
+                  ? "inside the zone, no active seller's beat reaches them"
+                  : "no active seller's beat reaches them"
+              }
             />
             <KpiCard
               icon={Store}
@@ -394,7 +479,7 @@ export function AdminDarkStoreDashboard() {
               tone="indigo"
               value={fmt(analysis.companies.length)}
               label="Companies Available"
-              hint={`across ${fmt(analysis.beatsInZone)} beats overlapping the zone`}
+              hint={`across ${fmt(analysis.beatsInZone)} beats overlapping the zone · ${fmt(analysis.beatsExtendingOutside)} extend past it`}
             />
             <KpiCard
               icon={Layers}
@@ -419,18 +504,36 @@ export function AdminDarkStoreDashboard() {
             />
           </div>
 
+          {full && (
+            <InsideOutsideCard
+              inside={analysis.insideCount}
+              outside={analysis.outsideCount}
+              beats={analysis.beatsInZone}
+              beatsExtending={analysis.beatsExtendingOutside}
+              sellersOutside={analysis.sellers.filter((s) => s.customersOutside > 0).length}
+              sellers={analysis.sellers.length}
+            />
+          )}
+
           {/* Map + exposure distributions */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <Card className="lg:col-span-2">
               <CardContent className="p-4 flex flex-col gap-3 flex-1">
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-900">Zone Map</h3>
+                  <h3 className="text-sm font-semibold text-gray-900">
+                    {full ? "Coverage Map" : "Zone Map"}
+                  </h3>
                   <p className="text-xs text-gray-500">
-                    Active customers coloured by how many companies they can order from;
-                    click a dot or warehouse for details.
+                    {full
+                      ? "The zone and the outline of every beat touching it; customers outside the zone are faded. Click a dot or warehouse for details."
+                      : "Active customers coloured by how many companies they can order from; click a dot or warehouse for details."}
                   </p>
                 </div>
-                <DarkStoreZoneMap analysis={analysis} className="flex-1 min-h-[420px]" />
+                <DarkStoreZoneMap
+                  key={scope}
+                  analysis={analysis}
+                  className="flex-1 min-h-[420px]"
+                />
               </CardContent>
             </Card>
             <div className="space-y-4">
@@ -521,6 +624,18 @@ export function AdminDarkStoreDashboard() {
                     </div>
                     {tab === "customers" && (
                       <>
+                        {full && (
+                          <Select value={location} onValueChange={setLocation}>
+                            <SelectTrigger className="w-[160px]">
+                              <SelectValue placeholder="Location" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All locations</SelectItem>
+                              <SelectItem value="inside">Inside zone</SelectItem>
+                              <SelectItem value="outside">Outside zone</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
                         <Select value={exposure} onValueChange={setExposure}>
                           <SelectTrigger className="w-[170px]">
                             <SelectValue placeholder="Exposure" />
@@ -559,6 +674,7 @@ export function AdminDarkStoreDashboard() {
                       <TableRow>
                         <TableHead>Seller</TableHead>
                         <TableHead>Customers Reached</TableHead>
+                        {full && <TableHead>Inside / Outside Zone</TableHead>}
                         <TableHead className="text-right">Sole Seller For</TableHead>
                         <TableHead className="text-right">Beats in Zone</TableHead>
                         <TableHead className="text-right">Companies</TableHead>
@@ -580,11 +696,21 @@ export function AdminDarkStoreDashboard() {
                           <TableCell className="min-w-[180px]">
                             <ShareBar value={s.customersReached} pct={s.coveragePct} />
                           </TableCell>
+                          {full && (
+                            <TableCell>
+                              <SplitBar inside={s.customersInside} outside={s.customersOutside} />
+                            </TableCell>
+                          )}
                           <TableCell className="text-right text-gray-700">
                             {fmt(s.soleSellerCustomers)}
                           </TableCell>
                           <TableCell className="text-right text-gray-700">
                             {s.beatsInZone}
+                            {s.beatsExtendingOutside > 0 && (
+                              <p className="text-[11px] text-gray-400 whitespace-nowrap">
+                                {s.beatsExtendingOutside} extend out
+                              </p>
+                            )}
                           </TableCell>
                           <TableCell className="text-right">
                             <span
@@ -608,7 +734,7 @@ export function AdminDarkStoreDashboard() {
                           </TableCell>
                         </TableRow>
                       ))}
-                      <NoRows show={sellerRows.length === 0} cols={7} />
+                      <NoRows show={sellerRows.length === 0} cols={full ? 8 : 7} />
                     </TableBody>
                   </Table>
                 </TabsContent>
@@ -619,6 +745,7 @@ export function AdminDarkStoreDashboard() {
                       <TableRow>
                         <TableHead>Company</TableHead>
                         <TableHead>Customers Reached</TableHead>
+                        {full && <TableHead>Inside / Outside Zone</TableHead>}
                         <TableHead className="text-right">Sellers</TableHead>
                         <TableHead>Seller Names</TableHead>
                       </TableRow>
@@ -632,6 +759,11 @@ export function AdminDarkStoreDashboard() {
                           <TableCell className="min-w-[180px]">
                             <ShareBar value={c.customersReached} pct={c.coveragePct} />
                           </TableCell>
+                          {full && (
+                            <TableCell>
+                              <SplitBar inside={c.customersInside} outside={c.customersOutside} />
+                            </TableCell>
+                          )}
                           <TableCell className="text-right text-gray-700">
                             {c.sellerNames.length}
                           </TableCell>
@@ -643,7 +775,7 @@ export function AdminDarkStoreDashboard() {
                           </TableCell>
                         </TableRow>
                       ))}
-                      <NoRows show={companyRows.length === 0} cols={4} />
+                      <NoRows show={companyRows.length === 0} cols={full ? 5 : 4} />
                     </TableBody>
                   </Table>
                 </TabsContent>
@@ -654,6 +786,7 @@ export function AdminDarkStoreDashboard() {
                       <TableRow>
                         <TableHead>Cluster</TableHead>
                         <TableHead className="text-right">Active Customers</TableHead>
+                        {full && <TableHead>Inside / Outside Zone</TableHead>}
                         <TableHead className="text-right">Covered</TableHead>
                         <TableHead className="text-right">Not Covered</TableHead>
                         <TableHead>Coverage</TableHead>
@@ -670,6 +803,11 @@ export function AdminDarkStoreDashboard() {
                           <TableCell className="text-right text-gray-700">
                             {fmt(c.activeCustomers)}
                           </TableCell>
+                          {full && (
+                            <TableCell>
+                              <SplitBar inside={c.inside} outside={c.outside} />
+                            </TableCell>
+                          )}
                           <TableCell className="text-right text-gray-700">
                             {fmt(c.covered)}
                           </TableCell>
@@ -687,7 +825,7 @@ export function AdminDarkStoreDashboard() {
                           </TableCell>
                         </TableRow>
                       ))}
-                      <NoRows show={clusterRows.length === 0} cols={7} />
+                      <NoRows show={clusterRows.length === 0} cols={full ? 8 : 7} />
                     </TableBody>
                   </Table>
                 </TabsContent>
@@ -699,6 +837,7 @@ export function AdminDarkStoreDashboard() {
                         <TableHead>Customer</TableHead>
                         <TableHead>Business Type</TableHead>
                         <TableHead>Cluster</TableHead>
+                        {full && <TableHead>Location</TableHead>}
                         <TableHead className="text-right">Distance</TableHead>
                         <TableHead className="text-right">Sellers</TableHead>
                         <TableHead>Companies</TableHead>
@@ -726,6 +865,19 @@ export function AdminDarkStoreDashboard() {
                             <TableCell className="text-gray-600">
                               {z.customer.cluster || "—"}
                             </TableCell>
+                            {full && (
+                              <TableCell>
+                                {z.insideZone ? (
+                                  <Badge className="bg-violet-50 text-violet-700 hover:bg-violet-50">
+                                    Inside zone
+                                  </Badge>
+                                ) : (
+                                  <Badge className="bg-sky-50 text-sky-700 hover:bg-sky-50">
+                                    Outside zone
+                                  </Badge>
+                                )}
+                              </TableCell>
+                            )}
                             <TableCell className="text-right text-gray-600 whitespace-nowrap">
                               {z.distanceKm} km
                             </TableCell>
@@ -752,7 +904,7 @@ export function AdminDarkStoreDashboard() {
                             </TableCell>
                           </TableRow>
                         ))}
-                      <NoRows show={customerRows.length === 0} cols={7} />
+                      <NoRows show={customerRows.length === 0} cols={full ? 8 : 7} />
                     </TableBody>
                   </Table>
                   <ListPagination
@@ -873,6 +1025,155 @@ function ShareBar({ value, pct }: { value?: number; pct: number }) {
         <div className="h-full bg-blue-500 rounded-full" style={{ width: `${pct}%` }} />
       </div>
       <span className="w-12 shrink-0 text-xs text-gray-500">{pct}%</span>
+    </div>
+  );
+}
+
+/** One of the two coverage-view buttons above the KPIs. */
+function ScopeOption({
+  active,
+  onSelect,
+  icon: Icon,
+  title,
+  description,
+  stat,
+}: {
+  active: boolean;
+  onSelect: () => void;
+  icon: ComponentType<{ className?: string }>;
+  title: string;
+  description: string;
+  /** Undefined while that view is still being calculated. */
+  stat?: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={active}
+      aria-label={title}
+      onClick={onSelect}
+      className={`text-left rounded-xl border p-4 flex items-start gap-3 transition-colors ${
+        active
+          ? "border-blue-500 bg-blue-50/60 ring-1 ring-blue-500"
+          : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
+      }`}
+    >
+      <div
+        className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
+          active ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600"
+        }`}
+      >
+        <Icon className="h-5 w-5" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold text-gray-900">{title}</p>
+        <p className="text-xs text-gray-500">{description}</p>
+        <p className="text-xs font-medium text-gray-700 mt-1.5 flex items-center gap-1.5">
+          {stat ?? (
+            <>
+              <Loader2 className="h-3 w-3 animate-spin" /> Calculating…
+            </>
+          )}
+        </p>
+      </div>
+      <span
+        className={`mt-0.5 h-4 w-4 rounded-full border-2 shrink-0 ${
+          active ? "border-blue-600 bg-blue-600 shadow-[inset_0_0_0_2px_white]" : "border-gray-300"
+        }`}
+      />
+    </button>
+  );
+}
+
+/** Full-coverage view: how the reached customers split across the zone boundary. */
+function InsideOutsideCard({
+  inside,
+  outside,
+  beats,
+  beatsExtending,
+  sellersOutside,
+  sellers,
+}: {
+  inside: number;
+  outside: number;
+  beats: number;
+  beatsExtending: number;
+  sellersOutside: number;
+  sellers: number;
+}) {
+  const total = inside + outside;
+  const insidePct = total ? Math.round((inside / total) * 100) : 0;
+  return (
+    <Card>
+      <CardContent className="p-4 space-y-3">
+        <div>
+          <h3 className="text-sm font-semibold text-gray-900">
+            Inside vs outside the dark store zone
+          </h3>
+          <p className="text-xs text-gray-500">
+            Active customers reached by the {fmt(beats)} seller beats that touch the zone —
+            beats cross the boundary, so they also serve customers outside it.
+          </p>
+        </div>
+        <div className="flex h-3 rounded-full overflow-hidden bg-gray-100">
+          <div className="bg-violet-500" style={{ width: `${insidePct}%` }} />
+          {total > 0 && <div className="bg-sky-400 flex-1" />}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="flex items-start gap-2">
+            <span className="mt-1 h-2.5 w-2.5 rounded-full bg-violet-500 shrink-0" />
+            <div>
+              <p className="text-lg font-semibold text-gray-900">
+                {fmt(inside)} <span className="text-sm font-normal text-gray-500">· {insidePct}%</span>
+              </p>
+              <p className="text-xs text-gray-500">Inside the zone</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="mt-1 h-2.5 w-2.5 rounded-full bg-sky-400 shrink-0" />
+            <div>
+              <p className="text-lg font-semibold text-gray-900">
+                {fmt(outside)}{" "}
+                <span className="text-sm font-normal text-gray-500">
+                  · {total ? 100 - insidePct : 0}%
+                </span>
+              </p>
+              <p className="text-xs text-gray-500">Outside the zone</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2">
+            <Waypoints className="mt-0.5 h-4 w-4 text-gray-400 shrink-0" />
+            <div>
+              <p className="text-lg font-semibold text-gray-900">
+                {fmt(beatsExtending)}{" "}
+                <span className="text-sm font-normal text-gray-500">of {fmt(beats)} beats</span>
+              </p>
+              <p className="text-xs text-gray-500">
+                extend past the boundary · {sellersOutside} of {sellers} sellers reach outside
+              </p>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/** Two-tone inside (violet) / outside (sky) bar with both counts. */
+function SplitBar({ inside, outside }: { inside: number; outside: number }) {
+  const total = inside + outside;
+  const insidePct = total ? (inside / total) * 100 : 0;
+  return (
+    <div className="min-w-[140px]">
+      <div className="flex h-1.5 max-w-[140px] rounded-full overflow-hidden bg-gray-100">
+        <div className="bg-violet-500" style={{ width: `${insidePct}%` }} />
+        {total > 0 && <div className="bg-sky-400 flex-1" />}
+      </div>
+      <p className="text-[11px] text-gray-500 mt-1 whitespace-nowrap">
+        <span className="font-medium text-violet-700">{fmt(inside)}</span> in ·{" "}
+        <span className="font-medium text-sky-700">{fmt(outside)}</span> out
+      </p>
     </div>
   );
 }

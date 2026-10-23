@@ -759,11 +759,16 @@ export function buildReportRows(customers: DbCustomer[]): ReportRow[] {
 /**
  * buildReportRows without the shared result cache — for small
  * sub-rosters (e.g. one dark-store zone) that must not evict the
- * full-roster rows the Generate Report page keeps warm.
+ * full-roster rows the Generate Report page keeps warm. `keepBeat`
+ * limits which matched beats become rows (e.g. only a dark store's
+ * zone beats).
  */
-export function buildReportRowsUncached(customers: DbCustomer[]): ReportRow[] {
+export function buildReportRowsUncached(
+  customers: DbCustomer[],
+  keepBeat?: (beat: ServiceabilityBeat) => boolean,
+): ReportRow[] {
   const rows: ReportRow[] = [];
-  appendReportRows(rows, customers);
+  appendReportRows(rows, customers, keepBeat);
   return rows;
 }
 
@@ -822,7 +827,11 @@ function storeReportCache(customers: DbCustomer[], rows: ReportRow[]): void {
   };
 }
 
-function appendReportRows(rows: ReportRow[], customers: DbCustomer[]): void {
+function appendReportRows(
+  rows: ReportRow[],
+  customers: DbCustomer[],
+  keepBeat?: (beat: ServiceabilityBeat) => boolean,
+): void {
   // Resolve sellers ONCE per batch — getSellers() re-parses the whole
   // roster from localStorage on every call, and doing that per row
   // (hundreds of thousands of rows) dominated the entire report build.
@@ -832,7 +841,8 @@ function appendReportRows(rows: ReportRow[], customers: DbCustomer[]): void {
     sellers.filter((s) => s.isActive !== false).map((s) => s.id),
   );
   for (const c of customers) {
-    const beats = matchCustomer(c, activeSellerIds);
+    const matched = matchCustomer(c, activeSellerIds);
+    const beats = keepBeat ? matched.filter(keepBeat) : matched;
     if (beats.length === 0) {
       rows.push({
         customerId: c.customerId,

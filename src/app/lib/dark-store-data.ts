@@ -7,6 +7,13 @@
 // those customers can order from. Matching is the same real
 // point-in-polygon the Beat Serviceability Report uses
 // (matchCustomer), so the two never disagree.
+//
+// Two coverage views:
+// - "zone" — Dark Store Only: active customers inside the zone.
+// - "full" — Dark Store + Seller Coverage: the zone plus the whole
+//   footprint of every active beat that touches it. Beats straddle the
+//   boundary, so this adds the customers those same beats reach
+//   OUTSIDE the zone; every count is split inside / outside.
 
 import kphbZone from "./kphb-dark-store-zone.json";
 import alwalZone from "./alwal-dark-store-zone.json";
@@ -96,11 +103,19 @@ export function getDarkStore(id: string): DarkStore | undefined {
 
 // ---- Analysis ----
 
+/** "zone" = Dark Store Only; "full" = Dark Store + Seller Coverage. */
+export type CoverageScope = "zone" | "full";
+
 export interface ZoneCustomer {
   customer: DbCustomer;
+  /** Inside the dark-store zone (always true in the "zone" scope). */
+  insideZone: boolean;
   /** Customer ↔ dark-store centre, km (2 dp). */
   distanceKm: number;
-  /** Active-seller beats whose polygon contains the customer. */
+  /**
+   * Active-seller beats whose polygon contains the customer — outside
+   * the zone, only the beats that touch the zone.
+   */
   beats: ServiceabilityBeat[];
   sellerIds: string[];
   /** Business names of the sellers above, sorted. */
@@ -119,11 +134,16 @@ export interface SellerCoverage {
   warehouseInZone: boolean;
   /** This seller's beats whose polygon overlaps the zone. */
   beatsInZone: number;
+  /** …of which reach past the zone boundary. */
+  beatsExtendingOutside: number;
   /** Companies carried on those beats, sorted. */
   companyNames: string[];
-  /** Active zone customers inside at least one of its beats. */
+  /** Active customers in scope inside at least one of its beats. */
   customersReached: number;
-  /** Share of the zone's active customers reached, 0–100. */
+  /** customersReached split by the zone boundary. */
+  customersInside: number;
+  customersOutside: number;
+  /** Share of the scope's active customers reached, 0–100. */
   coveragePct: number;
   /** Customers no OTHER active seller reaches. */
   soleSellerCustomers: number;
@@ -136,12 +156,16 @@ export interface CompanyCoverage {
   /** Business names of the active sellers carrying it in the zone. */
   sellerNames: string[];
   customersReached: number;
+  customersInside: number;
+  customersOutside: number;
   coveragePct: number;
 }
 
 export interface ClusterCoverage {
   cluster: string;
   activeCustomers: number;
+  inside: number;
+  outside: number;
   covered: number;
   coveragePct: number;
   avgCompanies: number;
@@ -161,10 +185,16 @@ export interface DayReach {
 
 export interface DarkStoreAnalysis {
   store: DarkStore;
+  scope: CoverageScope;
   /** Every roster customer inside the zone, any status. */
   totalInZone: number;
-  /** Active customers inside the zone — the population analysed. */
+  /** Every roster customer in scope, any status (= totalInZone for "zone"). */
+  totalInScope: number;
+  /** Active customers in scope — the population analysed. */
   customers: ZoneCustomer[];
+  /** customers split by the zone boundary. */
+  insideCount: number;
+  outsideCount: number;
   covered: number;
   notCovered: number;
   coveragePct: number;
@@ -174,7 +204,11 @@ export interface DarkStoreAnalysis {
   sellersReachingCustomers: number;
   /** Inactive sellers whose beats overlap the zone — excluded. */
   inactiveSellersExcluded: number;
+  /** Active beats overlapping the zone — drawn on the coverage map. */
+  zoneBeats: ServiceabilityBeat[];
   beatsInZone: number;
+  /** …of which reach past the zone boundary. */
+  beatsExtendingOutside: number;
   companies: CompanyCoverage[];
   clusters: ClusterCoverage[];
   /** Mean / median / max companies visible per active customer. */
@@ -234,9 +268,53 @@ function bucketise(values: number[], defs: [string, number, number][]): Bucket[]
 const sellerDisplayName = (s: Seller | undefined, beat: ServiceabilityBeat) =>
   s?.businessName || s?.name || beat.sellerName || "Unknown seller";
 
+/**
+ * True when part of the beat lies outside the zone. Zones are circles
+ * (convex), so a beat whose every vertex is inside is wholly inside.
+ */
+function beatExtendsOutside(beat: ServiceabilityBeat, zone: unknown): boolean {
+  return polygonOuterRings(beat.polygonData).some((ring) =>
+    ring.some(([lng, lat]) => !polygonContainsPoint(zone, lat, lng)),
+  );
+}
+
+/**
+ * Point → containing beats, through a ~1 km grid over the beats'
+ * bounding boxes. The full-coverage pass tests the whole city roster;
+ * a cold matchCustomer scans every beat for every customer (~12 s on
+ * the real roster). Same polygonContainsPoint test, so the result is
+ * matchCustomer's restricted to these beats.
+ */
+function beatPointIndex(
+  beats: ServiceabilityBeat[],
+): (lat: number, lng: number) => ServiceabilityBeat[] {
+  const CELL = 0.01;
+  const cell = (v: number) => Math.floor(v / CELL);
+  const grid = new Map<string, ServiceabilityBeat[]>();
+  for (const b of beats) {
+    const pts = polygonOuterRings(b.polygonData).flat();
+    if (pts.length === 0) continue;
+    const xs = pts.map(([x]) => x);
+    const ys = pts.map(([, y]) => y);
+    for (let cx = cell(Math.min(...xs)); cx <= cell(Math.max(...xs)); cx++) {
+      for (let cy = cell(Math.min(...ys)); cy <= cell(Math.max(...ys)); cy++) {
+        const key = `${cx}:${cy}`;
+        const list = grid.get(key);
+        if (list) list.push(b);
+        else grid.set(key, [b]);
+      }
+    }
+  }
+  return (lat, lng) =>
+    (grid.get(`${cell(lng)}:${cell(lat)}`) ?? []).filter((b) =>
+      polygonContainsPoint(b.polygonData, lat, lng),
+    );
+}
+
 export function buildDarkStoreAnalysis(
   store: DarkStore,
   roster: DbCustomer[] = getCustomers(),
+  scope: CoverageScope = "zone",
 ): DarkStoreAnalysis {
   const sellers = getSellers();
   const sellerById = new Map(sellers.map((s) => [s.id, s]));
@@ -244,37 +322,8 @@ export function buildDarkStoreAnalysis(
     sellers.filter((s) => s.isActive !== false).map((s) => s.id),
   );
 
-  // 1 — customers inside the zone; only active ones are analysed.
-  const inZone = roster.filter((c) =>
-    polygonContainsPoint(store.zone, c.lat, c.lng),
-  );
-  const customers: ZoneCustomer[] = inZone.filter(isActiveCustomer).map((c) => {
-    const beats = matchCustomer(c, activeSellerIds);
-    const sellerIds = [...new Set(beats.map((b) => b.sellerId ?? ""))].filter(Boolean);
-    const companyNames = [...new Set(beats.map((b) => b.companyName))].sort((a, b) =>
-      a.localeCompare(b),
-    );
-    const sellerNames = [
-      ...new Set(beats.map((b) => sellerDisplayName(sellerById.get(b.sellerId ?? ""), b))),
-    ].sort((a, b) => a.localeCompare(b));
-    const deliveryDays = sortDeliveryDays([...new Set(beats.flatMap((b) => b.deliveryDays))]);
-    return {
-      customer: c,
-      distanceKm: Number(
-        haversineKm(store.centre.lat, store.centre.lng, c.lat, c.lng).toFixed(2),
-      ),
-      beats,
-      sellerIds,
-      sellerNames,
-      companyNames,
-      deliveryDays,
-    };
-  });
-  const total = customers.length;
-  const covered = customers.filter((z) => z.beats.length > 0).length;
-
-  // 2 — seller coverage: every beat geometrically overlapping the zone,
-  // split by whether its seller is active.
+  // 1 — every beat geometrically overlapping the zone, split by whether
+  // its seller is active.
   const zoneBeats = getServiceabilityBeats().filter(
     (b) => b.polygonData != null && polygonsOverlap(b.polygonData, store.zone),
   );
@@ -286,11 +335,73 @@ export function buildDarkStoreAnalysis(
   const activeZoneBeats = zoneBeats.filter(
     (b) => !b.sellerId || activeSellerIds.has(b.sellerId),
   );
+  const extendingBeatIds = new Set(
+    activeZoneBeats.filter((b) => beatExtendsOutside(b, store.zone)).map((b) => b.id),
+  );
 
-  const reachBySeller = new Map<string, number>();
+  // 2 — customers in scope: inside the zone, plus (full scope) those
+  // outside it that a zone-touching beat reaches. Only active ones are
+  // analysed.
+  const inZone = roster.filter((c) => polygonContainsPoint(store.zone, c.lat, c.lng));
+  const inZoneSet = new Set(inZone);
+  const outsideZone: { customer: DbCustomer; beats: ServiceabilityBeat[] }[] = [];
+  if (scope === "full") {
+    const zoneBeatsAt = beatPointIndex(activeZoneBeats);
+    for (const c of roster) {
+      if (inZoneSet.has(c)) continue;
+      const beats = zoneBeatsAt(c.lat, c.lng);
+      if (beats.length > 0) outsideZone.push({ customer: c, beats });
+    }
+  }
+
+  const toZoneCustomer = (
+    c: DbCustomer,
+    insideZone: boolean,
+    beats: ServiceabilityBeat[],
+  ): ZoneCustomer => {
+    const sellerIds = [...new Set(beats.map((b) => b.sellerId ?? ""))].filter(Boolean);
+    const companyNames = [...new Set(beats.map((b) => b.companyName))].sort((a, b) =>
+      a.localeCompare(b),
+    );
+    const sellerNames = [
+      ...new Set(beats.map((b) => sellerDisplayName(sellerById.get(b.sellerId ?? ""), b))),
+    ].sort((a, b) => a.localeCompare(b));
+    const deliveryDays = sortDeliveryDays([...new Set(beats.flatMap((b) => b.deliveryDays))]);
+    return {
+      customer: c,
+      insideZone,
+      distanceKm: Number(
+        haversineKm(store.centre.lat, store.centre.lng, c.lat, c.lng).toFixed(2),
+      ),
+      beats,
+      sellerIds,
+      sellerNames,
+      companyNames,
+      deliveryDays,
+    };
+  };
+  const customers: ZoneCustomer[] = [
+    ...inZone
+      .filter(isActiveCustomer)
+      .map((c) => toZoneCustomer(c, true, matchCustomer(c, activeSellerIds))),
+    ...outsideZone
+      .filter((o) => isActiveCustomer(o.customer))
+      .map((o) => toZoneCustomer(o.customer, false, o.beats)),
+  ];
+  const total = customers.length;
+  const insideCount = customers.filter((z) => z.insideZone).length;
+  const covered = customers.filter((z) => z.beats.length > 0).length;
+
+  // 3 — seller coverage, from the active zone beats.
+  const reachBySeller = new Map<string, { inside: number; outside: number }>();
   const soleBySeller = new Map<string, number>();
   for (const z of customers) {
-    for (const id of z.sellerIds) reachBySeller.set(id, (reachBySeller.get(id) ?? 0) + 1);
+    for (const id of z.sellerIds) {
+      const reach = reachBySeller.get(id) ?? { inside: 0, outside: 0 };
+      if (z.insideZone) reach.inside++;
+      else reach.outside++;
+      reachBySeller.set(id, reach);
+    }
     if (z.sellerIds.length === 1) {
       soleBySeller.set(z.sellerIds[0], (soleBySeller.get(z.sellerIds[0]) ?? 0) + 1);
     }
@@ -311,7 +422,8 @@ export function buildDarkStoreAnalysis(
             haversineKm(store.centre.lat, store.centre.lng, s.latitude, s.longitude).toFixed(2),
           )
         : null;
-    const reached = reachBySeller.get(id) ?? 0;
+    const reach = reachBySeller.get(id) ?? { inside: 0, outside: 0 };
+    const reached = reach.inside + reach.outside;
     return {
       sellerId: id,
       sellerName: s?.name ?? beats[0].sellerName ?? "",
@@ -322,10 +434,13 @@ export function buildDarkStoreAnalysis(
         s?.longitude != null &&
         polygonContainsPoint(store.zone, s.latitude, s.longitude),
       beatsInZone: beats.length,
+      beatsExtendingOutside: beats.filter((b) => extendingBeatIds.has(b.id)).length,
       companyNames: [...new Set(beats.map((b) => b.companyName))].sort((a, b) =>
         a.localeCompare(b),
       ),
       customersReached: reached,
+      customersInside: reach.inside,
+      customersOutside: reach.outside,
       coveragePct: pct(reached, total),
       soleSellerCustomers: soleBySeller.get(id) ?? 0,
       deliveryDays: sortDeliveryDays([...new Set(beats.flatMap((b) => b.deliveryDays))]),
@@ -337,16 +452,17 @@ export function buildDarkStoreAnalysis(
       a.businessName.localeCompare(b.businessName),
   );
 
-  // 3 — company coverage, from the customers' matched beats.
+  // 4 — company coverage, from the customers' matched beats.
   const companyAgg = new Map<
     string,
-    { companyName: string; sellers: Set<string>; customers: number }
+    { companyName: string; sellers: Set<string>; inside: number; outside: number }
   >();
   for (const b of activeZoneBeats) {
     const entry = companyAgg.get(b.companyId) ?? {
       companyName: b.companyName,
       sellers: new Set<string>(),
-      customers: 0,
+      inside: 0,
+      outside: 0,
     };
     entry.sellers.add(sellerDisplayName(sellerById.get(b.sellerId ?? ""), b));
     companyAgg.set(b.companyId, entry);
@@ -354,7 +470,9 @@ export function buildDarkStoreAnalysis(
   for (const z of customers) {
     for (const companyId of new Set(z.beats.map((b) => b.companyId))) {
       const entry = companyAgg.get(companyId);
-      if (entry) entry.customers++;
+      if (!entry) continue;
+      if (z.insideZone) entry.inside++;
+      else entry.outside++;
     }
   }
   const companies: CompanyCoverage[] = [...companyAgg.entries()]
@@ -362,8 +480,10 @@ export function buildDarkStoreAnalysis(
       companyId,
       companyName: e.companyName,
       sellerNames: [...e.sellers].sort((a, b) => a.localeCompare(b)),
-      customersReached: e.customers,
-      coveragePct: pct(e.customers, total),
+      customersReached: e.inside + e.outside,
+      customersInside: e.inside,
+      customersOutside: e.outside,
+      coveragePct: pct(e.inside + e.outside, total),
     }))
     .sort(
       (a, b) =>
@@ -371,7 +491,7 @@ export function buildDarkStoreAnalysis(
         a.companyName.localeCompare(b.companyName),
     );
 
-  // 4 — cluster pivot.
+  // 5 — cluster pivot.
   const clusterAgg = new Map<string, ZoneCustomer[]>();
   for (const z of customers) {
     const key = z.customer.cluster || "Unassigned";
@@ -382,9 +502,12 @@ export function buildDarkStoreAnalysis(
   const clusters: ClusterCoverage[] = [...clusterAgg.entries()]
     .map(([cluster, list]) => {
       const cov = list.filter((z) => z.beats.length > 0).length;
+      const inside = list.filter((z) => z.insideZone).length;
       return {
         cluster,
         activeCustomers: list.length,
+        inside,
+        outside: list.length - inside,
         covered: cov,
         coveragePct: pct(cov, list.length),
         avgCompanies: round1(
@@ -401,8 +524,12 @@ export function buildDarkStoreAnalysis(
 
   return {
     store,
+    scope,
     totalInZone: inZone.length,
+    totalInScope: inZone.length + outsideZone.length,
     customers,
+    insideCount,
+    outsideCount: total - insideCount,
     covered,
     notCovered: total - covered,
     coveragePct: pct(covered, total),
@@ -410,7 +537,9 @@ export function buildDarkStoreAnalysis(
     sellers: sellerRows,
     sellersReachingCustomers: reachingSellers.length,
     inactiveSellersExcluded,
+    zoneBeats: activeZoneBeats,
     beatsInZone: activeZoneBeats.length,
+    beatsExtendingOutside: extendingBeatIds.size,
     companies,
     clusters,
     avgCompanies: total ? round1(companyCounts.reduce((a, b) => a + b, 0) / total) : 0,
@@ -436,7 +565,8 @@ export function buildDarkStoreAnalysis(
 //
 // Each dashboard table has a header list + a row → cells mapper, shared
 // by its CSV download and its sheet in the analytics workbook so the
-// two can't drift apart.
+// two can't drift apart. The full-coverage view adds inside / outside
+// zone columns.
 
 type Cell = string | number;
 
@@ -447,113 +577,112 @@ export interface TableSpec<T> {
   cells: (row: T) => Cell[];
 }
 
+interface Column<T> {
+  header: string;
+  width: number;
+  cell: (row: T) => Cell;
+}
+
+/** Build a spec from columns; `false` entries are skipped. */
+function tableSpec<T>(sheet: string, columns: (Column<T> | false)[]): TableSpec<T> {
+  const cols = columns.filter((c): c is Column<T> => c !== false);
+  return {
+    sheet,
+    headers: cols.map((c) => c.header),
+    widths: cols.map((c) => c.width),
+    cells: (row) => cols.map((c) => c.cell(row)),
+  };
+}
+
 const list = (xs: string[]) => (xs.length ? xs.join(", ") : "—");
 
-export const SELLER_TABLE: TableSpec<SellerCoverage> = {
-  sheet: "Seller-wise",
-  headers: [
-    "Business Name",
-    "Seller Name",
-    "Customers Reached",
-    "Coverage %",
-    "Sole Seller For",
-    "Beats in Zone",
-    "Companies",
-    "Company Names",
-    "Delivery Days",
-    "Warehouse Distance (km)",
-    "Warehouse in Zone",
-  ],
-  widths: [30, 26, 18, 12, 16, 14, 12, 60, 40, 22, 18],
-  cells: (s) => [
-    s.businessName,
-    s.sellerName || "—",
-    s.customersReached,
-    s.coveragePct,
-    s.soleSellerCustomers,
-    s.beatsInZone,
-    s.companyNames.length,
-    list(s.companyNames),
-    list(s.deliveryDays),
-    s.warehouseKm ?? "—",
-    s.warehouseInZone ? "Yes" : "No",
-  ],
+export const SCOPE_LABEL: Record<CoverageScope, string> = {
+  zone: "Dark Store Only",
+  full: "Dark Store + Seller Coverage",
 };
 
-export const COMPANY_TABLE: TableSpec<CompanyCoverage> = {
-  sheet: "Company-wise",
-  headers: ["Company Name", "Customers Reached", "Coverage %", "Sellers", "Seller Names"],
-  widths: [32, 18, 12, 10, 60],
-  cells: (c) => [
-    c.companyName,
-    c.customersReached,
-    c.coveragePct,
-    c.sellerNames.length,
-    list(c.sellerNames),
-  ],
-};
+export function sellerTable(scope: CoverageScope): TableSpec<SellerCoverage> {
+  const full = scope === "full";
+  return tableSpec("Seller-wise", [
+    { header: "Business Name", width: 30, cell: (s) => s.businessName },
+    { header: "Seller Name", width: 26, cell: (s) => s.sellerName || "—" },
+    { header: "Customers Reached", width: 18, cell: (s) => s.customersReached },
+    full && { header: "Inside Zone", width: 14, cell: (s) => s.customersInside },
+    full && { header: "Outside Zone", width: 14, cell: (s) => s.customersOutside },
+    full && {
+      header: "Inside Zone %",
+      width: 14,
+      cell: (s) => pct(s.customersInside, s.customersReached),
+    },
+    { header: "Coverage %", width: 12, cell: (s) => s.coveragePct },
+    { header: "Sole Seller For", width: 16, cell: (s) => s.soleSellerCustomers },
+    { header: "Beats in Zone", width: 14, cell: (s) => s.beatsInZone },
+    { header: "Beats Extending Outside", width: 22, cell: (s) => s.beatsExtendingOutside },
+    { header: "Companies", width: 12, cell: (s) => s.companyNames.length },
+    { header: "Company Names", width: 60, cell: (s) => list(s.companyNames) },
+    { header: "Delivery Days", width: 40, cell: (s) => list(s.deliveryDays) },
+    { header: "Warehouse Distance (km)", width: 22, cell: (s) => s.warehouseKm ?? "—" },
+    { header: "Warehouse in Zone", width: 18, cell: (s) => (s.warehouseInZone ? "Yes" : "No") },
+  ]);
+}
 
-export const CLUSTER_TABLE: TableSpec<ClusterCoverage> = {
-  sheet: "Cluster-wise",
-  headers: [
-    "Cluster",
-    "Active Customers",
-    "Covered",
-    "Not Covered",
-    "Coverage %",
-    "Avg Companies / Customer",
-    "Avg Sellers / Customer",
-  ],
-  widths: [22, 16, 12, 14, 12, 24, 22],
-  cells: (c) => [
-    c.cluster,
-    c.activeCustomers,
-    c.covered,
-    c.activeCustomers - c.covered,
-    c.coveragePct,
-    c.avgCompanies,
-    c.avgSellers,
-  ],
-};
+export function companyTable(scope: CoverageScope): TableSpec<CompanyCoverage> {
+  const full = scope === "full";
+  return tableSpec("Company-wise", [
+    { header: "Company Name", width: 32, cell: (c) => c.companyName },
+    { header: "Customers Reached", width: 18, cell: (c) => c.customersReached },
+    full && { header: "Inside Zone", width: 14, cell: (c) => c.customersInside },
+    full && { header: "Outside Zone", width: 14, cell: (c) => c.customersOutside },
+    { header: "Coverage %", width: 12, cell: (c) => c.coveragePct },
+    { header: "Sellers", width: 10, cell: (c) => c.sellerNames.length },
+    { header: "Seller Names", width: 60, cell: (c) => list(c.sellerNames) },
+  ]);
+}
 
-export const CUSTOMER_TABLE: TableSpec<ZoneCustomer> = {
-  sheet: "Customer Exposure",
-  headers: [
-    "Customer ID",
-    "Customer Name",
-    "Mobile Number",
-    "Business Type",
-    "Cluster",
-    "Salesperson",
-    "Latitude",
-    "Longitude",
-    "Distance to Dark Store (km)",
-    "Sellers",
-    "Companies",
-    "Seller Names",
-    "Company Names",
-    "Delivery Days",
-    "Status",
-  ],
-  widths: [16, 30, 16, 16, 16, 20, 12, 12, 24, 10, 12, 50, 70, 40, 16],
-  cells: (z) => [
-    z.customer.customerId,
-    z.customer.name,
-    z.customer.mobile,
-    z.customer.businessType || "—",
-    z.customer.cluster || "—",
-    z.customer.salespersonName || "—",
-    z.customer.lat,
-    z.customer.lng,
-    z.distanceKm,
-    z.sellerIds.length,
-    z.companyNames.length,
-    list(z.sellerNames),
-    list(z.companyNames),
-    list(z.deliveryDays),
-    z.beats.length > 0 ? "Serviceable" : "Not Serviceable",
-  ],
-};
+export function clusterTable(scope: CoverageScope): TableSpec<ClusterCoverage> {
+  const full = scope === "full";
+  return tableSpec("Cluster-wise", [
+    { header: "Cluster", width: 22, cell: (c) => c.cluster },
+    { header: "Active Customers", width: 16, cell: (c) => c.activeCustomers },
+    full && { header: "Inside Zone", width: 14, cell: (c) => c.inside },
+    full && { header: "Outside Zone", width: 14, cell: (c) => c.outside },
+    { header: "Covered", width: 12, cell: (c) => c.covered },
+    { header: "Not Covered", width: 14, cell: (c) => c.activeCustomers - c.covered },
+    { header: "Coverage %", width: 12, cell: (c) => c.coveragePct },
+    { header: "Avg Companies / Customer", width: 24, cell: (c) => c.avgCompanies },
+    { header: "Avg Sellers / Customer", width: 22, cell: (c) => c.avgSellers },
+  ]);
+}
+
+export function customerTable(scope: CoverageScope): TableSpec<ZoneCustomer> {
+  const full = scope === "full";
+  return tableSpec("Customer Exposure", [
+    { header: "Customer ID", width: 16, cell: (z) => z.customer.customerId },
+    { header: "Customer Name", width: 30, cell: (z) => z.customer.name },
+    { header: "Mobile Number", width: 16, cell: (z) => z.customer.mobile },
+    { header: "Business Type", width: 16, cell: (z) => z.customer.businessType || "—" },
+    { header: "Cluster", width: 16, cell: (z) => z.customer.cluster || "—" },
+    { header: "Salesperson", width: 20, cell: (z) => z.customer.salespersonName || "—" },
+    { header: "Latitude", width: 12, cell: (z) => z.customer.lat },
+    { header: "Longitude", width: 12, cell: (z) => z.customer.lng },
+    full && {
+      header: "Location",
+      width: 14,
+      cell: (z) => (z.insideZone ? "Inside zone" : "Outside zone"),
+    },
+    { header: "Distance to Dark Store (km)", width: 24, cell: (z) => z.distanceKm },
+    { header: "Sellers", width: 10, cell: (z) => z.sellerIds.length },
+    { header: "Companies", width: 12, cell: (z) => z.companyNames.length },
+    { header: "Seller Names", width: 50, cell: (z) => list(z.sellerNames) },
+    { header: "Company Names", width: 70, cell: (z) => list(z.companyNames) },
+    { header: "Delivery Days", width: 40, cell: (z) => list(z.deliveryDays) },
+    {
+      header: "Status",
+      width: 16,
+      cell: (z) => (z.beats.length > 0 ? "Serviceable" : "Not Serviceable"),
+    },
+  ]);
+}
 
 export function downloadTableCsv<T>(spec: TableSpec<T>, rows: T[], filename: string): void {
   const lines = [
@@ -570,7 +699,7 @@ export function downloadTableCsv<T>(spec: TableSpec<T>, rows: T[], filename: str
 /**
  * One workbook with every dashboard view: Overview (the KPI cards),
  * Seller-wise, Company-wise, Cluster-wise, Day-wise and the per-customer
- * exposure sheet.
+ * exposure sheet — for the analysis' coverage view.
  */
 export async function downloadAnalyticsXlsx(
   a: DarkStoreAnalysis,
@@ -592,14 +721,24 @@ export async function downloadAnalyticsXlsx(
     };
   };
 
-  const { store } = a;
-  addSheet("Overview", ["Metric", "Value"], [44, 40], [
+  const { store, scope } = a;
+  const full = scope === "full";
+  const overview: Cell[][] = [
     ["Dark Store", store.name],
+    ["Coverage view", SCOPE_LABEL[scope]],
     ["Locality", store.locality],
     ["Zone centre (lat, long)", `${store.centre.lat.toFixed(6)}, ${store.centre.lng.toFixed(6)}`],
     ["Zone radius (km)", Number(store.radiusKm.toFixed(2))],
     ["Customers in zone (all statuses)", a.totalInZone],
-    ["Active customers in zone", a.customers.length],
+    ...(full ? [["Customers in coverage (all statuses)", a.totalInScope]] : []),
+    [full ? "Active customers in coverage" : "Active customers in zone", a.customers.length],
+    ...(full
+      ? [
+          ["Active customers inside the zone", a.insideCount],
+          ["Active customers outside the zone", a.outsideCount],
+          ["Inside zone %", pct(a.insideCount, a.customers.length)],
+        ]
+      : []),
     ["Active customers covered", a.covered],
     ["Active customers not covered", a.notCovered],
     ["Coverage %", a.coveragePct],
@@ -608,6 +747,7 @@ export async function downloadAnalyticsXlsx(
     ["Active sellers (network)", a.activeSellerTotal],
     ["Inactive sellers excluded", a.inactiveSellersExcluded],
     ["Beats overlapping zone", a.beatsInZone],
+    ["Beats extending outside zone", a.beatsExtendingOutside],
     ["Companies available in zone", a.companies.length],
     ["Avg companies per active customer", a.avgCompanies],
     ["Median companies per active customer", a.medianCompanies],
@@ -615,21 +755,30 @@ export async function downloadAnalyticsXlsx(
     ["Avg sellers per active customer", a.avgSellers],
     ["Avg customers per seller", a.avgCustomersPerSeller],
     ["Active customer rule", "Business Status = Active-User AND Status = Active"],
+    ...(full
+      ? [
+          [
+            "Coverage rule",
+            "Zone customers, plus customers outside it reached by a beat that overlaps the zone",
+          ],
+        ]
+      : []),
     ["Generated", new Date().toLocaleString("en-IN")],
-  ]);
+  ];
+  addSheet("Overview", ["Metric", "Value"], [44, 40], overview);
 
   const addTable = <T,>(spec: TableSpec<T>, rows: T[]) =>
     addSheet(spec.sheet, spec.headers, spec.widths, rows.map(spec.cells));
-  addTable(SELLER_TABLE, a.sellers);
-  addTable(COMPANY_TABLE, a.companies);
-  addTable(CLUSTER_TABLE, a.clusters);
+  addTable(sellerTable(scope), a.sellers);
+  addTable(companyTable(scope), a.companies);
+  addTable(clusterTable(scope), a.clusters);
   addSheet(
     "Day-wise",
     ["Delivery Day", "Customers Served", "Coverage %"],
     [16, 18, 12],
     a.dayReach.map((d) => [d.day, d.customers, d.pct]),
   );
-  addTable(CUSTOMER_TABLE, a.customers);
+  addTable(customerTable(scope), a.customers);
 
   const buf = await wb.xlsx.writeBuffer();
   triggerDownload(
