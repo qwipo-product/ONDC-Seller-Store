@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Truck, Plus, X } from "lucide-react";
+import { Truck } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -14,17 +14,7 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Switch } from "../../components/ui/switch";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../../components/ui/select";
-import { makeId, ONDC_CATEGORY_NAMES } from "../../lib/admin-catalog";
-import {
-  logisticsRetailerPerKg,
   logisticsRetailerPct,
-  categoryLogisticsRetailer,
   type LogisticsFeeConfig,
 } from "../../lib/charges-data";
 
@@ -56,35 +46,21 @@ export function SellerLogisticsDialog({
   const [draft, setDraft] = useState<LogisticsFeeConfig>(initial);
 
   // Reset the draft to the latest saved config each time the dialog opens.
+  // Percentage of GMV is the only charging method, so coerce any legacy
+  // method on the way in.
   useEffect(() => {
-    if (open) setDraft(initial);
+    if (open) setDraft({ ...initial, method: "gmv_percent" });
   }, [open, initial]);
 
   const l = draft;
-  const perKg = l.method === "per_kg";
-  const byCategory = l.method === "by_category";
-  const retailer = perKg ? logisticsRetailerPerKg(l) : logisticsRetailerPct(l);
-  const kg = 24;
+  const retailer = logisticsRetailerPct(l);
 
   const setLogistics = (patch: Partial<LogisticsFeeConfig>) =>
     setDraft((d) => ({ ...d, ...patch }));
 
   const validate = (): string | null => {
-    if (perKg) {
-      if (l.sellerContributionPerKg > l.qwipoTargetPerKg)
-        return "Seller contribution cannot exceed the Qwipo target fee.";
-    } else if (l.method === "gmv_percent") {
-      if (l.sellerContributionPct > l.qwipoTargetPct)
-        return "Seller contribution cannot exceed the Qwipo target fee.";
-    } else {
-      // by_category
-      if (l.categories.length === 0)
-        return "Add at least one category fee, or choose another charging method.";
-      if (l.categories.some((f) => !f.category))
-        return "Pick a category for every fee row.";
-      if (l.categories.some((f) => f.sellerContribution > f.qwipoTarget))
-        return "Seller contribution cannot exceed the Qwipo target fee for a category.";
-    }
+    if (l.sellerContributionPct > l.qwipoTargetPct)
+      return "Seller contribution cannot exceed the Qwipo target fee.";
     if (l.waiverEnabled && l.waiverThreshold <= 0)
       return "Set a waiver order value greater than ₹0.";
     return null;
@@ -96,7 +72,7 @@ export function SellerLogisticsDialog({
       toast.error(err);
       return;
     }
-    onSave({ ...draft, enabled: true });
+    onSave({ ...draft, enabled: true, method: "gmv_percent" });
     onOpenChange(false);
   };
 
@@ -119,73 +95,38 @@ export function SellerLogisticsDialog({
           <Label className="text-xs text-gray-700">Charging Method</Label>
           <div className="flex flex-col sm:flex-row gap-3 mt-1.5 mb-5">
             <MethodCard
-              active={l.method === "gmv_percent"}
+              active
               title="Percentage of GMV"
               desc="Apply a fixed percentage on total order value"
-              onClick={() => setLogistics({ method: "gmv_percent" })}
-            />
-            <MethodCard
-              active={perKg}
-              title="₹ per KG"
-              desc="Charge a flat rate for every kilogram shipped"
-              onClick={() => setLogistics({ method: "per_kg" })}
-            />
-            <MethodCard
-              active={byCategory}
-              title="By Category"
-              desc="Set a separate fee for each product category"
-              onClick={() => setLogistics({ method: "by_category" })}
             />
           </div>
 
-          {byCategory ? (
-            <CategoryFeeEditor draft={draft} setDraft={setDraft} />
-          ) : (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <FeeInput
-                  label={perKg ? "Qwipo Target Fee (₹/kg)" : "Qwipo Target Fee (%)"}
-                  value={perKg ? l.qwipoTargetPerKg : l.qwipoTargetPct}
-                  onChange={(v) =>
-                    setLogistics(perKg ? { qwipoTargetPerKg: v } : { qwipoTargetPct: v })
-                  }
-                  suffix={perKg ? "₹" : "%"}
-                />
-                <FeeInput
-                  label={perKg ? "Seller Contribution (₹/kg)" : "Seller Contribution (%)"}
-                  value={perKg ? l.sellerContributionPerKg : l.sellerContributionPct}
-                  onChange={(v) =>
-                    setLogistics(
-                      perKg ? { sellerContributionPerKg: v } : { sellerContributionPct: v },
-                    )
-                  }
-                  suffix={perKg ? "₹" : "%"}
-                />
-                <CalcField
-                  label="Retailer Contribution (Calculated)"
-                  value={perKg ? `${money(retailer)}/kg` : pct(retailer)}
-                  hint="Target Fee − Seller Contribution"
-                />
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <FeeInput
+              label="Qwipo Target Fee (%)"
+              value={l.qwipoTargetPct}
+              onChange={(v) => setLogistics({ qwipoTargetPct: v })}
+              suffix="%"
+            />
+            <FeeInput
+              label="Seller Contribution (%)"
+              value={l.sellerContributionPct}
+              onChange={(v) => setLogistics({ sellerContributionPct: v })}
+              suffix="%"
+            />
+            <CalcField
+              label="Retailer Contribution (Calculated)"
+              value={pct(retailer)}
+              hint="Target Fee − Seller Contribution"
+            />
+          </div>
 
-              {perKg && (
-                <div className="mt-5 rounded-lg bg-gray-50 border border-gray-200 p-4 flex flex-wrap items-center gap-6">
-                  <p className="text-sm font-medium text-gray-700">Example for {kg} kg order</p>
-                  <Split label="Qwipo Charge" amount={money(kg * l.qwipoTargetPerKg)} sub={`${kg} kg × ${money(l.qwipoTargetPerKg)}`} />
-                  <Split label="Seller Contribution" amount={money(kg * l.sellerContributionPerKg)} sub={`${kg} kg × ${money(l.sellerContributionPerKg)}`} />
-                  <Split label="Retailer Pays" amount={money(kg * retailer)} sub={`${kg} kg × ${money(retailer)}`} />
-                </div>
-              )}
-              {l.method === "gmv_percent" && (
-                <div className="mt-5 rounded-lg bg-gray-50 border border-gray-200 p-4 flex flex-wrap items-center gap-6">
-                  <p className="text-sm font-medium text-gray-700">Example for a {money(10000)} order</p>
-                  <Split label="Qwipo Charge" amount={money((10000 * l.qwipoTargetPct) / 100)} sub={pct(l.qwipoTargetPct)} />
-                  <Split label="Seller Contribution" amount={money((10000 * l.sellerContributionPct) / 100)} sub={pct(l.sellerContributionPct)} />
-                  <Split label="Retailer Pays" amount={money((10000 * retailer) / 100)} sub={pct(retailer)} />
-                </div>
-              )}
-            </>
-          )}
+          <div className="mt-5 rounded-lg bg-gray-50 border border-gray-200 p-4 flex flex-wrap items-center gap-6">
+            <p className="text-sm font-medium text-gray-700">Example for a {money(10000)} order</p>
+            <Split label="Qwipo Charge" amount={money((10000 * l.qwipoTargetPct) / 100)} sub={pct(l.qwipoTargetPct)} />
+            <Split label="Seller Contribution" amount={money((10000 * l.sellerContributionPct) / 100)} sub={pct(l.sellerContributionPct)} />
+            <Split label="Retailer Pays" amount={money((10000 * retailer) / 100)} sub={pct(retailer)} />
+          </div>
 
           {/* Logistics Fee Waiver — waive the fee above an order-value
               threshold (aggregated across all of the seller's companies). */}
@@ -245,7 +186,7 @@ function MethodCard({
   active: boolean;
   title: string;
   desc: string;
-  onClick: () => void;
+  onClick?: () => void;
 }) {
   return (
     <button
@@ -319,134 +260,6 @@ function Split({ label, amount, sub }: { label: string; amount: string; sub: str
       <p className="text-[11px] text-gray-500">{label}</p>
       <p className="text-base font-semibold text-gray-900">{amount}</p>
       <p className="text-[11px] text-gray-400">({sub})</p>
-    </div>
-  );
-}
-
-// Per-category logistics fee editor — add one category at a time; each row
-// carries its own Qwipo target and seller contribution (retailer = target −
-// seller). A category can only be added once.
-function CategoryFeeEditor({
-  draft,
-  setDraft,
-}: {
-  draft: LogisticsFeeConfig;
-  setDraft: React.Dispatch<React.SetStateAction<LogisticsFeeConfig>>;
-}) {
-  const rows = draft.categories;
-  const usedCategories = new Set(rows.map((r) => r.category).filter(Boolean));
-  const availableCategories = ONDC_CATEGORY_NAMES.filter(
-    (name) => !usedCategories.has(name),
-  );
-
-  const update = (id: string, patch: Partial<(typeof rows)[number]>) =>
-    setDraft((d) => ({
-      ...d,
-      categories: d.categories.map((r) => (r.id === id ? { ...r, ...patch } : r)),
-    }));
-  const add = () =>
-    setDraft((d) => ({
-      ...d,
-      categories: [
-        ...d.categories,
-        { id: makeId("catfee"), category: "", qwipoTarget: 0, sellerContribution: 0 },
-      ],
-    }));
-  const remove = (id: string) =>
-    setDraft((d) => ({
-      ...d,
-      categories: d.categories.filter((r) => r.id !== id),
-    }));
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-gray-600">
-          Add a logistics fee for each product category individually.
-          {rows.length > 0 &&
-            ` ${rows.length} of ${ONDC_CATEGORY_NAMES.length} categories configured.`}
-        </p>
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-1.5"
-          disabled={availableCategories.length === 0}
-          onClick={add}
-        >
-          <Plus className="h-3.5 w-3.5" />
-          Add category fee
-        </Button>
-      </div>
-
-      {rows.length === 0 ? (
-        <div className="text-center py-8 border border-dashed border-gray-200 rounded-lg text-sm text-gray-500">
-          No category fees yet. Click “Add category fee” to configure one.
-        </div>
-      ) : (
-        <div className="space-y-2">
-          <div className="grid grid-cols-[1.6fr_1fr_1fr_1fr_36px] gap-2 px-1">
-            <Label className="text-xs text-gray-700">Category</Label>
-            <Label className="text-xs text-gray-700">Qwipo Target (₹)</Label>
-            <Label className="text-xs text-gray-700">Seller (₹)</Label>
-            <Label className="text-xs text-gray-700">Retailer (₹)</Label>
-            <span />
-          </div>
-          {rows.map((r) => {
-            const options = ONDC_CATEGORY_NAMES.filter(
-              (name) => !usedCategories.has(name) || name === r.category,
-            );
-            return (
-              <div
-                key={r.id}
-                className="grid grid-cols-[1.6fr_1fr_1fr_1fr_36px] gap-2 items-center"
-              >
-                <Select
-                  value={r.category || undefined}
-                  onValueChange={(v) => update(r.id, { category: v })}
-                >
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {options.map((name) => (
-                      <SelectItem key={name} value={name}>
-                        {name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Input
-                  type="number"
-                  step="1"
-                  value={r.qwipoTarget === 0 ? "" : r.qwipoTarget}
-                  placeholder="0"
-                  onChange={(e) => update(r.id, { qwipoTarget: num(e.target.value) })}
-                />
-                <Input
-                  type="number"
-                  step="1"
-                  value={r.sellerContribution === 0 ? "" : r.sellerContribution}
-                  placeholder="0"
-                  onChange={(e) =>
-                    update(r.id, { sellerContribution: num(e.target.value) })
-                  }
-                />
-                <div className="h-9 rounded-md bg-blue-50/60 border border-blue-100 flex items-center justify-center text-sm font-medium text-blue-900">
-                  {money(categoryLogisticsRetailer(r))}
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => remove(r.id)}
-                >
-                  <X className="h-4 w-4 text-red-600" />
-                </Button>
-              </div>
-            );
-          })}
-        </div>
-      )}
     </div>
   );
 }

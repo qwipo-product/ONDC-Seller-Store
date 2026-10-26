@@ -64,7 +64,7 @@ export function categoryLogisticsRetailer(f: CategoryLogisticsFee): number {
 export function emptyLogistics(): LogisticsFeeConfig {
   return {
     enabled: false,
-    method: "per_kg",
+    method: "gmv_percent",
     qwipoTargetPerKg: 3,
     sellerContributionPerKg: 2,
     qwipoTargetPct: 0.5,
