@@ -6,6 +6,7 @@ import { Calculator, Coins, Plus, X } from "lucide-react";
 import {
   makeId,
   commercialRetailerPct,
+  slabRetailer,
   MAX_COMMERCE_TARGET_PCT,
   type CommercialFeeConfig,
 } from "../../lib/admin-catalog";
@@ -133,6 +134,51 @@ export function CommercialFeeTab({
       ) : (
         <SlabEditor value={c} onChange={onChange} disabled={disabled} />
       )}
+
+      {/* Retailer Fee Waiver — above the threshold, ONLY the retailer's share
+          of the commercial fee is waived; the seller's contribution still
+          applies. */}
+      <div className="mt-6 pt-5 border-t border-gray-200">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">
+              Retailer Fee Waiver
+            </h3>
+            <p className="text-xs text-gray-500 max-w-md">
+              Waive the retailer&apos;s share of the commercial fee once an
+              order&apos;s value crosses a threshold. The seller&apos;s
+              contribution still applies.
+            </p>
+          </div>
+          <Switch
+            checked={c.waiverEnabled}
+            disabled={disabled}
+            onCheckedChange={(v) => patch({ waiverEnabled: v })}
+          />
+        </div>
+        {c.waiverEnabled && (
+          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+            <FeeInput
+              label="Waive-off Order Value (₹)"
+              value={c.waiverThreshold}
+              onChange={(v) => patch({ waiverThreshold: v })}
+              suffix="₹"
+              disabled={disabled}
+            />
+            <div className="rounded-lg bg-blue-50 border border-blue-100 p-3 text-[11px] text-blue-900 space-y-1">
+              <p>
+                If an order&apos;s value crosses {money(c.waiverThreshold)}, the{" "}
+                <b>retailer&apos;s share</b> of the commercial fee is waived for
+                that order.
+              </p>
+              <p>
+                The <b>seller&apos;s contribution is still charged</b> — only the
+                retailer&apos;s portion is removed.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -257,7 +303,7 @@ function SlabEditor({
       ...value,
       slabs: [
         ...value.slabs,
-        { id: makeId("slab"), minValue: 0, maxValue: 0, fee: 0 },
+        { id: makeId("slab"), minValue: 0, maxValue: 0, fee: 0, sellerContribution: 0 },
       ],
     });
   const remove = (id: string) =>
@@ -265,14 +311,19 @@ function SlabEditor({
 
   return (
     <div className="space-y-2">
-      <div className="grid grid-cols-[1fr_1fr_1fr_36px] gap-2 px-1">
+      <div className="grid grid-cols-[1fr_1fr_1fr_1fr_1fr_36px] gap-2 px-1">
         <Label className="text-xs text-gray-700">Order value from (₹)</Label>
         <Label className="text-xs text-gray-700">Order value to (₹)</Label>
-        <Label className="text-xs text-gray-700">Flat fee (₹)</Label>
+        <Label className="text-xs text-gray-700">Qwipo Target (₹)</Label>
+        <Label className="text-xs text-gray-700">Seller (₹)</Label>
+        <Label className="text-xs text-gray-700">Retailer (₹)</Label>
         <span />
       </div>
       {slabs.map((s) => (
-        <div key={s.id} className="grid grid-cols-[1fr_1fr_1fr_36px] gap-2 items-center">
+        <div
+          key={s.id}
+          className="grid grid-cols-[1fr_1fr_1fr_1fr_1fr_36px] gap-2 items-center"
+        >
           <Input
             type="number"
             step="1"
@@ -297,6 +348,19 @@ function SlabEditor({
             disabled={disabled}
             onChange={(e) => update(s.id, { fee: num(e.target.value) })}
           />
+          <Input
+            type="number"
+            step="1"
+            value={s.sellerContribution === 0 ? "" : s.sellerContribution}
+            placeholder="0"
+            disabled={disabled}
+            onChange={(e) =>
+              update(s.id, { sellerContribution: num(e.target.value) })
+            }
+          />
+          <div className="h-9 rounded-md bg-blue-50/60 border border-blue-100 flex items-center justify-center text-sm font-medium text-blue-900">
+            {money(slabRetailer(s))}
+          </div>
           <Button
             variant="ghost"
             size="icon"
@@ -312,6 +376,11 @@ function SlabEditor({
         <Plus className="h-3.5 w-3.5" />
         Add slab
       </Button>
+      <p className="text-[11px] text-gray-500 pt-1">
+        <b>Qwipo Target</b> is the total fee for the band, split into the
+        seller's contribution and the retailer's (Retailer = Qwipo Target −
+        Seller).
+      </p>
     </div>
   );
 }

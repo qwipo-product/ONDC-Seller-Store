@@ -143,12 +143,15 @@ export interface Company {
 // applies to all sellers/distributors that carry the company.
 export type CommerceMethod = "gmv_percent" | "order_slab";
 
-/** One order-value band for the "Order Value Slab" commerce method. */
+/** One order-value band for the "Order Value Slab" commerce method. The `fee`
+ *  is the total (Qwipo target) commercial fee for the band, split into the
+ *  seller's contribution and the retailer's contribution (= fee − seller). */
 export interface OrderSlab {
   id: string;
   minValue: number; // ₹ — order value lower bound
   maxValue: number; // ₹ — order value upper bound
-  fee: number; // ₹ — flat fee charged for orders in this band
+  fee: number; // ₹ — total (Qwipo target) fee charged for orders in this band
+  sellerContribution: number; // ₹ — seller's share of the fee
 }
 
 export interface CommercialFeeConfig {
@@ -160,6 +163,11 @@ export interface CommercialFeeConfig {
   sellerContributionPct: number;
   /** Order Value Slab method. */
   slabs: OrderSlab[];
+  /** Commercial fee waiver. When enabled, an order whose value crosses
+   *  `waiverThreshold` (₹) drops ONLY the retailer's share of the commercial
+   *  fee — the seller's contribution still applies. */
+  waiverEnabled: boolean;
+  waiverThreshold: number; // ₹
 }
 
 /** Hard cap on the Qwipo commercial target fee. */
@@ -170,6 +178,11 @@ export function commercialRetailerPct(c: CommercialFeeConfig): number {
   return Math.max(0, +(c.qwipoTargetPct - c.sellerContributionPct).toFixed(4));
 }
 
+/** Retailer's share of one order-value slab = fee − seller (never < 0). */
+export function slabRetailer(s: OrderSlab): number {
+  return Math.max(0, +(s.fee - s.sellerContribution).toFixed(2));
+}
+
 /** A blank commercial-fee config for a company that hasn't set one up. */
 export function emptyCommercialFee(): CommercialFeeConfig {
   return {
@@ -177,7 +190,11 @@ export function emptyCommercialFee(): CommercialFeeConfig {
     method: "gmv_percent",
     qwipoTargetPct: 0.5,
     sellerContributionPct: 0.3,
-    slabs: [{ id: makeId("slab"), minValue: 0, maxValue: 500, fee: 5 }],
+    slabs: [
+      { id: makeId("slab"), minValue: 0, maxValue: 500, fee: 5, sellerContribution: 3 },
+    ],
+    waiverEnabled: false,
+    waiverThreshold: 50000,
   };
 }
 
