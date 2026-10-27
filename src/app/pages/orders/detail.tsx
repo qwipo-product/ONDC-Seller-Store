@@ -734,7 +734,9 @@ export function OrderDetail() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => navigate("/orders")}
+              onClick={() =>
+                navigate(isCustomerMode ? "/orders?view=customer" : "/orders")
+              }
               className="gap-1.5 h-8"
             >
               <ArrowLeft className="h-4 w-4" />

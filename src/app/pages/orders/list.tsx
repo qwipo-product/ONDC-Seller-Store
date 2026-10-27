@@ -47,6 +47,7 @@ import {
   AlertTriangle,
   Lock,
   Users,
+  Building2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "motion/react";
@@ -107,7 +108,6 @@ function isBeatOrder(order: Order): boolean {
 // order STATUS — those rows are still Confirmed underneath — it's a
 // fulfilment route, so it gets its own tab rather than a status entry.
 type OrdersView = "company" | "customer";
-const ORDERS_VIEW_KEY = "ordersView";
 
 type TabType =
   | "all"
@@ -153,32 +153,20 @@ export function Orders() {
   };
   const [activeTab, setActiveTab] = useState<TabType>("all");
   // Orders view — "company" is the existing one-row-per-company-order
-  // list (default); "customer" folds the company orders of one
-  // customer checkout into a single row. The choice rides the URL
-  // (?view=customer) and session storage, so it survives opening an
-  // order and coming back.
+  // list and always the default; "customer" folds the company orders of
+  // one customer checkout into a single row. Only the URL
+  // (?view=customer) carries it, so opening Orders fresh always shows
+  // the existing list, while Back from a customer order returns to the
+  // Customer-wise view.
   const [searchParams, setSearchParams] = useSearchParams();
-  const [orderView, setOrderView] = useState<OrdersView>(() => {
-    const fromUrl = searchParams.get("view");
-    if (fromUrl === "customer" || fromUrl === "company") return fromUrl;
-    try {
-      return sessionStorage.getItem(ORDERS_VIEW_KEY) === "customer"
-        ? "customer"
-        : "company";
-    } catch {
-      return "company";
-    }
-  });
+  const [orderView, setOrderView] = useState<OrdersView>(() =>
+    searchParams.get("view") === "customer" ? "customer" : "company",
+  );
   const handleOrderViewChange = (view: OrdersView) => {
     if (view === orderView) return;
     setOrderView(view);
     setSelectedOrders([]);
     setCurrentPage(1);
-    try {
-      sessionStorage.setItem(ORDERS_VIEW_KEY, view);
-    } catch {
-      // Storage unavailable (private mode) — the URL still carries it.
-    }
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
@@ -2069,27 +2057,38 @@ export function Orders() {
                   they're looking at without exporting a report. */}
               {!isEmpty && (
                 <div className="px-6 py-2.5 border-b border-gray-100 bg-gradient-to-r from-purple-50/40 via-white to-emerald-50/40 flex-shrink-0 flex flex-wrap items-center gap-x-6 gap-y-2">
-                  {/* Customer-wise View — its own button so the view
-                      is easy to find. On: one row per customer order;
-                      off: the default company-wise list. */}
+                  {/* View switch — the default list is Company-wise
+                      (the existing flow). The button names the view it
+                      switches to: "Customer-wise View" from the default
+                      list, "Company-wise View" to come back. */}
                   <Button
                     variant="outline"
                     size="sm"
-                    aria-pressed={orderView === "customer"}
-                    className={`h-8 gap-2 ${
-                      orderView === "customer"
-                        ? "border-purple-600 bg-purple-600 text-white hover:bg-purple-700 hover:text-white"
-                        : "border-purple-300 text-purple-700 hover:bg-purple-50"
-                    }`}
+                    className="h-8 gap-2 border-purple-300 text-purple-700 hover:bg-purple-50"
                     onClick={() =>
                       handleOrderViewChange(
                         orderView === "customer" ? "company" : "customer",
                       )
                     }
                   >
-                    <Users className="h-4 w-4" />
-                    Customer-wise View
+                    {orderView === "customer" ? (
+                      <>
+                        <Building2 className="h-4 w-4" />
+                        Company-wise View
+                      </>
+                    ) : (
+                      <>
+                        <Users className="h-4 w-4" />
+                        Customer-wise View
+                      </>
+                    )}
                   </Button>
+                  {orderView === "customer" && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-purple-600 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      <Users className="h-3 w-3" />
+                      Showing Customer-wise
+                    </span>
+                  )}
                   <span className="h-3 w-px bg-gray-200" />
                   <div className="flex items-baseline gap-1.5">
                     <span className="text-[10px] uppercase tracking-wider font-semibold text-gray-500">
