@@ -271,6 +271,7 @@ function buildOrderDetailFromStore(order: Order): OrderDetails {
     ...p,
     shortName:
       p.shortName ??
+      order.lineItems?.find((l) => l.skuCode === p.skuId)?.shortName ??
       sampleSKUs.find((s) => s.sku === p.skuId)?.shortName,
     modifiedQty: order.qtyModifications?.[p.skuId]?.modifiedQty,
     pack: getSkuPackConfig(p.skuId),

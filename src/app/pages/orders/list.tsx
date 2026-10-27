@@ -1220,7 +1220,9 @@ export function Orders() {
           channelOrderIdFor(order),
           order.originalOrderValue ?? order.orderValue,
           item.skuCode,
-          sampleSKUs.find((k) => k.sku === item.skuCode)?.shortName ?? "—",
+          item.shortName ??
+            sampleSKUs.find((k) => k.sku === item.skuCode)?.shortName ??
+            "—",
           item.productName,
           isWholesale ? "Wholesaler" : item.company,
           isWholesale ? "Wholesale" : "Distribution",
