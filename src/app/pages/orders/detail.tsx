@@ -1215,9 +1215,12 @@ export function OrderDetail() {
                         {o.status === "New" && (
                           <Badge className="bg-blue-50 text-blue-700 border-blue-200">New Order</Badge>
                         )}
-                        {o.status === "Confirmed" && (
-                          <Badge className="bg-green-50 text-green-700 border-green-200">Confirmed</Badge>
-                        )}
+                        {o.status === "Confirmed" &&
+                          (o.logisticsRequested ? (
+                            <Badge className="bg-blue-50 text-blue-700 border-blue-200">With 3PL Partner</Badge>
+                          ) : (
+                            <Badge className="bg-green-50 text-green-700 border-green-200">Confirmed</Badge>
+                          ))}
                         {o.status === "Delivered" && (
                           <Badge className="bg-purple-50 text-purple-700 border-purple-200">Delivered</Badge>
                         )}
@@ -1231,7 +1234,8 @@ export function OrderDetail() {
                       </td>
                       <td className="px-3 py-2.5 whitespace-nowrap">
                         <div className="flex items-center justify-center gap-2">
-                          {(o.status === "New" || o.status === "Confirmed") && (
+                          {(o.status === "New" ||
+                            (o.status === "Confirmed" && !o.logisticsRequested)) && (
                             <Button
                               variant="outline"
                               size="sm"
@@ -1262,7 +1266,9 @@ export function OrderDetail() {
                               Mark as Delivered
                             </Button>
                           )}
-                          {(o.status === "Delivered" || o.status === "Cancelled") && (
+                          {(o.status === "Delivered" ||
+                            o.status === "Cancelled" ||
+                            o.logisticsRequested) && (
                             <span className="text-xs text-gray-400">—</span>
                           )}
                         </div>

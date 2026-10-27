@@ -749,12 +749,17 @@ export function Orders() {
       return matchesSearch && matchesMarketplace && matchesBrand;
     });
     const isBuyer = (o: Order) => (o.cancelledBy ?? "Seller") === "Buyer";
+    // Customer Wise View counts customer orders, like the rows and tabs.
+    const count = (list: Order[]) =>
+      orderView === "customer"
+        ? new Set(list.map(getCustomerOrderId)).size
+        : list.length;
     return {
-      all: baseCancelled.length,
-      buyer: baseCancelled.filter(isBuyer).length,
-      seller: baseCancelled.filter((o) => !isBuyer(o)).length,
+      all: count(baseCancelled),
+      buyer: count(baseCancelled.filter(isBuyer)),
+      seller: count(baseCancelled.filter((o) => !isBuyer(o))),
     };
-  }, [orders, searchQuery, marketplaceFilter, selectedBrandFilters]);
+  }, [orders, searchQuery, marketplaceFilter, selectedBrandFilters, orderView]);
 
   // Handle select all for current tab
   const handleSelectAll = (checked: boolean) => {
@@ -1051,10 +1056,10 @@ export function Orders() {
       {
         skuCode: `SKU-${order.id.replace(/[^0-9]/g, "").slice(-5)}`,
         productName: name,
-        // No richer brand/company info to draw on — fall back to the
-        // order's brand and an em-dash for company. Real builds would
-        // resolve company and category from the SKU catalog.
-        company: "—",
+        // No richer line detail to draw on — fall back to the order's
+        // own company and brand. Real builds would resolve category
+        // from the SKU catalog.
+        company: order.company,
         brand: order.brand,
         category: "—",
         qty,
@@ -1113,9 +1118,13 @@ export function Orders() {
     // number read like a real ID. "Operation Mode" follows Company.
     // Wholesale rows mask the company as "Wholesaler" — same as the
     // list.
+    // Customer Wise View: same sheet, rows grouped by customer order,
+    // plus the customer order's ID and total beside Clubbed Orders.
+    const customerWise = orderView === "customer";
     const headers = [
       "Order ID",
       "Clubbed Orders",
+      ...(customerWise ? ["Customer Order ID", "Customer Order Value"] : []),
       "Order Status",
       "Order Date",
       "Order Type",
@@ -1155,7 +1164,17 @@ export function Orders() {
       clubSizes.set(k, (clubSizes.get(k) ?? 0) + 1);
     }
 
-    ordersToExport.forEach((order) => {
+    // Customer order totals within the export window.
+    const checkoutTotals = new Map<string, number>();
+    for (const o of ordersToExport) {
+      const k = getCustomerOrderId(o);
+      checkoutTotals.set(k, (checkoutTotals.get(k) ?? 0) + o.orderValue);
+    }
+    const exportRows = customerWise
+      ? groupOrdersByCheckout(ordersToExport).flatMap((g) => g.orders)
+      : ordersToExport;
+
+    exportRows.forEach((order) => {
       const lines =
         order.lineItems && order.lineItems.length > 0
           ? order.lineItems
@@ -1171,6 +1190,12 @@ export function Orders() {
         const row = [
           order.id,
           clubSize > 1 ? clubSize : "",
+          ...(customerWise
+            ? [
+                getCustomerOrderId(order),
+                checkoutTotals.get(getCustomerOrderId(order)) ?? order.orderValue,
+              ]
+            : []),
           statusLabelFor(order),
           orderDateLabelFor(order),
           getOrderType(order) === "beat" ? "Beat" : "Non-Beat",
@@ -1214,7 +1239,7 @@ export function Orders() {
     link.setAttribute("href", url);
     link.setAttribute(
       "download",
-      `orders_${range.start}_to_${range.end}.${exportFormat}`,
+      `orders_${customerWise ? "customer-wise_" : ""}${range.start}_to_${range.end}.${exportFormat}`,
     );
     link.style.visibility = "hidden";
     document.body.appendChild(link);
@@ -3168,6 +3193,8 @@ export function Orders() {
             </DialogTitle>
             <DialogDescription>
               Select the date range and format to export orders.
+              {orderView === "customer" &&
+                " Exporting the Customer Wise View — rows are grouped by customer order."}
             </DialogDescription>
           </DialogHeader>
 
