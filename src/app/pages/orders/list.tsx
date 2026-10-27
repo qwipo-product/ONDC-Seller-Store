@@ -993,7 +993,7 @@ export function Orders() {
       `${moved} order${moved === 1 ? "" : "s"} sent for 3PL delivery.`,
       {
         description:
-          "Track them under the 3PL Logistics tab until the delivery partner completes them.",
+          "Track them under the Logistics tab until the delivery partner completes them.",
         icon: <Truck className="h-4 w-4 text-blue-600" />,
         duration: 5000,
       },
@@ -2075,7 +2075,7 @@ export function Orders() {
                         className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-2 py-2 transition-all whitespace-nowrap text-[13px]"
                       >
                         <Truck className="h-4 w-4 mr-1" />
-                        <span className="font-medium">3PL Logistics ({summary.logistics})</span>
+                        <span className="font-medium">Logistics ({summary.logistics})</span>
                       </TabsTrigger>
                     )}
                     <TabsTrigger

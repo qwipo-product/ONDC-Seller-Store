@@ -216,6 +216,9 @@ interface OrderDetails {
   /** Buyer's GST registration number. Undefined when the buyer is
    *  not GST-registered or the number wasn't provided with the order. */
   gstNumber?: string;
+  /** Handed to the logistics partner — the seller can no longer
+   *  cancel or deliver it from here. */
+  logisticsRequested?: boolean;
 }
 
 /**
@@ -298,6 +301,7 @@ function buildOrderDetailFromStore(order: Order): OrderDetails {
     cancelledBy: order.cancelledBy,
     cancellationTime: order.cancellationTime,
     gstNumber: order.gstNumber,
+    logisticsRequested: order.logisticsRequested,
   };
 }
 
@@ -787,28 +791,29 @@ export function OrderDetail() {
               {/* Customer-order mode: bulk Confirm / Cancel across the
                   company orders; each order keeps its own buttons in
                   the Orders list below. */}
-              {isCustomerMode && (
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="border-red-300 text-red-700 hover:bg-red-50 h-8"
-                    disabled={cancellableIds.length === 0}
-                    onClick={() => openBulk("cancel")}
-                  >
-                    <XCircle className="h-3.5 w-3.5 mr-1.5" />
-                    Cancel All ({cancellableIds.length})
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="bg-green-600 hover:bg-green-700 h-8"
-                    disabled={confirmableIds.length === 0}
-                    onClick={() => openBulk("confirm")}
-                  >
-                    <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
-                    Confirm All ({confirmableIds.length})
-                  </Button>
-                </>
+              {/* Each bulk button shows only when some company order
+                  can take that action — none on a customer order that
+                  is with Logistics, Delivered or Cancelled. */}
+              {isCustomerMode && cancellableIds.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-red-300 text-red-700 hover:bg-red-50 h-8"
+                  onClick={() => openBulk("cancel")}
+                >
+                  <XCircle className="h-3.5 w-3.5 mr-1.5" />
+                  Cancel All ({cancellableIds.length})
+                </Button>
+              )}
+              {isCustomerMode && confirmableIds.length > 0 && (
+                <Button
+                  size="sm"
+                  className="bg-green-600 hover:bg-green-700 h-8"
+                  onClick={() => openBulk("confirm")}
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+                  Confirm All ({confirmableIds.length})
+                </Button>
               )}
               {!isCustomerMode && orderData.status === "New" && (
                 <>
@@ -831,7 +836,9 @@ export function OrderDetail() {
                   </Button>
                 </>
               )}
-              {!isCustomerMode && orderData.status === "Confirmed" && (
+              {!isCustomerMode &&
+                orderData.status === "Confirmed" &&
+                !orderData.logisticsRequested && (
                 <>
                   <Button
                     variant="outline"
