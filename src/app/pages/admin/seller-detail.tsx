@@ -83,9 +83,12 @@ import {
   getCompanies as getAdminCatalogCompanies,
   subscribeToCompanies as subscribeToAdminCatalog,
   revokeImage,
+  emptyCommercialFee,
   type Company as AdminCatalogCompany,
+  type CommercialFeeConfig,
 } from "../../lib/admin-catalog";
-import { Camera, Upload as UploadIcon } from "lucide-react";
+import { CommercialFeeTab } from "./company-commercial-fee";
+import { Camera, Upload as UploadIcon, Coins } from "lucide-react";
 
 const emptyPermissions: SellerPermissions = {
   view: false,
@@ -1347,6 +1350,74 @@ export function SellerCatalogTab({
     ? selections.find((s) => s.companyId === editTarget)
     : null;
 
+  // ---- Modify Fee dialog (per-card "Modify Fee" CTA) ----
+  // Seller-level override of the company's commercial fee, for THIS company
+  // only. Opens pre-filled with the seller's existing override, else a copy of
+  // the company-level setup. Saving never touches the company-level config.
+  const [feeTarget, setFeeTarget] = useState<string | null>(null);
+  const [feeDraft, setFeeDraft] = useState<CommercialFeeConfig>(() =>
+    emptyCommercialFee(),
+  );
+  const feeCompany = feeTarget
+    ? companies.find((c) => c.id === feeTarget)
+    : null;
+  const feeSelection = feeTarget
+    ? selections.find((s) => s.companyId === feeTarget)
+    : null;
+  const feeIsOverridden = !!feeSelection?.commercialFeeOverride;
+
+  const openModifyFee = (companyId: string) => {
+    const sel = selections.find((s) => s.companyId === companyId);
+    const company = companies.find((c) => c.id === companyId);
+    if (!sel) return;
+    // Pre-fill: seller override first, else the company-level setup, else blank.
+    const base =
+      sel.commercialFeeOverride ?? company?.commercialFee ?? emptyCommercialFee();
+    setFeeDraft({
+      ...base,
+      slabs: base.slabs.map((s) => ({ ...s })),
+    });
+    setFeeTarget(companyId);
+  };
+
+  const closeModifyFee = () => setFeeTarget(null);
+
+  const handleSaveFee = () => {
+    if (!feeTarget) return;
+    const next: CompanyBrandSelection[] = selections.map((s) =>
+      s.companyId === feeTarget
+        ? {
+            ...s,
+            commercialFeeOverride: {
+              ...feeDraft,
+              slabs: feeDraft.slabs.map((sl) => ({ ...sl })),
+            },
+          }
+        : s,
+    );
+    persistSelections(next);
+    toast.success(
+      `Commercial fee override saved for ${feeCompany?.name ?? "company"} (this seller only).`,
+    );
+    closeModifyFee();
+  };
+
+  const handleResetFee = () => {
+    if (!feeTarget) return;
+    const next: CompanyBrandSelection[] = selections.map((s) =>
+      s.companyId === feeTarget
+        ? { ...s, commercialFeeOverride: undefined }
+        : s,
+    );
+    persistSelections(next);
+    toast.success(
+      `Reverted to the company-level commercial fee for ${
+        feeCompany?.name ?? "company"
+      }.`,
+    );
+    closeModifyFee();
+  };
+
   const openEdit = (companyId: string) => {
     const sel = selections.find((s) => s.companyId === companyId);
     if (!sel) return;
@@ -1651,6 +1722,26 @@ export function SellerCatalogTab({
                       users keep their full kit; we just don't expose
                       a second button for it. */}
                   <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5"
+                      onClick={() => openModifyFee(sel.companyId)}
+                      disabled={isInactiveSeller}
+                      title={
+                        isInactiveSeller
+                          ? "Activate this seller before editing fees"
+                          : `Override the commercial fee for ${company.name} (this seller only)`
+                      }
+                    >
+                      <Coins className="h-3.5 w-3.5" />
+                      Modify Fee
+                      {sel.commercialFeeOverride && (
+                        <Badge className="ml-1 bg-amber-50 text-amber-700 border-amber-200 text-[10px] px-1">
+                          Overridden
+                        </Badge>
+                      )}
+                    </Button>
                     <Button
                       size="sm"
                       className="gap-1.5"
@@ -2025,6 +2116,74 @@ export function SellerCatalogTab({
             >
               Add Brands
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modify Fee — seller-level commercial fee OVERRIDE for one company.
+          Pre-filled from the seller's existing override, else the company-level
+          setup. Saving writes the override on this seller only; the company's
+          own commercial fee is never changed. */}
+      <Dialog
+        open={feeTarget !== null}
+        onOpenChange={(o) => (o ? null : closeModifyFee())}
+      >
+        <DialogContent className="!max-w-[min(95vw,760px)] w-[min(95vw,760px)] max-h-[92vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Coins className="h-5 w-5 text-blue-600" />
+              Modify Commercial Fee — {feeCompany?.name ?? "Company"}
+            </DialogTitle>
+            <DialogDescription>
+              Override the commercial fee for <b>{seller.name}</b> and{" "}
+              {feeCompany?.name ?? "this company"} only. Pre-filled from the
+              {feeIsOverridden
+                ? " seller's existing override"
+                : " company-level setup"}
+              . Saving here does not change the company-level commercial fee.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto py-1">
+            {feeIsOverridden ? (
+              <div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
+                <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                <span>
+                  A seller-level override is active for this company. It takes
+                  precedence over the company-level commercial fee for this
+                  seller.
+                </span>
+              </div>
+            ) : (
+              <div className="mb-3 flex items-start gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-[11px] text-blue-900">
+                <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                <span>
+                  Showing the company-level commercial fee. Change any value and
+                  save to create a seller-specific override.
+                </span>
+              </div>
+            )}
+            <CommercialFeeTab value={feeDraft} onChange={setFeeDraft} />
+          </div>
+
+          <DialogFooter className="flex items-center justify-between sm:justify-between">
+            {feeIsOverridden ? (
+              <Button
+                variant="ghost"
+                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                onClick={handleResetFee}
+              >
+                Reset to company fee
+              </Button>
+            ) : (
+              <span />
+            )}
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={closeModifyFee}>
+                Cancel
+              </Button>
+              <Button onClick={handleSaveFee}>Save Override</Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -4,6 +4,7 @@
 
 import { PROD_REPLICA_SELLERS } from "./prod-replica-sellers-seed";
 import type { DeliveryDay } from "./customers-data";
+import type { CommercialFeeConfig } from "./admin-catalog";
 
 export type RequestStatus = "pending" | "approved" | "rejected";
 
@@ -137,6 +138,11 @@ export interface CompanyBrandSelection {
   purchaseEligibility?: PurchaseEligibility;
   /** When true, all SKUs for this company and its brands are auto-synced to the seller's MySKU list. */
   syncSkusToMySku?: boolean;
+  /** Seller-level override of the company's commercial fee, for THIS company
+   *  only. When set, it takes precedence over Company.commercialFee for this
+   *  seller; the company-level config itself is left untouched. Absent means
+   *  the seller inherits the company-level commercial fee. */
+  commercialFeeOverride?: CommercialFeeConfig;
 }
 
 /** Seller business type — no longer chosen manually. Calculated from
