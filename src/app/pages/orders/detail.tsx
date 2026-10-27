@@ -39,6 +39,7 @@ import {
   Pencil,
   Lock,
   ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 // Shared orders store — the detail page now looks up the right
@@ -459,6 +460,13 @@ export function OrderDetail() {
   // Bulk actions in customer-order mode — the company orders the open
   // Confirm / Cancel popup acts on together (null = single order).
   const [bulkIds, setBulkIds] = useState<string[] | null>(null);
+  // Drill-down in customer-order mode: company orders whose Order
+  // Items are expanded under their row.
+  const [expandedOrderIds, setExpandedOrderIds] = useState<string[]>([]);
+  const toggleExpanded = (id: string) =>
+    setExpandedOrderIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
   const confirmableIds = checkoutOrders
     .filter((o) => o.status === "New")
     .map((o) => o.id);
@@ -1185,17 +1193,38 @@ export function OrderDetail() {
                   </tr>
                 </thead>
                 <tbody>
-                  {checkoutOrders.map((o) => (
-                    <tr key={o.id} className="border-b border-gray-100">
+                  {checkoutOrders.map((o) => {
+                    const expanded = expandedOrderIds.includes(o.id);
+                    return (
+                    <React.Fragment key={o.id}>
+                    <tr
+                      className={`border-b border-gray-100 ${expanded ? "bg-purple-50/40" : ""}`}
+                    >
                       <td className="px-3 py-2.5 whitespace-nowrap">
-                        <button
-                          type="button"
-                          onClick={() => navigate(`/orders/${o.id}`)}
-                          className="text-[11px] font-mono text-blue-600 hover:text-blue-700 hover:underline"
-                          title="View order details"
-                        >
-                          {o.id}
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => toggleExpanded(o.id)}
+                            aria-expanded={expanded}
+                            aria-label={`${expanded ? "Hide" : "Show"} order items for ${o.id}`}
+                            title={expanded ? "Hide order items" : "Show order items"}
+                            className="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-gray-100 text-gray-500"
+                          >
+                            {expanded ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4" />
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/orders/${o.id}?view=company`)}
+                            className="text-[11px] font-mono text-blue-600 hover:text-blue-700 hover:underline"
+                            title="View order details"
+                          >
+                            {o.id}
+                          </button>
+                        </div>
                       </td>
                       <td className="px-3 py-2.5 font-medium text-gray-900 whitespace-nowrap">
                         {o.company}
@@ -1274,7 +1303,16 @@ export function OrderDetail() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    {expanded && (
+                      <tr className="border-b border-gray-100 bg-gray-50/60">
+                        <td colSpan={7} className="px-3 pt-1 pb-3">
+                          <CompanyOrderItems order={o} />
+                        </td>
+                      </tr>
+                    )}
+                    </React.Fragment>
+                    );
+                  })}
                 </tbody>
                 <tfoot>
                   <tr className="bg-gray-50">
@@ -1724,6 +1762,119 @@ export function OrderDetail() {
         onOpenChange={setIsEditOpen}
         onSave={handleSaveLineQty}
       />
+    </div>
+  );
+}
+
+// ---------- Company order items (customer-order drill-down) ----------
+// Read-only Order Items for one company order, shown under its row on
+// the customer-order view. Same fields as the Order Items card on a
+// company order's own page; quantity edits stay on that page.
+function CompanyOrderItems({ order }: { order: StoreOrder }) {
+  const products = buildOrderDetailFromStore(order).products;
+  const th =
+    "px-3 py-2 text-[10px] font-semibold text-gray-600 uppercase tracking-wider";
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead className="bg-gray-50 border-b">
+          <tr>
+            <th className={`${th} text-left`}>Product</th>
+            <th className={`${th} text-left`}>SKU</th>
+            <th className={`${th} text-left`}>Short Name</th>
+            <th className={`${th} text-center`}>Actual Qty</th>
+            <th className={`${th} text-center`}>Modified Qty</th>
+            <th className={`${th} text-center`}>Final Qty</th>
+            <th className={`${th} text-right`}>Price/Unit</th>
+            <th className={`${th} text-right`}>Total</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {products.map((product) => {
+            const isLineModified = product.modifiedQty !== undefined;
+            const pricing = priceLine(product);
+            const isDiscounted =
+              product.basePrice !== undefined &&
+              pricing.pricePerUnit < product.basePrice;
+            return (
+              <tr
+                key={product.id}
+                className={isLineModified ? "bg-amber-50/40" : undefined}
+              >
+                <td className="px-3 py-2">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <p className="font-medium text-gray-900 text-sm">{product.name}</p>
+                    {product.qps && (
+                      <Badge
+                        className="bg-purple-50 text-purple-700 border-purple-200 gap-1 text-[10px] py-0"
+                        title="Quantity Pricing Scheme applied to this line item"
+                      >
+                        <Layers className="h-2.5 w-2.5" />
+                        QPS
+                      </Badge>
+                    )}
+                  </div>
+                </td>
+                <td className="px-3 py-2">
+                  <p className="text-xs font-mono text-gray-600">{product.skuId}</p>
+                </td>
+                <td className="px-3 py-2">
+                  <p
+                    className="text-xs text-gray-600 max-w-[120px] truncate"
+                    title={product.shortName ?? undefined}
+                  >
+                    {product.shortName ?? "—"}
+                  </p>
+                </td>
+                <td className="px-3 py-2 text-center text-gray-700">
+                  {product.orderedQuantity}
+                </td>
+                <td className="px-3 py-2 text-center">
+                  {isLineModified ? (
+                    <span className="font-semibold text-amber-700">
+                      {product.modifiedQty}
+                    </span>
+                  ) : (
+                    <span className="text-gray-400">—</span>
+                  )}
+                </td>
+                <td className="px-3 py-2 text-center font-semibold text-gray-900">
+                  {finalQtyFor(product)}
+                </td>
+                <td className="px-3 py-2 text-right whitespace-nowrap">
+                  {product.qps && isDiscounted ? (
+                    <div>
+                      <p className="text-[11px] text-gray-400 line-through">
+                        {formatRupees(product.basePrice!)}
+                      </p>
+                      <p className="font-semibold text-green-700">
+                        {formatRupees(pricing.pricePerUnit)}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-gray-900">{formatRupees(pricing.pricePerUnit)}</p>
+                  )}
+                </td>
+                <td className="px-3 py-2 text-right font-semibold text-gray-900 whitespace-nowrap">
+                  {formatRupees(pricing.lineTotal)}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+        <tfoot className="bg-gray-50 border-t">
+          <tr>
+            <td colSpan={7} className="px-3 py-2 text-right text-xs font-semibold text-gray-700">
+              {order.originalOrderValue !== undefined
+                ? "Final Order Value:"
+                : "Total Order Value:"}
+            </td>
+            <td className="px-3 py-2 text-right font-bold text-green-600 whitespace-nowrap">
+              {formatRupees(order.orderValue)}
+            </td>
+          </tr>
+        </tfoot>
+      </table>
     </div>
   );
 }
