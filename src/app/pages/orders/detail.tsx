@@ -826,6 +826,10 @@ export function OrderDetail() {
                 const toBeCollected = +(
                   orderValue + retailerLogistics + retailerCommercial
                 ).toFixed(2);
+                // Seller's total due = their own logistics + commercial fees.
+                const sellerDue = +(
+                  sellerLogistics + sellerCommercial
+                ).toFixed(2);
                 const money = (n: number) =>
                   `₹${n.toLocaleString("en-IN", {
                     minimumFractionDigits: n % 1 ? 2 : 0,
@@ -853,6 +857,13 @@ export function OrderDetail() {
                     <div className="border-t border-gray-200 my-1" />
                     <Row label="Seller Logistics Fees" value={sellerLogistics} />
                     <Row label="Seller Commercial Fees" value={sellerCommercial} />
+                    <div className="border-t border-gray-200 my-1" />
+                    <div className="flex justify-between text-xs rounded bg-blue-50/70 px-1.5 py-1 -mx-0.5">
+                      <span className="text-gray-900 font-bold">Seller Due</span>
+                      <span className="text-gray-900 font-bold">
+                        {money(sellerDue)}
+                      </span>
+                    </div>
                   </>
                 );
               })()}
