@@ -1283,7 +1283,7 @@ export function OrderDetail() {
                   </table>
                 </div>
                 {/* Order Items — always shown under the order. */}
-                <div className="border-t border-gray-200">
+                <div className="border-t border-purple-100 bg-purple-50/40">
                   <CompanyOrderItems order={o} />
                 </div>
               </div>
@@ -1744,7 +1744,7 @@ function CompanyOrderItems({ order }: { order: StoreOrder }) {
   const th =
     "px-3 py-2 text-[10px] font-semibold text-gray-600 uppercase tracking-wider";
   return (
-    <div className="bg-white overflow-x-auto">
+    <div className="bg-transparent overflow-x-auto">
       <table className="w-full table-fixed min-w-[860px] text-sm">
         <colgroup>
           <col className="w-[30%]" />
@@ -1756,7 +1756,7 @@ function CompanyOrderItems({ order }: { order: StoreOrder }) {
           <col className="w-[9%]" />
           <col className="w-[9%]" />
         </colgroup>
-        <thead className="bg-gray-50/70 border-b">
+        <thead className="bg-purple-100/40 border-b border-purple-100">
           <tr>
             <th className={`${th} text-left`}>Product</th>
             <th className={`${th} text-left`}>SKU</th>
@@ -1768,7 +1768,7 @@ function CompanyOrderItems({ order }: { order: StoreOrder }) {
             <th className={`${th} text-right`}>Total</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100">
+        <tbody className="divide-y divide-purple-100/70">
           {products.map((product) => {
             const isLineModified = product.modifiedQty !== undefined;
             const pricing = priceLine(product);
@@ -1841,7 +1841,7 @@ function CompanyOrderItems({ order }: { order: StoreOrder }) {
             );
           })}
         </tbody>
-        <tfoot className="bg-gray-50 border-t">
+        <tfoot className="bg-purple-100/40 border-t border-purple-100">
           <tr>
             <td colSpan={7} className="px-3 py-2 text-right text-xs font-semibold text-gray-700">
               {order.originalOrderValue !== undefined

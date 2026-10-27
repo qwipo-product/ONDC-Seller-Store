@@ -86,7 +86,9 @@ import {
   type CustomerCheckout,
   groupOrdersByCheckout,
   getOrderLines,
+  getSkuPackConfig,
 } from "../../lib/orders-data";
+import { sampleSKUs } from "../products/my-sku";
 
 // An order is a "beat" delivery when it rides a configured
 // serviceability beat. The June 2026 review decoupled this from
@@ -1052,6 +1054,18 @@ export function Orders() {
   const orderDateLabelFor = (order: Order): string =>
     order.orderTime ? `${order.orderDate} ${order.orderTime}` : order.orderDate;
 
+  // QTY split into full cases (UPC), inner packs and loose pieces,
+  // per the SKU master packing. SKUs without packing are all pieces.
+  const packBreakdown = (skuCode: string, qty: number): number[] => {
+    const pack = getSkuPackConfig(skuCode);
+    if (!pack) return [0, 0, qty];
+    const upc = pack.upc > 1 ? Math.floor(qty / pack.upc) : 0;
+    let rest = qty - upc * pack.upc;
+    const inner = pack.innerPack > 1 ? Math.floor(rest / pack.innerPack) : 0;
+    rest -= inner * pack.innerPack;
+    return [upc, inner, rest];
+  };
+
   const handleExport = () => {
     const range = resolveExportRange();
     if (!range) {
@@ -1084,7 +1098,7 @@ export function Orders() {
       return;
     }
 
-    // 28-column layout — one row per line item; order-level fields
+    // 33-column layout — one row per line item; order-level fields
     // (Original Order Value, Order Level Savings, Final Order Value)
     // repeat on every row. The June 2026 review replaced the
     // Expected / Actual Delivery Date pair with a single Delivery
@@ -1109,9 +1123,10 @@ export function Orders() {
       "Order Date",
       "Order Type",
       "Beat Name",
-      "Delivery Day",
+      "Delivery Date",
       "Buyer Name",
       "Buyer Contact",
+      "Buyer GST Number",
       "Buyer Address",
       "Seller Name",
       "Seller Contact",
@@ -1119,12 +1134,16 @@ export function Orders() {
       "Channel Order ID",
       "Original Order Value",
       "SKU code",
+      "Short Name",
       "Product Name",
       "Company",
       "Operation Mode",
       "Brand",
       "Category",
       "QTY",
+      "UPC Qty",
+      "Inner Pack Qty",
+      "Piece Qty",
       "Original Price/Unit",
       "Final Price/Unit",
       "Discount Applied",
@@ -1193,6 +1212,7 @@ export function Orders() {
           order.expectedDeliveryDate,
           order.retailerName,
           order.buyerContact ?? "",
+          order.gstNumber ?? "",
           order.buyerAddress ?? "",
           SELLER_INFO.name,
           SELLER_INFO.contact,
@@ -1200,12 +1220,14 @@ export function Orders() {
           channelOrderIdFor(order),
           order.originalOrderValue ?? order.orderValue,
           item.skuCode,
+          sampleSKUs.find((k) => k.sku === item.skuCode)?.shortName ?? "—",
           item.productName,
           isWholesale ? "Wholesaler" : item.company,
           isWholesale ? "Wholesale" : "Distribution",
           item.brand,
           item.category,
           item.qty,
+          ...packBreakdown(item.skuCode, item.qty),
           item.originalPricePerUnit,
           item.finalPricePerUnit,
           item.discountApplied,
