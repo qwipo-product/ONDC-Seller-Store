@@ -7,15 +7,16 @@
  *     5–9 qty  → ₹7       (flat slab price)
  *     10+ qty  → 30% off  (percentage slab → effective ₹5.60)
  *
- * Per slab the user provides EITHER a flat price (rupees) OR a percentage
- * discount — not both. We derive the effective price either way.
+ * Per slab the user provides ONE of: a percentage discount, a flat rupee
+ * amount off per unit ("amount"), or a locked slab price ("flat", legacy).
+ * We derive the effective price in every case.
  *
  * Rules prefixed QPS- (Quantity Pricing Scheme).
  */
 
 import { catalogSkus, findSku } from "./sku-catalog";
 
-export type SlabDiscountType = "flat" | "percent";
+export type SlabDiscountType = "flat" | "percent" | "amount";
 
 export interface QpsSlab {
   minQty: number;
@@ -25,6 +26,8 @@ export interface QpsSlab {
   slabPrice?: number;
   /** When discountType = "percent": the % off the selling price. */
   slabPercent?: number;
+  /** When discountType = "amount": rupees taken off the selling price, per unit. */
+  slabAmount?: number;
   /** Effective per-unit price (derived). Computed once the slab is validated. */
   effectivePrice: number;
 }
@@ -60,6 +63,9 @@ export function computeEffectivePrice(slab: Partial<QpsSlab>, sellingPrice: numb
   }
   if (slab.discountType === "percent" && typeof slab.slabPercent === "number") {
     return +(sellingPrice * (1 - slab.slabPercent / 100)).toFixed(2);
+  }
+  if (slab.discountType === "amount" && typeof slab.slabAmount === "number") {
+    return +Math.max(0, sellingPrice - slab.slabAmount).toFixed(2);
   }
   return sellingPrice;
 }
@@ -104,7 +110,13 @@ export function validateSlabs(
     // --- QPS-006 Exactly one of slabPrice / slabPercent ---
     const hasPrice = typeof slab.slabPrice === "number";
     const hasPercent = typeof slab.slabPercent === "number";
-    if (slab.discountType === "flat") {
+    const hasAmount = typeof slab.slabAmount === "number" && !Number.isNaN(slab.slabAmount);
+    if (slab.discountType === "amount") {
+      if (!hasAmount) {
+        push("QPS-006", "ERR_QPS_006", "slabAmount",
+          `Slab ${i + 1}: Discount amount (₹) is required when discount type is Flat ₹ off.`, i);
+      }
+    } else if (slab.discountType === "flat") {
       if (!hasPrice) {
         push("QPS-006", "ERR_QPS_006", "slabPrice",
           `Slab ${i + 1}: Slab price is required when discount type is Flat.`, i);
@@ -116,7 +128,7 @@ export function validateSlabs(
       }
     } else {
       push("QPS-006", "ERR_QPS_006", "discountType",
-        `Slab ${i + 1}: Discount type must be either Flat or Percent.`, i);
+        `Slab ${i + 1}: Discount type must be either Percent or Flat ₹ off.`, i);
     }
     if (hasPrice && hasPercent) {
       push("QPS-006", "ERR_QPS_006", "discountType",
@@ -132,6 +144,18 @@ export function validateSlabs(
       } else if (p > sellingPrice) {
         push("QPS-007", "ERR_QPS_007", "slabPrice",
           `Slab ${i + 1}: Slab price (₹${p}) cannot exceed the SKU's selling price (₹${sellingPrice}).`, i);
+      }
+    }
+
+    // --- QPS-007 Flat ₹ off range (amount) ---
+    if (slab.discountType === "amount" && hasAmount) {
+      const a = slab.slabAmount!;
+      if (a < 0) {
+        push("QPS-007", "ERR_QPS_007", "slabAmount",
+          `Slab ${i + 1}: Discount amount cannot be negative.`, i);
+      } else if (a >= sellingPrice) {
+        push("QPS-007", "ERR_QPS_007", "slabAmount",
+          `Slab ${i + 1}: Discount amount (₹${a}) must be less than the SKU's selling price (₹${sellingPrice}).`, i);
       }
     }
 

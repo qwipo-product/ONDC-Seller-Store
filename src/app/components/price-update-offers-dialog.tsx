@@ -57,6 +57,9 @@ const slabRangeLabel = (s: QpsSlab) =>
     : `${s.minQty}–${s.maxQty} Qty`;
 
 const slabDiscountLabel = (s: QpsSlab) => {
+  if (s.discountType === "amount") {
+    return `${fmt(s.slabAmount ?? 0)} off`;
+  }
   if (s.discountType === "flat") {
     return `Flat ${fmt(s.slabPrice ?? 0)}`;
   }

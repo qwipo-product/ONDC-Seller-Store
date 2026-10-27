@@ -316,9 +316,8 @@ export function OffersList() {
     setEditorSkuCode("");
     setEditorStartDate(new Date().toISOString().slice(0, 10));
     setEditorEndDate(new Date(Date.now() + 30 * 86400 * 1000).toISOString().slice(0, 10));
-    // Phase 1 — only Discount % is offered as a slab type. Flat
-    // price is held back for a later phase, so new slabs default
-    // to percent.
+    // New slabs default to a % discount; the seller can switch a
+    // slab to a flat ₹ off per unit.
     setEditorSlabs([{ minQty: 1, maxQty: 5, discountType: "percent", slabPercent: 0 }]);
     setEditorActive(true);
     setIsEditorOpen(true);
@@ -352,6 +351,14 @@ export function OffersList() {
             maxQty: s.maxQty,
             discountType: "percent",
             slabPercent: s.slabPercent,
+          };
+        }
+        if (s.discountType === "amount") {
+          return {
+            minQty: s.minQty,
+            maxQty: s.maxQty,
+            discountType: "amount",
+            slabAmount: s.slabAmount,
           };
         }
         // Convert flat slab → equivalent percent off SP.
@@ -434,6 +441,7 @@ export function OffersList() {
       discountType: s.discountType!,
       slabPrice: s.slabPrice,
       slabPercent: s.slabPercent,
+      slabAmount: s.slabAmount,
       effectivePrice: computeEffectivePrice(s, selectedSku.sellingPrice),
     }));
 
@@ -558,6 +566,13 @@ export function OffersList() {
       const slabDiscountPct = (s: QpsSlab, sellingPrice: number) => {
         if (s.discountType === "percent" && typeof s.slabPercent === "number") {
           return s.slabPercent;
+        }
+        if (
+          s.discountType === "amount" &&
+          typeof s.slabAmount === "number" &&
+          sellingPrice > 0
+        ) {
+          return +((s.slabAmount / sellingPrice) * 100).toFixed(2);
         }
         if (
           s.discountType === "flat" &&
@@ -914,6 +929,10 @@ export function OffersList() {
                                 <Badge className="bg-purple-50 text-purple-700 border-purple-200">
                                   {slab.slabPercent}% off
                                 </Badge>
+                              ) : slab.discountType === "amount" ? (
+                                <Badge className="bg-blue-50 text-blue-700 border-blue-200">
+                                  ₹{slab.slabAmount} off per unit
+                                </Badge>
                               ) : (
                                 <Badge className="bg-blue-50 text-blue-700 border-blue-200">
                                   Flat ₹{slab.slabPrice}/unit
@@ -1170,9 +1189,9 @@ export function OffersList() {
               {editingId ? "Edit" : "Create"} Quantity Pricing Scheme (QPS)
             </DialogTitle>
             <DialogDescription>
-              Select a SKU and define quantity-based pricing slabs. Each slab takes a %
-              discount off the Selling Price — the effective per-unit price the customer
-              pays is calculated live.
+              Select a SKU and define quantity-based pricing slabs. Each slab gives either a %
+              discount or a flat ₹ amount off the Selling Price. The effective per-unit
+              price the customer pays is calculated live.
             </DialogDescription>
           </DialogHeader>
 
@@ -1387,20 +1406,28 @@ export function OffersList() {
                             />
                           </td>
                           <td className="px-4 py-3">
-                            {/* Phase 1 — only "% Discount" is on
-                                offer; flat-price slabs are
-                                deferred. The dropdown still
-                                renders so the cell layout stays
-                                stable, but it has only one option
-                                and the seller can't switch off it. */}
+                            {/* Per slab the seller picks how the discount is
+                                given: a percentage off the selling price,
+                                or a flat rupee amount off each unit. */}
                             <Select
-                              value="percent"
+                              value={slab.discountType === "amount" ? "amount" : "percent"}
                               onValueChange={(v) =>
-                                updateSlab(i, {
-                                  discountType: v as SlabDiscountType,
-                                  slabPercent: slab.slabPercent ?? 0,
-                                  slabPrice: undefined,
-                                })
+                                updateSlab(
+                                  i,
+                                  v === "amount"
+                                    ? {
+                                        discountType: "amount",
+                                        slabAmount: slab.slabAmount ?? 0,
+                                        slabPercent: undefined,
+                                        slabPrice: undefined,
+                                      }
+                                    : {
+                                        discountType: "percent",
+                                        slabPercent: slab.slabPercent ?? 0,
+                                        slabAmount: undefined,
+                                        slabPrice: undefined,
+                                      },
+                                )
                               }
                             >
                               <SelectTrigger className="h-8">
@@ -1408,6 +1435,7 @@ export function OffersList() {
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="percent">% Discount</SelectItem>
+                                <SelectItem value="amount">Flat ₹ off</SelectItem>
                               </SelectContent>
                             </Select>
                           </td>
@@ -1424,6 +1452,19 @@ export function OffersList() {
                                   className="h-8 pr-6"
                                 />
                                 <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-500">%</span>
+                              </div>
+                            ) : slab.discountType === "amount" ? (
+                              <div className="relative">
+                                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-500">₹</span>
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  step={0.01}
+                                  placeholder="off / unit"
+                                  value={slab.slabAmount ?? ""}
+                                  onChange={(e) => updateSlab(i, { slabAmount: parseFloat(e.target.value) })}
+                                  className="h-8 pl-5"
+                                />
                               </div>
                             ) : (
                               <div className="relative">
