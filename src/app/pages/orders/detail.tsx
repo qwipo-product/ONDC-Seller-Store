@@ -680,8 +680,12 @@ export function OrderDetail() {
             </Button>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
+                {/* Customer-order mode leads with the customer — one
+                    name across all its company orders. */}
                 <h1 className="text-lg font-semibold text-gray-900 truncate">
-                  Order #{isCustomerMode ? checkoutId : orderData.orderId}
+                  {isCustomerMode
+                    ? orderData.buyerStoreName
+                    : `Order #${orderData.orderId}`}
                 </h1>
                 {isCustomerMode ? (
                   <Badge variant="outline" className="text-sm">
@@ -696,7 +700,11 @@ export function OrderDetail() {
                 <Calendar className="h-3 w-3" />
                 {orderData.orderTime}
                 <span className="mx-1">•</span>
-                <span className="font-mono">{orderData.channelOrderId}</span>
+                <span className="font-mono">
+                  {isCustomerMode
+                    ? `Parent Order ID ${checkoutId}`
+                    : orderData.channelOrderId}
+                </span>
               </div>
             </div>
           </div>
