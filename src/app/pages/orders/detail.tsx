@@ -735,7 +735,12 @@ export function OrderDetail() {
               variant="ghost"
               size="sm"
               onClick={() =>
-                navigate(isCustomerMode ? "/orders?view=customer" : "/orders")
+                // Back to the Orders view this page was opened from.
+                navigate(
+                  searchParams.get("view") === "company"
+                    ? "/orders?view=company"
+                    : "/orders",
+                )
               }
               className="gap-1.5 h-8"
             >

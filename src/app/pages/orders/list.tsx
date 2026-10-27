@@ -152,15 +152,15 @@ export function Orders() {
     setOrdersStore(next);
   };
   const [activeTab, setActiveTab] = useState<TabType>("all");
-  // Orders view — "company" is the existing one-row-per-company-order
-  // list and always the default; "customer" folds the company orders of
-  // one customer checkout into a single row. Only the URL
-  // (?view=customer) carries it, so opening Orders fresh always shows
-  // the existing list, while Back from a customer order returns to the
-  // Customer-wise view.
+  // Orders view — "customer" (default) folds the company orders of one
+  // customer checkout into a single row; "company" is the existing
+  // one-row-per-company-order list. Only the URL carries it
+  // (?view=company), so opening Orders fresh always lands on the
+  // Customer Wise view, and Back from a company order returns to the
+  // Company Wise view.
   const [searchParams, setSearchParams] = useSearchParams();
   const [orderView, setOrderView] = useState<OrdersView>(() =>
-    searchParams.get("view") === "customer" ? "customer" : "company",
+    searchParams.get("view") === "company" ? "company" : "customer",
   );
   const handleOrderViewChange = (view: OrdersView) => {
     if (view === orderView) return;
@@ -170,7 +170,7 @@ export function Orders() {
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
-        if (view === "customer") next.set("view", "customer");
+        if (view === "company") next.set("view", "company");
         else next.delete("view");
         return next;
       },
@@ -1581,7 +1581,7 @@ export function Orders() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => navigate(`/orders/${order.id}`)}
+                        onClick={() => navigate(`/orders/${order.id}?view=company`)}
                         title="View Details"
                       >
                         <Eye className="h-4 w-4" />
@@ -1826,11 +1826,7 @@ export function Orders() {
                           size="sm"
                           variant="ghost"
                           onClick={() =>
-                            navigate(
-                              g.orders.length > 1
-                                ? `/orders/${first.id}?view=customer`
-                                : `/orders/${first.id}`,
-                            )
+                            navigate(`/orders/${first.id}?view=customer`)
                           }
                           title="View Details"
                         >
@@ -2057,38 +2053,33 @@ export function Orders() {
                   they're looking at without exporting a report. */}
               {!isEmpty && (
                 <div className="px-6 py-2.5 border-b border-gray-100 bg-gradient-to-r from-purple-50/40 via-white to-emerald-50/40 flex-shrink-0 flex flex-wrap items-center gap-x-6 gap-y-2">
-                  {/* View switch — the default list is Company-wise
-                      (the existing flow). The button names the view it
-                      switches to: "Customer-wise View" from the default
-                      list, "Company-wise View" to come back. */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 gap-2 border-purple-300 text-purple-700 hover:bg-purple-50"
-                    onClick={() =>
-                      handleOrderViewChange(
-                        orderView === "customer" ? "company" : "customer",
-                      )
-                    }
-                  >
-                    {orderView === "customer" ? (
-                      <>
-                        <Building2 className="h-4 w-4" />
-                        Company-wise View
-                      </>
-                    ) : (
-                      <>
-                        <Users className="h-4 w-4" />
-                        Customer-wise View
-                      </>
-                    )}
-                  </Button>
-                  {orderView === "customer" && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-purple-600 px-2.5 py-1 text-[11px] font-semibold text-white">
-                      <Users className="h-3 w-3" />
-                      Showing Customer-wise
-                    </span>
-                  )}
+                  {/* View buttons — Customer Wise View (default) and
+                      Company Wise View (the existing list); the active
+                      one is filled. */}
+                  <div className="flex items-center gap-2">
+                    {(
+                      [
+                        { value: "customer", label: "Customer Wise View", icon: Users },
+                        { value: "company", label: "Company Wise View", icon: Building2 },
+                      ] as const
+                    ).map(({ value, label, icon: Icon }) => (
+                      <Button
+                        key={value}
+                        variant="outline"
+                        size="sm"
+                        aria-pressed={orderView === value}
+                        onClick={() => handleOrderViewChange(value)}
+                        className={`h-8 gap-2 ${
+                          orderView === value
+                            ? "border-purple-600 bg-purple-600 text-white hover:bg-purple-700 hover:text-white"
+                            : "border-purple-300 text-purple-700 hover:bg-purple-50"
+                        }`}
+                      >
+                        <Icon className="h-4 w-4" />
+                        {label}
+                      </Button>
+                    ))}
+                  </div>
                   <span className="h-3 w-px bg-gray-200" />
                   <div className="flex items-baseline gap-1.5">
                     <span className="text-[10px] uppercase tracking-wider font-semibold text-gray-500">
