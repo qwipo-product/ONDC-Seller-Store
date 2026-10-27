@@ -439,10 +439,9 @@ export function OrderDetail() {
   }, [orderId]);
 
   // Customer-order mode — opened from the Orders list's Customer-wise
-  // view (?view=customer). When this order's customer checkout holds
-  // more than one company order, the page lists all of them with their
-  // own Confirm / Cancel / Mark as Delivered actions instead of this
-  // single order's items.
+  // view (?view=customer). The page lists every company order in the
+  // customer checkout (one or more) with its own Confirm / Cancel /
+  // Mark as Delivered actions, whatever the orders' status.
   const [searchParams] = useSearchParams();
   const checkoutId = initialOrder ? getCustomerOrderId(initialOrder) : undefined;
   const [checkoutOrders, setCheckoutOrders] = useState<StoreOrder[]>(() =>
@@ -455,7 +454,7 @@ export function OrderDetail() {
     return subscribeToOrders(refresh);
   }, [checkoutId]);
   const isCustomerMode =
-    searchParams.get("view") === "customer" && checkoutOrders.length > 1;
+    searchParams.get("view") === "customer" && checkoutOrders.length > 0;
 
   // Which order the Confirm / Cancel / Deliver popups act on — this
   // page's order by default, or the company order whose row button was
@@ -763,7 +762,8 @@ export function OrderDetail() {
                 </h1>
                 {isCustomerMode ? (
                   <Badge variant="outline" className="text-sm">
-                    {checkoutOrders.length} company orders
+                    {checkoutOrders.length} company order
+                    {checkoutOrders.length === 1 ? "" : "s"}
                   </Badge>
                 ) : (
                   getStatusBadge(orderData)
@@ -1244,6 +1244,14 @@ export function OrderDetail() {
                             ) : (
                               <Badge className="bg-purple-50 text-purple-700 border-purple-200">Cancelled by Seller</Badge>
                             ))}
+                          {o.status === "Cancelled" && o.cancellationReason && (
+                            <p
+                              className="mt-1 text-xs text-gray-500 truncate"
+                              title={o.cancellationReason}
+                            >
+                              Reason: {o.cancellationReason}
+                            </p>
+                          )}
                         </td>
                         <td className="px-3 py-2">
                           <div className="flex items-center justify-end gap-2">
