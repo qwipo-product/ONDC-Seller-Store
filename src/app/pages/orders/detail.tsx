@@ -827,6 +827,11 @@ export function OrderDetail() {
                 const toBeCollected = +(
                   totalValue + retailerLogistics + retailerCommercial
                 ).toFixed(2);
+                // Grand total of everything — what's collected from the
+                // retailer plus the seller's own logistics + commercial fees.
+                const grandTotal = +(
+                  toBeCollected + sellerLogistics + sellerCommercial
+                ).toFixed(2);
                 const money = (n: number) =>
                   `₹${n.toLocaleString("en-IN", {
                     minimumFractionDigits: n % 1 ? 2 : 0,
@@ -877,7 +882,7 @@ export function OrderDetail() {
                         />
                       </span>
                       <span className="text-gray-900 font-semibold">
-                        {money(totalValue)}
+                        {money(grandTotal)}
                       </span>
                     </button>
                     {feeOpen && (
@@ -889,6 +894,8 @@ export function OrderDetail() {
                         <div className="border-t border-gray-200 my-1.5" />
                         <Row label="Seller Logistics Fees" value={sellerLogistics} />
                         <Row label="Seller Commercial Fees" value={sellerCommercial} />
+                        <div className="border-t border-gray-200 my-1.5" />
+                        <Row label="Total Value" value={grandTotal} bold />
                       </div>
                     )}
                   </div>
