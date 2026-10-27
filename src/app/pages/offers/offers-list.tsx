@@ -77,6 +77,15 @@ import {
   ValueSlabEditorDialog,
   ValueSlabViewDialog,
 } from "../../components/value-slab-dialogs";
+import {
+  type OffInvoiceScheme,
+  getAllOffInvoices,
+  setAllOffInvoices,
+} from "../../lib/off-invoice-data";
+import {
+  OffInvoiceEditorDialog,
+  OffInvoiceViewDialog,
+} from "../../components/off-invoice-dialogs";
 import { SkuComboBox } from "../../components/sku-combobox";
 import { CopyOnHover } from "../../components/copy-on-hover";
 
@@ -133,7 +142,7 @@ const OFFER_TYPES: OfferType[] = [
   {
     id: "off-invoice",
     label: "Off-Invoice",
-    description: "Flat discount applied on invoice total",
+    description: "Discount on the whole cart when it crosses a value",
     icon: Receipt,
     iconBg: "bg-purple-100",
     iconColor: "text-purple-600",
@@ -230,6 +239,19 @@ export function OffersList() {
   const [editingValueSlab, setEditingValueSlab] = useState<ValueSlabScheme | null>(null);
   const [viewValueSlabId, setViewValueSlabId] = useState<string | null>(null);
 
+  // Off-Invoice schemes: a discount on the whole cart / invoice value,
+  // not tied to a SKU or category.
+  const [offInvoices, setOffInvoices] = useState<OffInvoiceScheme[]>(() =>
+    isEmptyMode() ? [] : getAllOffInvoices(),
+  );
+  useEffect(() => {
+    if (isEmptyMode()) return;
+    setAllOffInvoices(offInvoices);
+  }, [offInvoices]);
+  const [isOffInvoiceEditorOpen, setIsOffInvoiceEditorOpen] = useState(false);
+  const [editingOffInvoice, setEditingOffInvoice] = useState<OffInvoiceScheme | null>(null);
+  const [viewOffInvoiceId, setViewOffInvoiceId] = useState<string | null>(null);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [offerTypeFilter, setOfferTypeFilter] = useState<string>("all");
@@ -289,7 +311,7 @@ export function OffersList() {
   // One list for every offer type. QPS rows carry a SKU; Value Slab
   // rows apply to the whole order, so they show "All SKUs".
   type ListRow = {
-    kind: "qps" | "value-slab";
+    kind: "qps" | "value-slab" | "off-invoice";
     id: string;
     name: string;
     skuCode: string;
@@ -299,8 +321,20 @@ export function OffersList() {
     status: string;
     qps?: QpsScheme;
     valueSlab?: ValueSlabScheme;
+    offInvoice?: OffInvoiceScheme;
   };
   const listRows: ListRow[] = [
+    ...offInvoices.map<ListRow>((o) => ({
+      kind: "off-invoice",
+      id: o.id,
+      name: o.name,
+      skuCode: "All SKUs",
+      skuName: "Whole cart (invoice value)",
+      startDate: o.startDate,
+      endDate: o.endDate,
+      status: o.status,
+      offInvoice: o,
+    })),
     ...valueSlabs.map<ListRow>((v) => ({
       kind: "value-slab",
       id: v.id,
@@ -418,6 +452,36 @@ export function OffersList() {
     );
     toast.success(`Value Slab ${exists ? "updated" : "created"} for ${scheme.skuName}`);
     setIsValueEditorOpen(false);
+  };
+
+  // Off-Invoice handlers. The scheme covers the whole catalog, so two
+  // Active ones would fight over the same cart. Only one can be Active.
+  const handlePickOffInvoice = () => {
+    setIsOfferTypeOpen(false);
+    setEditingOffInvoice(null);
+    setIsOffInvoiceEditorOpen(true);
+  };
+  const handleOpenEditOffInvoice = (scheme: OffInvoiceScheme) => {
+    setViewOffInvoiceId(null);
+    setEditingOffInvoice(scheme);
+    setIsOffInvoiceEditorOpen(true);
+  };
+  const handleSaveOffInvoice = (scheme: OffInvoiceScheme) => {
+    const clash = offInvoices.find(
+      (o) => o.id !== scheme.id && o.status === "Active",
+    );
+    if (scheme.status === "Active" && clash) {
+      toast.error(
+        `"${clash.name}" is already Active. Only one Off-Invoice scheme can be Active at a time because it covers the whole cart. Make that one Inactive first, or save this one as Inactive.`,
+      );
+      return;
+    }
+    const exists = offInvoices.some((o) => o.id === scheme.id);
+    setOffInvoices((prev) =>
+      exists ? prev.map((o) => (o.id === scheme.id ? scheme : o)) : [scheme, ...prev],
+    );
+    toast.success(`Off-Invoice scheme ${exists ? "updated" : "created"}`);
+    setIsOffInvoiceEditorOpen(false);
   };
 
   // Bridges the offer-type picker → existing QPS editor: closes the
@@ -764,7 +828,8 @@ export function OffersList() {
   // the pagination footer. KPI summary stays visible (showing 0s) and
   // the same full-height Card container is preserved so the layout
   // reads identically to the populated state.
-  const isEmpty = qpsSchemes.length === 0 && valueSlabs.length === 0;
+  const isEmpty =
+    qpsSchemes.length === 0 && valueSlabs.length === 0 && offInvoices.length === 0;
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
@@ -895,9 +960,13 @@ export function OffersList() {
                             <Badge variant="outline" className="gap-1 bg-blue-50 text-blue-700 border-blue-200">
                               <Layers className="h-3 w-3" /> QPS
                             </Badge>
-                          ) : (
+                          ) : s.kind === "value-slab" ? (
                             <Badge variant="outline" className="gap-1 bg-emerald-50 text-emerald-700 border-emerald-200">
                               <IndianRupee className="h-3 w-3" /> Value Slab
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="gap-1 bg-purple-50 text-purple-700 border-purple-200">
+                              <Receipt className="h-3 w-3" /> Off-Invoice
                             </Badge>
                           )}
                         </td>
@@ -920,7 +989,11 @@ export function OffersList() {
                               className="h-8 w-8"
                               title="View Details"
                               onClick={() =>
-                                s.kind === "qps" ? setViewSchemeId(s.id) : setViewValueSlabId(s.id)
+                                s.kind === "qps"
+                                  ? setViewSchemeId(s.id)
+                                  : s.kind === "value-slab"
+                                    ? setViewValueSlabId(s.id)
+                                    : setViewOffInvoiceId(s.id)
                               }
                             >
                               <Eye className="h-4 w-4 text-blue-600" />
@@ -932,7 +1005,11 @@ export function OffersList() {
                               title={s.status === "Expired" ? "Expired schemes cannot be edited" : "Edit"}
                               disabled={s.status === "Expired"}
                               onClick={() =>
-                                s.kind === "qps" ? handleOpenEdit(s.qps!) : handleOpenEditValueSlab(s.valueSlab!)
+                                s.kind === "qps"
+                                  ? handleOpenEdit(s.qps!)
+                                  : s.kind === "value-slab"
+                                    ? handleOpenEditValueSlab(s.valueSlab!)
+                                    : handleOpenEditOffInvoice(s.offInvoice!)
                               }
                             >
                               <Pencil className={`h-4 w-4 ${s.status === "Expired" ? "text-gray-300" : "text-gray-700"}`} />
@@ -1126,7 +1203,8 @@ export function OffersList() {
               right, top-aligned. The whole card is the click target. */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 py-2">
             {OFFER_TYPES.map((t) => {
-              const enabled = t.id === "qps" || t.id === "value-slab";
+              const enabled =
+                t.id === "qps" || t.id === "value-slab" || t.id === "off-invoice";
               const Icon = t.icon;
               return (
                 <button
@@ -1137,7 +1215,9 @@ export function OffersList() {
                       ? handlePickQps
                       : t.id === "value-slab"
                         ? handlePickValueSlab
-                        : undefined
+                        : t.id === "off-invoice"
+                          ? handlePickOffInvoice
+                          : undefined
                   }
                   disabled={!enabled}
                   className={
@@ -1697,6 +1777,17 @@ export function OffersList() {
         onClose={() => setViewValueSlabId(null)}
         onEdit={handleOpenEditValueSlab}
       />
+      <OffInvoiceEditorDialog
+        open={isOffInvoiceEditorOpen}
+        onOpenChange={setIsOffInvoiceEditorOpen}
+        scheme={editingOffInvoice}
+        onSave={handleSaveOffInvoice}
+      />
+      <OffInvoiceViewDialog
+        scheme={offInvoices.find((o) => o.id === viewOffInvoiceId) ?? null}
+        onClose={() => setViewOffInvoiceId(null)}
+        onEdit={handleOpenEditOffInvoice}
+      />
 
       <OffersFilterDrawer
         isOpen={isFilterDrawerOpen}
@@ -1711,7 +1802,7 @@ export function OffersList() {
           setOfferTypeFilter(v);
           setCurrentPage(1);
         }}
-        offerTypeOptions={OFFER_TYPES.filter((t) => t.id === "qps" || t.id === "value-slab").map<OfferTypeOption>((t) => ({
+        offerTypeOptions={OFFER_TYPES.filter((t) => t.id === "qps" || t.id === "value-slab" || t.id === "off-invoice").map<OfferTypeOption>((t) => ({
           value: t.id,
           label: t.label,
         }))}
