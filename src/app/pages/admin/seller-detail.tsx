@@ -1722,26 +1722,33 @@ export function SellerCatalogTab({
                       users keep their full kit; we just don't expose
                       a second button for it. */}
                   <div className="flex items-center gap-2 shrink-0">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-1.5"
-                      onClick={() => openModifyFee(sel.companyId)}
-                      disabled={isInactiveSeller}
-                      title={
-                        isInactiveSeller
-                          ? "Activate this seller before editing fees"
-                          : `Override the commercial fee for ${company.name} (this seller only)`
-                      }
-                    >
-                      <Coins className="h-3.5 w-3.5" />
-                      Modify Fee
-                      {sel.commercialFeeOverride && (
-                        <Badge className="ml-1 bg-amber-50 text-amber-700 border-amber-200 text-[10px] px-1">
-                          Overridden
-                        </Badge>
+                    {/* "Modify Fee" overrides the company's commercial fee for
+                        this seller. Only for DISTRIBUTOR companies, and only
+                        when the company's commercial fee is enabled at the
+                        company level — otherwise there is nothing to override. */}
+                    {mode === "distributor" &&
+                      company.commercialFee?.enabled && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5"
+                          onClick={() => openModifyFee(sel.companyId)}
+                          disabled={isInactiveSeller}
+                          title={
+                            isInactiveSeller
+                              ? "Activate this seller before editing fees"
+                              : `Override the commercial fee for ${company.name} (this seller only)`
+                          }
+                        >
+                          <Coins className="h-3.5 w-3.5" />
+                          Modify Fee
+                          {sel.commercialFeeOverride && (
+                            <Badge className="ml-1 bg-amber-50 text-amber-700 border-amber-200 text-[10px] px-1">
+                              Overridden
+                            </Badge>
+                          )}
+                        </Button>
                       )}
-                    </Button>
                     <Button
                       size="sm"
                       className="gap-1.5"
