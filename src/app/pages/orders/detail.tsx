@@ -38,6 +38,7 @@ import {
   ExternalLink,
   Pencil,
   Lock,
+  ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
 // Shared orders store — the detail page now looks up the right
@@ -441,6 +442,8 @@ export function OrderDetail() {
   // content through the close animation.
   const [editTarget, setEditTarget] = useState<OrderProduct | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  // Total Value fee-breakdown accordion (Order Meta).
+  const [feeOpen, setFeeOpen] = useState(false);
   const canEdit = canModifyOrderLines(orderData);
   const isModified = orderData.originalOrderValue !== undefined;
   const modifiedLineCount = orderData.products.filter(
@@ -807,12 +810,90 @@ export function OrderDetail() {
                   {orderData.channelOrderId}
                 </span>
               </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-gray-500">Original Value</span>
-                <span className="text-gray-900 font-semibold">
-                  ₹{(orderData.originalOrderValue ?? orderData.orderValue).toLocaleString("en-IN")}
-                </span>
-              </div>
+              {/* Total Value — click the chevron to expand the fee
+                  breakdown (retailer-facing vs seller-borne). Fees are a
+                  % of GMV, split between retailer and seller, mirroring the
+                  Super Admin commercial + logistics setup. */}
+              {(() => {
+                const totalValue =
+                  orderData.originalOrderValue ?? orderData.orderValue;
+                // Example setup: a small % of GMV split retailer / seller.
+                //   Commercial fee: 0.5% total → retailer 0.2% + seller 0.3%
+                //   Logistics fee:  0.3% total → retailer 0.1% + seller 0.2%
+                const retailerCommercial = +(totalValue * 0.002).toFixed(2);
+                const sellerCommercial = +(totalValue * 0.003).toFixed(2);
+                const retailerLogistics = +(totalValue * 0.001).toFixed(2);
+                const sellerLogistics = +(totalValue * 0.002).toFixed(2);
+                const toBeCollected = +(
+                  totalValue + retailerLogistics + retailerCommercial
+                ).toFixed(2);
+                const money = (n: number) =>
+                  `₹${n.toLocaleString("en-IN", {
+                    minimumFractionDigits: n % 1 ? 2 : 0,
+                    maximumFractionDigits: 2,
+                  })}`;
+                const Row = ({
+                  label,
+                  value,
+                  bold,
+                }: {
+                  label: string;
+                  value: number;
+                  bold?: boolean;
+                }) => (
+                  <div className="flex justify-between gap-2">
+                    <span
+                      className={
+                        bold ? "text-gray-900 font-semibold" : "text-gray-500"
+                      }
+                    >
+                      {label}
+                    </span>
+                    <span
+                      className={
+                        bold
+                          ? "text-gray-900 font-bold"
+                          : "text-gray-900 font-medium"
+                      }
+                    >
+                      {money(value)}
+                    </span>
+                  </div>
+                );
+                return (
+                  <div className="text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setFeeOpen((o) => !o)}
+                      className="w-full flex justify-between items-center gap-2 text-left"
+                      aria-expanded={feeOpen}
+                    >
+                      <span className="text-gray-500 flex items-center gap-1">
+                        Total Value
+                        <ChevronDown
+                          className={`h-3.5 w-3.5 text-gray-400 transition-transform ${
+                            feeOpen ? "rotate-180" : ""
+                          }`}
+                        />
+                      </span>
+                      <span className="text-gray-900 font-semibold">
+                        {money(totalValue)}
+                      </span>
+                    </button>
+                    {feeOpen && (
+                      <div className="mt-1.5 rounded-md border border-gray-200 bg-gray-50/70 p-2 space-y-1">
+                        <Row label="Total Order Value" value={totalValue} />
+                        <Row label="Retailer Logistics Fee" value={retailerLogistics} />
+                        <Row label="Retailer Commercial Fees" value={retailerCommercial} />
+                        <Row label="To be collected from retailer" value={toBeCollected} bold />
+                        <div className="border-t border-gray-200 my-1.5" />
+                        <Row label="Seller Logistics Fees" value={sellerLogistics} />
+                        <Row label="Seller Commercial Fees" value={sellerCommercial} />
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
               {isModified && (
                 <div className="flex justify-between text-xs">
                   <span className="text-gray-500">Final Value</span>
