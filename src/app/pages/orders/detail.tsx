@@ -1172,22 +1172,21 @@ export function OrderDetail() {
           <CardContent className="p-0 pb-0!">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b">
-                  <tr>
-                    {["Order ID", "Company", "Items", "Delivery Date", "Order Value", "Status", "Actions"].map((h) => (
-                      <th
-                        key={h}
-                        className={`px-3 py-2 text-[10px] font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap ${h === "Order Value" ? "text-right" : h === "Actions" ? "text-center" : "text-left"}`}
-                      >
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
                 <tbody>
                   {checkoutOrders.map((o) => {
                     return (
                     <React.Fragment key={o.id}>
+                    {/* Column titles repeat for every company order. */}
+                    <tr className="bg-gray-50 border-y border-gray-200">
+                      {["Order ID", "Company", "Delivery Date", "Status", "Actions"].map((h) => (
+                        <th
+                          key={h}
+                          className={`px-3 py-2 text-[10px] font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap ${h === "Actions" ? "text-center" : "text-left"}`}
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
                     <tr className="bg-purple-50/40 border-b border-gray-100">
                       <td className="px-3 py-2.5 whitespace-nowrap">
                         <div className="flex items-center gap-1">
@@ -1204,16 +1203,8 @@ export function OrderDetail() {
                       <td className="px-3 py-2.5 font-medium text-gray-900 whitespace-nowrap">
                         {o.company}
                       </td>
-                      <td className="px-3 py-2.5 text-gray-700">
-                        <span title={o.itemsSummary}>
-                          {getOrderLines(o).length} · {o.itemsSummary}
-                        </span>
-                      </td>
                       <td className="px-3 py-2.5 text-gray-700 tabular-nums whitespace-nowrap">
                         {o.expectedDeliveryDate}
-                      </td>
-                      <td className="px-3 py-2.5 text-right font-semibold text-gray-900 tabular-nums whitespace-nowrap">
-                        {formatRupees(o.orderValue)}
                       </td>
                       <td className="px-3 py-2.5 whitespace-nowrap">
                         {o.status === "New" && (
@@ -1280,7 +1271,7 @@ export function OrderDetail() {
                     </tr>
                     {/* Order Items — always shown under the order. */}
                     <tr className="border-b border-gray-200">
-                      <td colSpan={7} className="px-3 pt-1 pb-4">
+                      <td colSpan={5} className="px-3 pt-1 pb-4">
                         <CompanyOrderItems order={o} />
                       </td>
                     </tr>
@@ -1290,13 +1281,12 @@ export function OrderDetail() {
                 </tbody>
                 <tfoot>
                   <tr className="bg-gray-50">
-                    <td colSpan={4} className="px-3 py-2.5 text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Total
+                    <td colSpan={4} className="px-3 py-2.5 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Total Customer Order Value
                     </td>
                     <td className="px-3 py-2.5 text-right font-semibold text-emerald-700 tabular-nums whitespace-nowrap">
                       {formatRupees(checkoutOrders.reduce((n, o) => n + o.orderValue, 0))}
                     </td>
-                    <td colSpan={2} />
                   </tr>
                 </tfoot>
               </table>
