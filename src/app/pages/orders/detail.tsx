@@ -39,7 +39,6 @@ import {
   Pencil,
   Lock,
   ChevronDown,
-  ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 // Shared orders store — the detail page now looks up the right
@@ -460,13 +459,6 @@ export function OrderDetail() {
   // Bulk actions in customer-order mode — the company orders the open
   // Confirm / Cancel popup acts on together (null = single order).
   const [bulkIds, setBulkIds] = useState<string[] | null>(null);
-  // Drill-down in customer-order mode: company orders whose Order
-  // Items are expanded under their row.
-  const [expandedOrderIds, setExpandedOrderIds] = useState<string[]>([]);
-  const toggleExpanded = (id: string) =>
-    setExpandedOrderIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-    );
   const confirmableIds = checkoutOrders
     .filter((o) => o.status === "New")
     .map((o) => o.id);
@@ -1194,28 +1186,11 @@ export function OrderDetail() {
                 </thead>
                 <tbody>
                   {checkoutOrders.map((o) => {
-                    const expanded = expandedOrderIds.includes(o.id);
                     return (
                     <React.Fragment key={o.id}>
-                    <tr
-                      className={`border-b border-gray-100 ${expanded ? "bg-purple-50/40" : ""}`}
-                    >
+                    <tr className="bg-purple-50/40 border-b border-gray-100">
                       <td className="px-3 py-2.5 whitespace-nowrap">
                         <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => toggleExpanded(o.id)}
-                            aria-expanded={expanded}
-                            aria-label={`${expanded ? "Hide" : "Show"} order items for ${o.id}`}
-                            title={expanded ? "Hide order items" : "Show order items"}
-                            className="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-gray-100 text-gray-500"
-                          >
-                            {expanded ? (
-                              <ChevronDown className="h-4 w-4" />
-                            ) : (
-                              <ChevronRight className="h-4 w-4" />
-                            )}
-                          </button>
                           <button
                             type="button"
                             onClick={() => navigate(`/orders/${o.id}?view=company`)}
@@ -1303,13 +1278,12 @@ export function OrderDetail() {
                         </div>
                       </td>
                     </tr>
-                    {expanded && (
-                      <tr className="border-b border-gray-100 bg-gray-50/60">
-                        <td colSpan={7} className="px-3 pt-1 pb-3">
-                          <CompanyOrderItems order={o} />
-                        </td>
-                      </tr>
-                    )}
+                    {/* Order Items — always shown under the order. */}
+                    <tr className="border-b border-gray-200">
+                      <td colSpan={7} className="px-3 pt-1 pb-4">
+                        <CompanyOrderItems order={o} />
+                      </td>
+                    </tr>
                     </React.Fragment>
                     );
                   })}
@@ -1766,7 +1740,7 @@ export function OrderDetail() {
   );
 }
 
-// ---------- Company order items (customer-order drill-down) ----------
+// ---------- Company order items (customer-order view) ----------
 // Read-only Order Items for one company order, shown under its row on
 // the customer-order view. Same fields as the Order Items card on a
 // company order's own page; quantity edits stay on that page.

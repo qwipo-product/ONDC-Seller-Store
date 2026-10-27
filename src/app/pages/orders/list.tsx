@@ -8,6 +8,7 @@ import { Label } from "../../components/ui/label";
 import { MultiSelect } from "../../components/ui/multi-select";
 import { Textarea } from "../../components/ui/textarea";
 import { Checkbox } from "../../components/ui/checkbox";
+import { Switch } from "../../components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import {
   Dialog,
@@ -46,8 +47,6 @@ import {
   Clock,
   AlertTriangle,
   Lock,
-  Users,
-  Building2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "motion/react";
@@ -1988,27 +1987,27 @@ export function Orders() {
             >
               {/* Tab Headers with Filters */}
               <div className="border-b border-gray-200 p-3 flex-shrink-0">
-                <div className="flex items-center justify-between gap-4 overflow-x-auto">
+                <div className="flex items-center justify-between gap-3 overflow-x-auto">
                   {/* Tab Toggle */}
                   <TabsList className="bg-gray-100 p-1 rounded-lg inline-flex gap-1 h-auto flex-shrink-0">
                     <TabsTrigger
                       value="all"
-                      className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2 transition-all whitespace-nowrap"
+                      className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-2.5 py-2 transition-all whitespace-nowrap"
                     >
                       <span className="font-medium">All ({summary.all})</span>
                     </TabsTrigger>
                     <TabsTrigger
                       value="new"
-                      className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2 transition-all whitespace-nowrap"
+                      className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-2.5 py-2 transition-all whitespace-nowrap"
                     >
-                      <ShoppingCart className="h-4 w-4 mr-2" />
+                      <ShoppingCart className="h-4 w-4 mr-1" />
                       <span className="font-medium">New ({summary.new})</span>
                     </TabsTrigger>
                     <TabsTrigger
                       value="confirmed"
-                      className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2 transition-all whitespace-nowrap"
+                      className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-2.5 py-2 transition-all whitespace-nowrap"
                     >
-                      <CheckCircle2 className="h-4 w-4 mr-2" />
+                      <CheckCircle2 className="h-4 w-4 mr-1" />
                       <span className="font-medium">Confirmed ({summary.confirmed})</span>
                     </TabsTrigger>
                     {/* Only meaningful once the seller can actually
@@ -2017,31 +2016,48 @@ export function Orders() {
                     {logisticsEnabled && (
                       <TabsTrigger
                         value="logistics"
-                        className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2 transition-all whitespace-nowrap"
+                        className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-2.5 py-2 transition-all whitespace-nowrap"
                       >
-                        <Truck className="h-4 w-4 mr-2" />
+                        <Truck className="h-4 w-4 mr-1" />
                         <span className="font-medium">3PL Logistics ({summary.logistics})</span>
                       </TabsTrigger>
                     )}
                     <TabsTrigger
                       value="delivered"
-                      className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2 transition-all whitespace-nowrap"
+                      className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-2.5 py-2 transition-all whitespace-nowrap"
                     >
-                      <PackageCheck className="h-4 w-4 mr-2" />
+                      <PackageCheck className="h-4 w-4 mr-1" />
                       <span className="font-medium">Delivered ({summary.delivered})</span>
                     </TabsTrigger>
                     <TabsTrigger
                       value="cancelled"
-                      className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2 transition-all whitespace-nowrap"
+                      className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-2.5 py-2 transition-all whitespace-nowrap"
                     >
-                      <XCircle className="h-4 w-4 mr-2" />
+                      <XCircle className="h-4 w-4 mr-1" />
                       <span className="font-medium">Cancelled ({summary.cancelled})</span>
                     </TabsTrigger>
                   </TabsList>
 
                   {/* Action Buttons */}
                   {!isEmpty && (
-                  <div className="flex gap-2 flex-shrink-0">
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {/* View toggle — off (default) = Customer Wise View,
+                        on = Company Wise View (the existing list). */}
+                    <label
+                      htmlFor="orders-company-wise"
+                      className="flex items-center gap-2 px-1 text-sm font-medium text-gray-700 cursor-pointer select-none whitespace-nowrap"
+                    >
+                      Company Wise
+                      <Switch
+                        id="orders-company-wise"
+                        checked={orderView === "company"}
+                        onCheckedChange={(on) =>
+                          handleOrderViewChange(on ? "company" : "customer")
+                        }
+                        aria-label="Company Wise View"
+                      />
+                    </label>
+
                     {/* Filters Button */}
                     <Button
                       variant="outline"
@@ -2078,34 +2094,6 @@ export function Orders() {
                   they're looking at without exporting a report. */}
               {!isEmpty && (
                 <div className="px-6 py-2.5 border-b border-gray-100 bg-gradient-to-r from-purple-50/40 via-white to-emerald-50/40 flex-shrink-0 flex flex-wrap items-center gap-x-6 gap-y-2">
-                  {/* View buttons — Customer Wise View (default) and
-                      Company Wise View (the existing list); the active
-                      one is filled. */}
-                  <div className="flex items-center gap-2">
-                    {(
-                      [
-                        { value: "customer", label: "Customer Wise View", icon: Users },
-                        { value: "company", label: "Company Wise View", icon: Building2 },
-                      ] as const
-                    ).map(({ value, label, icon: Icon }) => (
-                      <Button
-                        key={value}
-                        variant="outline"
-                        size="sm"
-                        aria-pressed={orderView === value}
-                        onClick={() => handleOrderViewChange(value)}
-                        className={`h-8 gap-2 ${
-                          orderView === value
-                            ? "border-purple-600 bg-purple-600 text-white hover:bg-purple-700 hover:text-white"
-                            : "border-purple-300 text-purple-700 hover:bg-purple-50"
-                        }`}
-                      >
-                        <Icon className="h-4 w-4" />
-                        {label}
-                      </Button>
-                    ))}
-                  </div>
-                  <span className="h-3 w-px bg-gray-200" />
                   <div className="flex items-baseline gap-1.5">
                     <span className="text-[10px] uppercase tracking-wider font-semibold text-gray-500">
                       Customers
