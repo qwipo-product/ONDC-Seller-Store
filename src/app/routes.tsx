@@ -19,6 +19,7 @@ import { DashboardCompany } from "./pages/dashboard-company";
 import { Inventory } from "./pages/inventory";
 import { Orders } from "./pages/orders/list";
 import { OrderDetail } from "./pages/orders/detail";
+import { CustomerOrderDetail } from "./pages/orders/customer-order";
 import { Customers } from "./pages/customers/legacy-list";
 import { CustomerDetail } from "./pages/customers/legacy-detail";
 import { CustomersDemo } from "./pages/customers/list";
@@ -208,6 +209,8 @@ export const router = createBrowserRouter([
       { path: "inventory", Component: Inventory },
       { path: "orders", Component: Orders },
       { path: "orders/:orderId", Component: OrderDetail },
+      // Customer-wise view: one customer checkout across its company orders.
+      { path: "orders/customer/:checkoutId", Component: CustomerOrderDetail },
       // The Customers module ships the auto-register-on-first-order
       // flow (originally prototyped as "Customers 2" in the
       // empty-mode demo). It became the production model after PM

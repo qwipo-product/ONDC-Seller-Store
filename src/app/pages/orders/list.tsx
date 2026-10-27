@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { Card, CardContent } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
@@ -46,6 +46,8 @@ import {
   Clock,
   AlertTriangle,
   Lock,
+  Building2,
+  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "motion/react";
@@ -83,6 +85,9 @@ import {
   isStalePendingOrder,
   STALE_PENDING_NUDGE_DAYS,
   getAttentionOrders,
+  type CustomerCheckout,
+  groupOrdersByCheckout,
+  getOrderLines,
 } from "../../lib/orders-data";
 
 // An order is a "beat" delivery when it rides a configured
@@ -102,6 +107,9 @@ function isBeatOrder(order: Order): boolean {
 // "logistics" holds orders handed to the 3PL network. It isn't an
 // order STATUS — those rows are still Confirmed underneath — it's a
 // fulfilment route, so it gets its own tab rather than a status entry.
+type OrdersView = "company" | "customer";
+const ORDERS_VIEW_KEY = "ordersView";
+
 type TabType =
   | "all"
   | "new"
@@ -145,6 +153,43 @@ export function Orders() {
     setOrdersStore(next);
   };
   const [activeTab, setActiveTab] = useState<TabType>("all");
+  // Orders view — "company" is the existing one-row-per-company-order
+  // list (default); "customer" folds the company orders of one
+  // customer checkout into a single row. The choice rides the URL
+  // (?view=customer) and session storage, so it survives opening an
+  // order and coming back.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [orderView, setOrderView] = useState<OrdersView>(() => {
+    const fromUrl = searchParams.get("view");
+    if (fromUrl === "customer" || fromUrl === "company") return fromUrl;
+    try {
+      return sessionStorage.getItem(ORDERS_VIEW_KEY) === "customer"
+        ? "customer"
+        : "company";
+    } catch {
+      return "company";
+    }
+  });
+  const handleOrderViewChange = (view: OrdersView) => {
+    if (view === orderView) return;
+    setOrderView(view);
+    setSelectedOrders([]);
+    setCurrentPage(1);
+    try {
+      sessionStorage.setItem(ORDERS_VIEW_KEY, view);
+    } catch {
+      // Storage unavailable (private mode) — the URL still carries it.
+    }
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (view === "customer") next.set("view", "customer");
+        else next.delete("view");
+        return next;
+      },
+      { replace: true },
+    );
+  };
   // Sub-tab inside Confirmed: split deliveries by when they're due.
   // "all" matches both buckets — the default so existing flows keep
   // Confirmed-tab navigation. The earlier "Urgent / Tomorrow /
@@ -299,18 +344,24 @@ export function Orders() {
   const isSellerActionable = (o: Order) => !isWithLogisticsPartner(o);
 
   // Calculate summary statistics
+  // In the Customer-wise view each tab counts customer checkouts
+  // (distinct checkout references), not company orders.
   const summary = useMemo(() => {
+    const count = (list: Order[]) =>
+      orderView === "customer"
+        ? new Set(list.map(getCustomerOrderId)).size
+        : list.length;
     return {
-      all: orders.length,
-      new: orders.filter((o) => o.status === "New").length,
-      confirmed: orders.filter(
-        (o) => o.status === "Confirmed" && isSellerActionable(o),
-      ).length,
-      logistics: orders.filter(isWithLogisticsPartner).length,
-      delivered: orders.filter((o) => o.status === "Delivered").length,
-      cancelled: orders.filter((o) => o.status === "Cancelled").length,
+      all: count(orders),
+      new: count(orders.filter((o) => o.status === "New")),
+      confirmed: count(
+        orders.filter((o) => o.status === "Confirmed" && isSellerActionable(o)),
+      ),
+      logistics: count(orders.filter(isWithLogisticsPartner)),
+      delivered: count(orders.filter((o) => o.status === "Delivered")),
+      cancelled: count(orders.filter((o) => o.status === "Cancelled")),
     };
-  }, [orders]);
+  }, [orders, orderView]);
 
   // Get orders for active tab
   const getTabOrders = (tab: TabType): Order[] => {
@@ -803,6 +854,19 @@ export function Orders() {
   }, [currentTabOrders, currentPage, itemsPerPage]);
 
   const totalPages = Math.ceil(currentTabOrders.length / itemsPerPage);
+
+  // Customer-wise view: the current tab's (filtered) company orders
+  // grouped by checkout, paginated by checkout.
+  const checkoutGroups = useMemo(
+    () => groupOrdersByCheckout(currentTabOrders),
+    [currentTabOrders],
+  );
+  const paginatedCheckouts = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return checkoutGroups.slice(startIndex, startIndex + itemsPerPage);
+  }, [checkoutGroups, currentPage, itemsPerPage]);
+  const listTotal =
+    orderView === "customer" ? checkoutGroups.length : currentTabOrders.length;
   // Order Summary metrics — drives the strip rendered between the
   // tab row and the per-tab content. Reads off `currentTabOrders`
   // so the figures react to every active filter (tab, Beat /
@@ -819,10 +883,10 @@ export function Orders() {
     }
     return {
       customers: customers.size,
-      orders: currentTabOrders.length,
+      orders: listTotal,
       value,
     };
-  }, [currentTabOrders]);
+  }, [currentTabOrders, listTotal]);
 
   // View on Map — bulk action available on the New + Confirmed
   // tabs. Opens an in-app Leaflet + OpenStreetMap dialog showing
@@ -1546,6 +1610,278 @@ export function Orders() {
     );
   };
 
+  // Customer-wise view — one row per customer checkout. The company
+  // orders of a checkout (those that match the current tab + filters)
+  // fold into a single row; the row opens the consolidated Customer
+  // Order page, which links on to each company order for billing and
+  // fulfilment. A checkout is locked while any of its company orders
+  // is masked by the status-update gate.
+  const renderCustomerTable = (groups: CustomerCheckout[]) => {
+    const isActionable = activeTab === "new" || activeTab === "confirmed";
+    const th =
+      "text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap";
+    const selectableIds = (g: CustomerCheckout) =>
+      g.orders.filter((o) => !isMaskedOrder(o)).map((o) => o.id);
+    const pageIds = groups.flatMap(selectableIds);
+    const allPageSelected =
+      pageIds.length > 0 && pageIds.every((id) => selectedOrders.includes(id));
+
+    return (
+      <div className="flex-1 overflow-auto">
+        <table className="w-full">
+          <thead className="bg-gray-50 border-b border-gray-100 sticky top-0 z-10">
+            <tr>
+              {isActionable && (
+                <th className="text-left py-2.5 px-3 w-10">
+                  <Checkbox
+                    checked={allPageSelected}
+                    onCheckedChange={handleSelectAll}
+                  />
+                </th>
+              )}
+              <th className={th}>Order Date</th>
+              <th className={th}>Delivery Date</th>
+              <th className={th}>Parent Order ID</th>
+              <th className={th}>Business Name</th>
+              <th className={th}>Mobile</th>
+              <th className={th}>Delivery Address</th>
+              <th className={th}>Companies</th>
+              <th className={`${th} text-right`}>Items</th>
+              <th className={`${th} text-right`}>Order Value</th>
+              <th className={th}>Status</th>
+              <th className={`${th} text-center`}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {groups.map((g) => {
+              const first = g.orders[0];
+              const locked = g.orders.some(isMaskedOrder);
+              const ids = selectableIds(g);
+              const checked =
+                ids.length > 0 && ids.every((id) => selectedOrders.includes(id));
+              const orderDate = g.orders
+                .map((o) => o.orderDate)
+                .sort()[0];
+              const deliveryDates = Array.from(
+                new Set(g.orders.map((o) => o.expectedDeliveryDate)),
+              ).sort();
+              const companies = Array.from(
+                new Set(g.orders.map((o) => o.company)),
+              );
+              const items = g.orders.reduce(
+                (n, o) => n + getOrderLines(o).length,
+                0,
+              );
+              const value = g.orders.reduce((n, o) => n + o.orderValue, 0);
+              const staleDays = Math.max(
+                0,
+                ...g.orders
+                  .filter(isStalePendingOrder)
+                  .map((o) => getPendingAgeDays(o)),
+              );
+              // One badge per distinct status, so a checkout whose
+              // company orders sit in different states says so.
+              const statusOrders = Array.from(
+                new Map(
+                  g.orders.map((o) => [
+                    o.status === "Cancelled"
+                      ? `Cancelled-${o.cancelledBy ?? "Seller"}`
+                      : o.status,
+                    o,
+                  ]),
+                ).values(),
+              );
+              return (
+                <tr
+                  key={g.checkoutId}
+                  className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                >
+                  {isActionable && (
+                    <td className="px-3 py-2.5">
+                      {locked ? (
+                        <Lock className="h-3.5 w-3.5 text-gray-400" />
+                      ) : (
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={(c) =>
+                            setSelectedOrders((prev) =>
+                              c
+                                ? [...prev, ...ids.filter((id) => !prev.includes(id))]
+                                : prev.filter((id) => !ids.includes(id)),
+                            )
+                          }
+                        />
+                      )}
+                    </td>
+                  )}
+                  <td
+                    className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700 tabular-nums"
+                    title={first.orderTime ? `${orderDate} ${first.orderTime}` : orderDate}
+                  >
+                    {orderDate}
+                    {staleDays > 0 && (
+                      <span
+                        className="mt-1 flex items-center gap-1 text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded px-1 py-0.5 w-fit"
+                        title={`Placed ${staleDays} days ago — please confirm or cancel it before piling on new orders.`}
+                      >
+                        <Clock className="h-2.5 w-2.5" />
+                        {staleDays}d pending
+                      </span>
+                    )}
+                  </td>
+                  <td
+                    className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700 tabular-nums"
+                    title={deliveryDates.join(", ")}
+                  >
+                    {deliveryDates[0]}
+                    {deliveryDates.length > 1 && (
+                      <span className="block text-[10px] text-gray-500">
+                        +{deliveryDates.length - 1} more date
+                        {deliveryDates.length > 2 ? "s" : ""}
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2.5 whitespace-nowrap">
+                    <CopyOnHover value={g.checkoutId} label="Parent Order ID">
+                      <code
+                        className="text-[11px] bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded font-mono"
+                        title={g.checkoutId}
+                      >
+                        {g.checkoutId}
+                      </code>
+                    </CopyOnHover>
+                    <span className="mt-1 flex items-center gap-1 text-[10px] text-gray-500">
+                      <Building2 className="h-2.5 w-2.5" />
+                      {g.orders.length} company order
+                      {g.orders.length === 1 ? "" : "s"}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2.5">
+                    {locked ? (
+                      <p className="text-sm text-gray-400 select-none">{maskedText}</p>
+                    ) : (
+                      <CopyOnHover value={first.retailerName} label="Business name">
+                        <p
+                          className="text-sm font-medium text-gray-900 truncate max-w-[160px]"
+                          title={first.retailerName}
+                        >
+                          {first.retailerName}
+                        </p>
+                      </CopyOnHover>
+                    )}
+                  </td>
+                  <td className="px-3 py-2.5 whitespace-nowrap">
+                    {locked ? (
+                      <p className="text-xs text-gray-400 select-none">{maskedText}</p>
+                    ) : first.buyerContact ? (
+                      <CopyOnHover value={first.buyerContact} label="Mobile number">
+                        <p className="text-xs text-gray-700 font-mono">
+                          {first.buyerContact}
+                        </p>
+                      </CopyOnHover>
+                    ) : (
+                      <p className="text-xs text-gray-400">—</p>
+                    )}
+                  </td>
+                  <td className="px-3 py-2.5">
+                    {locked ? (
+                      <p className="text-xs text-gray-400 select-none">{maskedText}</p>
+                    ) : first.buyerAddress ? (
+                      <p
+                        className="text-xs text-gray-700 line-clamp-2 max-w-[220px]"
+                        title={first.buyerAddress}
+                      >
+                        {first.buyerAddress}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-gray-400">—</p>
+                    )}
+                  </td>
+                  <td className="px-3 py-2.5">
+                    {locked ? (
+                      <p className="text-sm text-gray-400 select-none">{maskedText}</p>
+                    ) : (
+                      <div
+                        className="flex flex-wrap gap-1 max-w-[220px]"
+                        title={companies.join(", ")}
+                      >
+                        {companies.slice(0, 2).map((c) => (
+                          <span
+                            key={c}
+                            className="inline-flex items-center px-2 py-0.5 rounded border border-gray-200 bg-white text-[11px] font-medium text-gray-700 max-w-[140px]"
+                          >
+                            <span className="truncate">{c}</span>
+                          </span>
+                        ))}
+                        {companies.length > 2 && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded border border-gray-200 bg-gray-50 text-[11px] font-medium text-gray-600">
+                            +{companies.length - 2}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-3 py-2.5 whitespace-nowrap text-right text-sm text-gray-700 tabular-nums">
+                    {items}
+                  </td>
+                  <td className="px-3 py-2.5 whitespace-nowrap text-right">
+                    <p
+                      className={`text-sm font-semibold tabular-nums ${locked ? "text-gray-400 select-none" : "text-gray-900"}`}
+                    >
+                      {locked ? "₹ ••••" : `₹${value.toFixed(2)}`}
+                    </p>
+                  </td>
+                  <td className="px-3 py-2.5 whitespace-nowrap">
+                    <div className="flex flex-col items-start gap-1">
+                      {statusOrders.map((o) => (
+                        <span key={o.id}>{getStatusBadge(o)}</span>
+                      ))}
+                    </div>
+                  </td>
+                  <td className="px-3 py-2.5 whitespace-nowrap">
+                    <div className="flex items-center justify-center gap-2">
+                      {locked ? (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled
+                          title="Locked. Update your previous orders to view this order"
+                        >
+                          <Lock className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() =>
+                            navigate(
+                              `/orders/customer/${encodeURIComponent(g.checkoutId)}`,
+                            )
+                          }
+                          title="View Customer Order"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  // The list body for the active view. An empty Customer-wise list
+  // falls back to the Company-wise empty state (same copy + Clear
+  // Filters action).
+  const renderOrdersList = () =>
+    orderView === "customer" && paginatedCheckouts.length > 0
+      ? renderCustomerTable(paginatedCheckouts)
+      : renderOrderTable(paginatedOrders);
+
   // Inception-day: when the seller has no orders at all, hide the
   // Filters / Export CTAs and the pagination footer. Tabs remain
   // visible so the seller can switch between status views and the
@@ -1747,6 +2083,38 @@ export function Orders() {
                   they're looking at without exporting a report. */}
               {!isEmpty && (
                 <div className="px-6 py-2.5 border-b border-gray-100 bg-gradient-to-r from-purple-50/40 via-white to-emerald-50/40 flex-shrink-0 flex flex-wrap items-center gap-x-6 gap-y-2">
+                  {/* Orders view toggle — Company-wise (one row per
+                      company order) vs Customer-wise (one row per
+                      customer checkout). */}
+                  <div
+                    role="radiogroup"
+                    aria-label="Orders view"
+                    className="inline-flex items-center gap-1 rounded-lg bg-gray-100 p-1"
+                  >
+                    {(
+                      [
+                        { value: "company", label: "Company-wise", icon: Building2 },
+                        { value: "customer", label: "Customer-wise", icon: Users },
+                      ] as const
+                    ).map(({ value, label, icon: Icon }) => (
+                      <button
+                        key={value}
+                        type="button"
+                        role="radio"
+                        aria-checked={orderView === value}
+                        onClick={() => handleOrderViewChange(value)}
+                        className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
+                          orderView === value
+                            ? "bg-white text-gray-900 shadow-sm"
+                            : "text-gray-600 hover:text-gray-900"
+                        }`}
+                      >
+                        <Icon className="h-3.5 w-3.5" />
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <span className="h-3 w-px bg-gray-200" />
                   <div className="flex items-baseline gap-1.5">
                     <span className="text-[10px] uppercase tracking-wider font-semibold text-gray-500">
                       Customers
@@ -1839,11 +2207,11 @@ export function Orders() {
               )}
 
               {/* Table */}
-              {renderOrderTable(paginatedOrders)}
+              {renderOrdersList()}
               {!isEmpty && (
               <ListPagination
                 page={currentPage}
-                total={currentTabOrders.length}
+                total={listTotal}
                 pageSize={itemsPerPage}
                 onPageChange={setCurrentPage}
                 itemLabel="order"
@@ -1936,11 +2304,11 @@ export function Orders() {
                 </div>
               )}
               {/* Table */}
-              {renderOrderTable(paginatedOrders)}
+              {renderOrdersList()}
               {!isEmpty && (
               <ListPagination
                 page={currentPage}
-                total={currentTabOrders.length}
+                total={listTotal}
                 pageSize={itemsPerPage}
                 onPageChange={setCurrentPage}
                 itemLabel="order"
@@ -2031,7 +2399,7 @@ export function Orders() {
               )}
 
               {/* Table */}
-              {renderOrderTable(paginatedOrders)}
+              {renderOrdersList()}
             </TabsContent>
 
             {/* 3PL Logistics — orders handed to the delivery partner.
@@ -2067,11 +2435,11 @@ export function Orders() {
               </div>
 
               {/* Table */}
-              {renderOrderTable(paginatedOrders)}
+              {renderOrdersList()}
               {!isEmpty && (
                 <ListPagination
                   page={currentPage}
-                  total={currentTabOrders.length}
+                  total={listTotal}
                   pageSize={itemsPerPage}
                   onPageChange={setCurrentPage}
                   itemLabel="order"
@@ -2103,7 +2471,7 @@ export function Orders() {
               )}
 
               {/* Table */}
-              {renderOrderTable(paginatedOrders)}
+              {renderOrdersList()}
             </TabsContent>
 
             <TabsContent value="cancelled" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
@@ -2182,7 +2550,7 @@ export function Orders() {
               )}
 
               {/* Table */}
-              {renderOrderTable(paginatedOrders)}
+              {renderOrdersList()}
             </TabsContent>
           </Tabs>
         </Card>

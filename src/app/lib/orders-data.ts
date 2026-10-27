@@ -1726,6 +1726,73 @@ export function getOrderById(id: string): Order | undefined {
   return _orders.find((o) => o.id === id);
 }
 
+// ---- Customer-wise view ----
+//
+// One buyer-app checkout splits into one seller order per company
+// (see {@link getCustomerOrderId}). The Orders list's Customer-wise
+// view folds those company orders back into one row per checkout.
+// Grouping is purely a read-side projection: it never creates, edits
+// or merges the underlying company orders.
+
+/** Every company order that came from one customer checkout. */
+export interface CustomerCheckout {
+  /** The shared checkout reference (`customerOrderId`, or the order's
+   *  own id for legacy orders that were never clubbed). */
+  checkoutId: string;
+  orders: Order[];
+}
+
+/** Group orders by checkout, keeping the order they first appear in.
+ *  Matches on the checkout reference only — two checkouts by the same
+ *  customer stay separate. */
+export function groupOrdersByCheckout(orders: Order[]): CustomerCheckout[] {
+  const byCheckout = new Map<string, Order[]>();
+  for (const o of orders) {
+    const key = getCustomerOrderId(o);
+    const group = byCheckout.get(key);
+    if (group) group.push(o);
+    else byCheckout.set(key, [o]);
+  }
+  return Array.from(byCheckout, ([checkoutId, group]) => ({
+    checkoutId,
+    orders: group,
+  }));
+}
+
+/** All company orders for one checkout, across every status. */
+export function getCheckoutOrders(checkoutId: string): Order[] {
+  return _orders.filter((o) => getCustomerOrderId(o) === checkoutId);
+}
+
+/**
+ * Product lines of an order, each carrying its company and brand.
+ * Uses the order's line items when present; otherwise derives one line
+ * from `itemsSummary` ("<qty> units <name>" or "<name> + N more"),
+ * attributed to the order's own company / brand.
+ */
+export function getOrderLines(order: Order): OrderLineItem[] {
+  if (order.lineItems && order.lineItems.length > 0) return order.lineItems;
+  const m = /^(\d+)\s+units?\s+(.+?)\s*$/i.exec(order.itemsSummary);
+  const qty = m ? Number(m[1]) : 1;
+  const name = m ? m[2] : order.itemsSummary;
+  const ppu = qty > 0 ? +(order.orderValue / qty).toFixed(2) : order.orderValue;
+  return [
+    {
+      skuCode: `${order.id}-LINE-1`,
+      productName: name,
+      company: order.company,
+      brand: order.brand,
+      category: "—",
+      qty,
+      originalPricePerUnit: ppu,
+      finalPricePerUnit: ppu,
+      discountApplied: 0,
+      discountDetails: "No Discount",
+      lineTotal: order.orderValue,
+    },
+  ];
+}
+
 /**
  * Update a single order's status. No-op if the id isn't found.
  * Passing `reason` + `cancelledBy` alongside a "Cancelled" status
