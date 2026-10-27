@@ -17,6 +17,7 @@ createRoot(document.getElementById("root")!).render(
   <ThemeProvider
     attribute="class"
     defaultTheme="light"
+    forcedTheme="light"
     enableSystem={false}
     storageKey="qwipo.theme"
     disableTransitionOnChange

@@ -62,11 +62,10 @@ import {
 } from "../../lib/logistics-settings";
 // Shared store — seeds + writers live in lib/orders-data so the
 // detail page can read the same orders by id and writes flow both
-// ways. `Order` / `OrderLineItem` are exported from the lib so we
-// don't redeclare them here.
+// ways. `Order` is exported from the lib so we
+// don't redeclare it here.
 import {
   type Order,
-  type OrderLineItem,
   type DeliveryType,
   type CancelledBy,
   SELLER_INFO,
@@ -284,8 +283,19 @@ export function Orders() {
     if (Number.isNaN(t)) return anchor;
     return new Date(t + n * 86400000).toISOString().split("T")[0];
   };
-  const [exportStartDate, setExportStartDate] = useState(isoNDaysBack(30));
-  const [exportEndDate, setExportEndDate] = useState(todayIso);
+  // Default window: the 31 days ending at the newest order, so the
+  // first export always has data in it.
+  const latestOrderIso = (() => {
+    const latest = getOrders().reduce(
+      (max, o) => (o.orderDate > max ? o.orderDate : max),
+      "",
+    );
+    return latest && latest < todayIso ? latest : todayIso;
+  })();
+  const [exportStartDate, setExportStartDate] = useState(() =>
+    isoNDaysAfter(latestOrderIso, -30),
+  );
+  const [exportEndDate, setExportEndDate] = useState(latestOrderIso);
   const [exportFormat, setExportFormat] = useState("csv");
 
   /** Resolve the active export range. Returns null when either date
@@ -1042,35 +1052,6 @@ export function Orders() {
   const orderDateLabelFor = (order: Order): string =>
     order.orderTime ? `${order.orderDate} ${order.orderTime}` : order.orderDate;
 
-  // Synthesize a single line item from `itemsSummary` for orders
-  // that don't carry full lineItems. Best-effort parsing: pulls the
-  // leading qty + product description, prices to orderValue/qty, and
-  // marks the line as no-discount.
-  const synthesizeLineItems = (order: Order): OrderLineItem[] => {
-    const m = order.itemsSummary.match(/^\s*(\d+)\s+units?\s+(.+?)\s*$/i);
-    const qty = m ? parseInt(m[1], 10) : 1;
-    const name = m ? m[2] : order.itemsSummary;
-    const ppu = qty > 0 ? +(order.orderValue / qty).toFixed(2) : order.orderValue;
-    return [
-      {
-        skuCode: `SKU-${order.id.replace(/[^0-9]/g, "").slice(-5)}`,
-        productName: name,
-        // No richer line detail to draw on — fall back to the order's
-        // own company and brand. Real builds would resolve category
-        // from the SKU catalog.
-        company: order.company,
-        brand: order.brand,
-        category: "—",
-        qty,
-        originalPricePerUnit: ppu,
-        finalPricePerUnit: ppu,
-        discountApplied: 0,
-        discountDetails: "No Discount",
-        lineTotal: order.orderValue,
-      },
-    ];
-  };
-
   const handleExport = () => {
     const range = resolveExportRange();
     if (!range) {
@@ -1153,6 +1134,7 @@ export function Orders() {
     ];
 
     const csvRows = [headers.join(",")];
+    const sheetRows: (string | number)[][] = [];
 
     // Clubbed-order counts — how many exported orders share each
     // checkout. Counted within the export window so the sheet is
@@ -1174,10 +1156,19 @@ export function Orders() {
       : ordersToExport;
 
     exportRows.forEach((order) => {
-      const lines =
-        order.lineItems && order.lineItems.length > 0
-          ? order.lineItems
-          : synthesizeLineItems(order);
+      // Same lines as the View page, with any seller quantity edits
+      // applied so QTY and line totals add up to Final Order Value.
+      const lines = getOrderLines(order).map((l) => {
+        const mod = order.qtyModifications?.[l.skuCode];
+        return mod
+          ? {
+              ...l,
+              qty: mod.modifiedQty,
+              finalPricePerUnit: mod.pricePerUnit,
+              lineTotal: Math.round(mod.modifiedQty * mod.pricePerUnit * 100) / 100,
+            }
+          : l;
+      });
       const orderLevelSavings = lines.reduce(
         (n, l) => n + l.discountApplied,
         0,
@@ -1223,32 +1214,73 @@ export function Orders() {
           finalOrderValue,
         ];
         csvRows.push(row.map(escapeCsv).join(","));
+        sheetRows.push(row);
       });
     });
 
-    const csvContent = csvRows.join("\r\n");
+    const fileName = `orders_${customerWise ? "customer-wise_" : ""}${range.start}_to_${range.end}.${exportFormat}`;
+    const exportedLabel = customerWise
+      ? `${groupOrdersByCheckout(ordersToExport).length} customer order(s) (${ordersToExport.length} company orders)`
+      : `${ordersToExport.length} order(s)`;
+    const done = () => {
+      toast.success(
+        `Successfully exported ${exportedLabel} from ${range.start} to ${range.end}`,
+      );
+      setIsExportDialogOpen(false);
+    };
 
-    // Create download link
-    const blob = new Blob(["﻿" + csvContent], {
-      type: "text/csv;charset=utf-8;",
-    });
+    if (exportFormat === "xlsx") {
+      // A real workbook — Excel rejects CSV text saved as .xlsx.
+      void (async () => {
+        try {
+          const ExcelJS = (await import("exceljs")).default;
+          const wb = new ExcelJS.Workbook();
+          const ws = wb.addWorksheet("Orders");
+          ws.addRow(headers);
+          ws.getRow(1).font = { bold: true };
+          ws.views = [{ state: "frozen", ySplit: 1 }];
+          sheetRows.forEach((r) => ws.addRow(r));
+          ws.columns.forEach((col, i) => {
+            const longest = Math.max(
+              headers[i].length,
+              ...sheetRows.map((r) => String(r[i] ?? "").length),
+            );
+            col.width = Math.min(Math.max(longest + 2, 10), 50);
+          });
+          const buf = await wb.xlsx.writeBuffer();
+          downloadBlob(
+            new Blob([buf], {
+              type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            }),
+            fileName,
+          );
+          done();
+        } catch {
+          toast.error("Could not create the Excel file. Please try CSV.");
+        }
+      })();
+      return;
+    }
+
+    const csvContent = csvRows.join("\r\n");
+    downloadBlob(
+      new Blob(["﻿" + csvContent], { type: "text/csv;charset=utf-8;" }),
+      fileName,
+    );
+    done();
+  };
+
+  const downloadBlob = (blob: Blob, fileName: string) => {
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
 
     link.setAttribute("href", url);
-    link.setAttribute(
-      "download",
-      `orders_${customerWise ? "customer-wise_" : ""}${range.start}_to_${range.end}.${exportFormat}`,
-    );
+    link.setAttribute("download", fileName);
     link.style.visibility = "hidden";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-
-    toast.success(
-      `Successfully exported ${ordersToExport.length} order(s) from ${range.start} to ${range.end}`,
-    );
-    setIsExportDialogOpen(false);
+    setTimeout(() => URL.revokeObjectURL(url), 0);
   };
 
   // Get status badge. Cancelled orders fan out into two visually

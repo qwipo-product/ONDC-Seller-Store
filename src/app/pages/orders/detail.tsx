@@ -1169,127 +1169,132 @@ export function OrderDetail() {
               Orders ({checkoutOrders.length})
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-0 pb-0!">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <tbody>
-                  {checkoutOrders.map((o) => {
-                    return (
-                    <React.Fragment key={o.id}>
-                    {/* Column titles repeat for every company order. */}
-                    <tr className="bg-gray-50 border-y border-gray-200">
-                      {["Order ID", "Company", "Delivery Date", "Status", "Actions"].map((h) => (
-                        <th
-                          key={h}
-                          className={`px-3 py-2 text-[10px] font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap ${h === "Actions" ? "text-center" : "text-left"}`}
-                        >
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                    <tr className="bg-purple-50/40 border-b border-gray-100">
-                      <td className="px-3 py-2.5 whitespace-nowrap">
-                        <div className="flex items-center gap-1">
+          <CardContent className="p-3 pb-3! space-y-3">
+            {/* One block per company order: its own column titles, then
+                its Order Items. Fixed column widths keep every block
+                aligned with the next. */}
+            {checkoutOrders.map((o) => (
+              <div
+                key={o.id}
+                className="rounded-lg border border-gray-200 overflow-hidden"
+              >
+                <div className="overflow-x-auto">
+                  <table className="w-full table-fixed min-w-[860px] text-sm">
+                    <colgroup>
+                      <col className="w-[26%]" />
+                      <col className="w-[22%]" />
+                      <col className="w-[14%]" />
+                      <col className="w-[14%]" />
+                      <col className="w-[24%]" />
+                    </colgroup>
+                    <thead className="bg-gray-50 border-b border-gray-200">
+                      <tr>
+                        {["Order ID", "Company", "Delivery Date", "Status", "Actions"].map((h) => (
+                          <th
+                            key={h}
+                            className={`px-3 py-2 text-[10px] font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap ${h === "Actions" ? "text-right" : "text-left"}`}
+                          >
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="align-middle">
+                        <td className="px-3 py-2.5">
                           <button
                             type="button"
                             onClick={() => navigate(`/orders/${o.id}?view=company`)}
-                            className="text-[11px] font-mono text-blue-600 hover:text-blue-700 hover:underline"
+                            className="text-[13px] font-mono text-blue-600 hover:text-blue-700 hover:underline truncate max-w-full"
                             title="View order details"
                           >
                             {o.id}
                           </button>
-                        </div>
-                      </td>
-                      <td className="px-3 py-2.5 font-medium text-gray-900 whitespace-nowrap">
-                        {o.company}
-                      </td>
-                      <td className="px-3 py-2.5 text-gray-700 tabular-nums whitespace-nowrap">
-                        {o.expectedDeliveryDate}
-                      </td>
-                      <td className="px-3 py-2.5 whitespace-nowrap">
-                        {o.status === "New" && (
-                          <Badge className="bg-blue-50 text-blue-700 border-blue-200">New Order</Badge>
-                        )}
-                        {o.status === "Confirmed" &&
-                          (o.logisticsRequested ? (
-                            <Badge className="bg-blue-50 text-blue-700 border-blue-200">With 3PL Partner</Badge>
-                          ) : (
-                            <Badge className="bg-green-50 text-green-700 border-green-200">Confirmed</Badge>
-                          ))}
-                        {o.status === "Delivered" && (
-                          <Badge className="bg-purple-50 text-purple-700 border-purple-200">Delivered</Badge>
-                        )}
-                        {o.status === "Cancelled" && (
-                          (o.cancelledBy ?? "Seller") === "Buyer" ? (
-                            <Badge className="bg-amber-50 text-amber-800 border-amber-200">Cancelled by Customer</Badge>
-                          ) : (
-                            <Badge className="bg-purple-50 text-purple-700 border-purple-200">Cancelled by Seller</Badge>
-                          )
-                        )}
-                      </td>
-                      <td className="px-3 py-2.5 whitespace-nowrap">
-                        <div className="flex items-center justify-center gap-2">
-                          {(o.status === "New" ||
-                            (o.status === "Confirmed" && !o.logisticsRequested)) && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="border-red-300 text-red-700 hover:bg-red-50 h-8"
-                              onClick={() => openActionFor(o.id, "cancel")}
-                            >
-                              <XCircle className="h-3.5 w-3.5 mr-1.5" />
-                              Cancel
-                            </Button>
-                          )}
+                        </td>
+                        <td className="px-3 py-2.5 font-medium text-gray-900 truncate" title={o.company}>
+                          {o.company}
+                        </td>
+                        <td className="px-3 py-2.5 text-gray-700 tabular-nums whitespace-nowrap">
+                          {o.expectedDeliveryDate}
+                        </td>
+                        <td className="px-3 py-2.5 whitespace-nowrap">
                           {o.status === "New" && (
-                            <Button
-                              size="sm"
-                              className="bg-green-600 hover:bg-green-700 h-8"
-                              onClick={() => openActionFor(o.id, "confirm")}
-                            >
-                              <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
-                              Confirm Order
-                            </Button>
+                            <Badge className="bg-blue-50 text-blue-700 border-blue-200">New Order</Badge>
                           )}
-                          {o.status === "Confirmed" && !o.logisticsRequested && (
-                            <Button
-                              size="sm"
-                              className="bg-green-600 hover:bg-green-700 h-8"
-                              onClick={() => openActionFor(o.id, "deliver")}
-                            >
-                              <Truck className="h-3.5 w-3.5 mr-1.5" />
-                              Mark as Delivered
-                            </Button>
+                          {o.status === "Confirmed" &&
+                            (o.logisticsRequested ? (
+                              <Badge className="bg-blue-50 text-blue-700 border-blue-200">With 3PL Partner</Badge>
+                            ) : (
+                              <Badge className="bg-green-50 text-green-700 border-green-200">Confirmed</Badge>
+                            ))}
+                          {o.status === "Delivered" && (
+                            <Badge className="bg-purple-50 text-purple-700 border-purple-200">Delivered</Badge>
                           )}
-                          {(o.status === "Delivered" ||
-                            o.status === "Cancelled" ||
-                            o.logisticsRequested) && (
-                            <span className="text-xs text-gray-400">—</span>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                    {/* Order Items — always shown under the order. */}
-                    <tr className="border-b border-gray-200">
-                      <td colSpan={5} className="px-3 pt-1 pb-4">
-                        <CompanyOrderItems order={o} />
-                      </td>
-                    </tr>
-                    </React.Fragment>
-                    );
-                  })}
-                </tbody>
-                <tfoot>
-                  <tr className="bg-gray-50">
-                    <td colSpan={4} className="px-3 py-2.5 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Total Customer Order Value
-                    </td>
-                    <td className="px-3 py-2.5 text-right font-semibold text-emerald-700 tabular-nums whitespace-nowrap">
-                      {formatRupees(checkoutOrders.reduce((n, o) => n + o.orderValue, 0))}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
+                          {o.status === "Cancelled" &&
+                            ((o.cancelledBy ?? "Seller") === "Buyer" ? (
+                              <Badge className="bg-amber-50 text-amber-800 border-amber-200">Cancelled by Customer</Badge>
+                            ) : (
+                              <Badge className="bg-purple-50 text-purple-700 border-purple-200">Cancelled by Seller</Badge>
+                            ))}
+                        </td>
+                        <td className="px-3 py-2">
+                          <div className="flex items-center justify-end gap-2">
+                            {(o.status === "New" ||
+                              (o.status === "Confirmed" && !o.logisticsRequested)) && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="border-red-300 text-red-700 hover:bg-red-50 h-8"
+                                onClick={() => openActionFor(o.id, "cancel")}
+                              >
+                                <XCircle className="h-3.5 w-3.5 mr-1.5" />
+                                Cancel
+                              </Button>
+                            )}
+                            {o.status === "New" && (
+                              <Button
+                                size="sm"
+                                className="bg-green-600 hover:bg-green-700 h-8"
+                                onClick={() => openActionFor(o.id, "confirm")}
+                              >
+                                <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+                                Confirm Order
+                              </Button>
+                            )}
+                            {o.status === "Confirmed" && !o.logisticsRequested && (
+                              <Button
+                                size="sm"
+                                className="bg-green-600 hover:bg-green-700 h-8"
+                                onClick={() => openActionFor(o.id, "deliver")}
+                              >
+                                <Truck className="h-3.5 w-3.5 mr-1.5" />
+                                Mark as Delivered
+                              </Button>
+                            )}
+                            {(o.status === "Delivered" ||
+                              o.status === "Cancelled" ||
+                              o.logisticsRequested) && (
+                              <span className="text-sm text-gray-400">—</span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                {/* Order Items — always shown under the order. */}
+                <div className="border-t border-gray-200">
+                  <CompanyOrderItems order={o} />
+                </div>
+              </div>
+            ))}
+            <div className="flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-2.5">
+              <span className="text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                Total Customer Order Value
+              </span>
+              <span className="text-base font-bold text-emerald-700 tabular-nums">
+                {formatRupees(checkoutOrders.reduce((n, o) => n + o.orderValue, 0))}
+              </span>
             </div>
           </CardContent>
         </Card>
@@ -1739,9 +1744,19 @@ function CompanyOrderItems({ order }: { order: StoreOrder }) {
   const th =
     "px-3 py-2 text-[10px] font-semibold text-gray-600 uppercase tracking-wider";
   return (
-    <div className="rounded-lg border border-gray-200 bg-white overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead className="bg-gray-50 border-b">
+    <div className="bg-white overflow-x-auto">
+      <table className="w-full table-fixed min-w-[860px] text-sm">
+        <colgroup>
+          <col className="w-[30%]" />
+          <col className="w-[14%]" />
+          <col className="w-[11%]" />
+          <col className="w-[9%]" />
+          <col className="w-[10%]" />
+          <col className="w-[8%]" />
+          <col className="w-[9%]" />
+          <col className="w-[9%]" />
+        </colgroup>
+        <thead className="bg-gray-50/70 border-b">
           <tr>
             <th className={`${th} text-left`}>Product</th>
             <th className={`${th} text-left`}>SKU</th>

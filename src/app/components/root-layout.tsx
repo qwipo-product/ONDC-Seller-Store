@@ -53,7 +53,6 @@ import {
 import { getPendingRequests } from "../lib/product-store-data";
 import { AlertOctagon, Loader2, UserPlus } from "lucide-react";
 import { RouteProgress } from "./ui/page-loader";
-import { ThemeToggle } from "./theme-toggle";
 // External target the Logistics menu opens in a new tab. The Logistics
 // item is part of every seller's sidebar — it goes greyed-out for the
 // empty-mode seller persona (so reviewers see the inception-day state)
@@ -512,12 +511,6 @@ export function RootLayout() {
             {/* Notifications icon removed for Phase 1 — the notifications
                 feature is deferred, so we don't show a bell that goes
                 nowhere. Restore this block when notifications ship. */}
-
-            {/* Light / dark mode toggle — sits immediately before the
-                profile dropdown so it's the last action the user's
-                eye lands on before their identity. Available to every
-                logged-in role (admin + seller). */}
-            <ThemeToggle />
 
             {/* User Menu */}
             <DropdownMenu>
