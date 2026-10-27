@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router";
+import { useParams, useNavigate, useSearchParams } from "react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
@@ -48,6 +48,10 @@ import { toast } from "sonner";
 // page's subscribe callback sees the change.
 import {
   getOrderById,
+  getCheckoutOrders,
+  getCustomerOrderId,
+  getOrderLines,
+  type Order as StoreOrder,
   updateOrderStatus,
   subscribeToOrders,
   synthesizeProducts,
@@ -429,6 +433,46 @@ export function OrderDetail() {
     return subscribeToOrders(refresh);
   }, [orderId]);
 
+  // Customer-order mode — opened from the Orders list's Customer-wise
+  // view (?view=customer). When this order's customer checkout holds
+  // more than one company order, the page lists all of them with their
+  // own Confirm / Cancel / Mark as Delivered actions instead of this
+  // single order's items.
+  const [searchParams] = useSearchParams();
+  const checkoutId = initialOrder ? getCustomerOrderId(initialOrder) : undefined;
+  const [checkoutOrders, setCheckoutOrders] = useState<StoreOrder[]>(() =>
+    checkoutId ? getCheckoutOrders(checkoutId) : [],
+  );
+  useEffect(() => {
+    if (!checkoutId) return;
+    const refresh = () => setCheckoutOrders(getCheckoutOrders(checkoutId));
+    refresh();
+    return subscribeToOrders(refresh);
+  }, [checkoutId]);
+  const isCustomerMode =
+    searchParams.get("view") === "customer" && checkoutOrders.length > 1;
+
+  // Which order the Confirm / Cancel / Deliver popups act on — this
+  // page's order by default, or the company order whose row button was
+  // pressed in customer-order mode.
+  const [actionOrderId, setActionOrderId] = useState<string | null>(null);
+  const actionStoreOrder = actionOrderId ? getOrderById(actionOrderId) : undefined;
+  const actionData: OrderDetails = actionStoreOrder
+    ? buildOrderDetailFromStore(actionStoreOrder)
+    : orderData;
+  const targetId = actionData.orderId;
+  // In customer-order mode the seller stays on the page to work through
+  // the other company orders; otherwise keep the existing return to the
+  // list.
+  const afterAction = () => {
+    setActionOrderId(null);
+    if (!isCustomerMode) {
+      setTimeout(() => {
+        navigate("/orders");
+      }, 1500);
+    }
+  };
+
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   // Detail page reuses the bulk cancel popup's shape so the seller
@@ -543,42 +587,45 @@ export function OrderDetail() {
   };
 
   const handleConfirmOrder = () => {
+    setActionOrderId(null);
     setIsConfirmModalOpen(true);
   };
 
   const handleConfirm = () => {
-    setOrderData((prev) => ({ ...prev, status: "Confirmed" }));
+    if (targetId === orderData.orderId) {
+      setOrderData((prev) => ({ ...prev, status: "Confirmed" }));
+    }
     // Write the new status back to the shared store so the list
     // page (and any other subscriber) sees the change.
-    if (orderData.orderId) updateOrderStatus(orderData.orderId, "Confirmed");
+    if (targetId) updateOrderStatus(targetId, "Confirmed");
     setIsConfirmModalOpen(false);
     toast.success("Order confirmed successfully!");
-    setTimeout(() => {
-      navigate("/orders");
-    }, 1500);
+    afterAction();
   };
 
   const handleCancelOrder = () => {
+    setActionOrderId(null);
     setIsCancelModalOpen(true);
   };
 
   const handleCancel = () => {
     const now = new Date().toISOString();
-    setOrderData((prev) => ({
-      ...prev,
-      status: "Cancelled",
-      cancellationReason: cancelReason,
-      cancelledBy: "Seller",
-      cancellationTime: now,
-    }));
-    if (orderData.orderId) {
-      updateOrderStatus(orderData.orderId, "Cancelled", cancelReason, "Seller");
+    if (targetId === orderData.orderId) {
+      setOrderData((prev) => ({
+        ...prev,
+        status: "Cancelled",
+        cancellationReason: cancelReason,
+        cancelledBy: "Seller",
+        cancellationTime: now,
+      }));
+    }
+    if (targetId) {
+      updateOrderStatus(targetId, "Cancelled", cancelReason, "Seller");
     }
     setIsCancelModalOpen(false);
     toast.error(`Order cancelled. Reason: ${cancelReason}`);
-    setTimeout(() => {
-      navigate("/orders");
-    }, 1500);
+    setCancelReason("");
+    afterAction();
   };
 
   // ---- Mark as Delivered (Confirmed → Delivered) ----
@@ -586,17 +633,30 @@ export function OrderDetail() {
   // Delivered" CTA. The detail page used to only handle New →
   // Confirmed; Phase 1 finishes the loop here.
   const handleMarkDelivered = () => {
+    setActionOrderId(null);
     setIsDeliverModalOpen(true);
   };
 
   const handleConfirmDelivered = () => {
-    setOrderData((prev) => ({ ...prev, status: "Delivered" }));
-    if (orderData.orderId) updateOrderStatus(orderData.orderId, "Delivered");
+    if (targetId === orderData.orderId) {
+      setOrderData((prev) => ({ ...prev, status: "Delivered" }));
+    }
+    if (targetId) updateOrderStatus(targetId, "Delivered");
     setIsDeliverModalOpen(false);
     toast.success("Order marked as delivered.");
-    setTimeout(() => {
-      navigate("/orders");
-    }, 1500);
+    afterAction();
+  };
+
+  // Row actions in customer-order mode: aim the existing popups at one
+  // company order.
+  const openActionFor = (
+    id: string,
+    action: "confirm" | "cancel" | "deliver",
+  ) => {
+    setActionOrderId(id);
+    if (action === "confirm") setIsConfirmModalOpen(true);
+    else if (action === "cancel") setIsCancelModalOpen(true);
+    else setIsDeliverModalOpen(true);
   };
 
   // Stock-availability warnings are no longer shown — distributors don't
@@ -621,9 +681,15 @@ export function OrderDetail() {
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-lg font-semibold text-gray-900 truncate">
-                  Order #{orderData.orderId}
+                  Order #{isCustomerMode ? checkoutId : orderData.orderId}
                 </h1>
-                {getStatusBadge(orderData)}
+                {isCustomerMode ? (
+                  <Badge variant="outline" className="text-sm">
+                    {checkoutOrders.length} company orders
+                  </Badge>
+                ) : (
+                  getStatusBadge(orderData)
+                )}
                 {getChannelBadge(orderData.channel)}
               </div>
               <div className="flex items-center gap-1 text-[11px] text-gray-500 mt-0.5">
@@ -640,7 +706,7 @@ export function OrderDetail() {
                   Confirmed → Mark as Delivered + Cancel.
                   Delivered / Cancelled → no destructive actions —
                   the order is past the seller's hand. */}
-              {orderData.status === "New" && (
+              {!isCustomerMode && orderData.status === "New" && (
                 <>
                   <Button
                     variant="outline"
@@ -661,7 +727,7 @@ export function OrderDetail() {
                   </Button>
                 </>
               )}
-              {orderData.status === "Confirmed" && (
+              {!isCustomerMode && orderData.status === "Confirmed" && (
                 <>
                   <Button
                     variant="outline"
@@ -697,7 +763,7 @@ export function OrderDetail() {
             Reads the timestamp + reason directly from the order
             so the cancelled-tab reviewer doesn't have to expand
             Order Meta to see the headline facts. */}
-        {orderData.status === "Cancelled" &&
+        {!isCustomerMode && orderData.status === "Cancelled" &&
           (() => {
             const who = orderData.cancelledBy ?? "Seller";
             const whenLabel = formatCancellationTime(orderData.cancellationTime);
@@ -792,7 +858,36 @@ export function OrderDetail() {
                 {orderData.sellerContact}
               </p>
             </div>
-            {/* Order Meta */}
+            {/* Order Meta — customer-order mode summarises every company
+                order in the checkout. */}
+            {isCustomerMode ? (
+            <div className="space-y-1.5 md:border-l md:pl-3 md:border-gray-200">
+              <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1">
+                <Hash className="h-3.5 w-3.5 text-gray-600" />
+                Order Meta
+              </p>
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500">Company Orders</span>
+                <span className="text-gray-900 font-medium">{checkoutOrders.length}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500">Items</span>
+                <span className="text-gray-900 font-medium">
+                  {checkoutOrders.reduce((n, o) => n + getOrderLines(o).length, 0)}
+                </span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500">Payment</span>
+                <span className="text-gray-900 font-medium">{orderData.paymentMode}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500">Total Value</span>
+                <span className="text-emerald-700 font-semibold">
+                  {formatRupees(checkoutOrders.reduce((n, o) => n + o.orderValue, 0))}
+                </span>
+              </div>
+            </div>
+            ) : (
             <div className="space-y-1.5 md:border-l md:pl-3 md:border-gray-200">
               <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1">
                 <Hash className="h-3.5 w-3.5 text-gray-600" />
@@ -948,6 +1043,7 @@ export function OrderDetail() {
                 </>
               )}
             </div>
+            )}
           </CardContent>
         </Card>
 
@@ -962,7 +1058,132 @@ export function OrderDetail() {
             non-important `pb-2.5` would lose. With the override
             the top and bottom of the heading have equal 10px
             spacing. */}
+        {isCustomerMode ? (
         <Card className="gap-0">
+          <CardHeader className="pt-2.5 pb-2.5! px-3 border-b border-gray-100">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Package className="h-4 w-4 text-purple-600" />
+              Orders ({checkoutOrders.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0 pb-0!">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b">
+                  <tr>
+                    {["Order ID", "Company", "Items", "Delivery Date", "Order Value", "Status", "Actions"].map((h) => (
+                      <th
+                        key={h}
+                        className={`px-3 py-2 text-[10px] font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap ${h === "Order Value" ? "text-right" : h === "Actions" ? "text-center" : "text-left"}`}
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {checkoutOrders.map((o) => (
+                    <tr key={o.id} className="border-b border-gray-100">
+                      <td className="px-3 py-2.5 whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/orders/${o.id}`)}
+                          className="text-[11px] font-mono text-blue-600 hover:text-blue-700 hover:underline"
+                          title="View order details"
+                        >
+                          {o.id}
+                        </button>
+                      </td>
+                      <td className="px-3 py-2.5 font-medium text-gray-900 whitespace-nowrap">
+                        {o.company}
+                      </td>
+                      <td className="px-3 py-2.5 text-gray-700">
+                        <span title={o.itemsSummary}>
+                          {getOrderLines(o).length} · {o.itemsSummary}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2.5 text-gray-700 tabular-nums whitespace-nowrap">
+                        {o.expectedDeliveryDate}
+                      </td>
+                      <td className="px-3 py-2.5 text-right font-semibold text-gray-900 tabular-nums whitespace-nowrap">
+                        {formatRupees(o.orderValue)}
+                      </td>
+                      <td className="px-3 py-2.5 whitespace-nowrap">
+                        {o.status === "New" && (
+                          <Badge className="bg-blue-50 text-blue-700 border-blue-200">New Order</Badge>
+                        )}
+                        {o.status === "Confirmed" && (
+                          <Badge className="bg-green-50 text-green-700 border-green-200">Confirmed</Badge>
+                        )}
+                        {o.status === "Delivered" && (
+                          <Badge className="bg-purple-50 text-purple-700 border-purple-200">Delivered</Badge>
+                        )}
+                        {o.status === "Cancelled" && (
+                          (o.cancelledBy ?? "Seller") === "Buyer" ? (
+                            <Badge className="bg-amber-50 text-amber-800 border-amber-200">Cancelled by Customer</Badge>
+                          ) : (
+                            <Badge className="bg-purple-50 text-purple-700 border-purple-200">Cancelled by Seller</Badge>
+                          )
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5 whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-2">
+                          {(o.status === "New" || o.status === "Confirmed") && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="border-red-300 text-red-700 hover:bg-red-50 h-8"
+                              onClick={() => openActionFor(o.id, "cancel")}
+                            >
+                              <XCircle className="h-3.5 w-3.5 mr-1.5" />
+                              Cancel
+                            </Button>
+                          )}
+                          {o.status === "New" && (
+                            <Button
+                              size="sm"
+                              className="bg-green-600 hover:bg-green-700 h-8"
+                              onClick={() => openActionFor(o.id, "confirm")}
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+                              Confirm Order
+                            </Button>
+                          )}
+                          {o.status === "Confirmed" && !o.logisticsRequested && (
+                            <Button
+                              size="sm"
+                              className="bg-green-600 hover:bg-green-700 h-8"
+                              onClick={() => openActionFor(o.id, "deliver")}
+                            >
+                              <Truck className="h-3.5 w-3.5 mr-1.5" />
+                              Mark as Delivered
+                            </Button>
+                          )}
+                          {(o.status === "Delivered" || o.status === "Cancelled") && (
+                            <span className="text-xs text-gray-400">—</span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-gray-50">
+                    <td colSpan={4} className="px-3 py-2.5 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Total
+                    </td>
+                    <td className="px-3 py-2.5 text-right font-semibold text-emerald-700 tabular-nums whitespace-nowrap">
+                      {formatRupees(checkoutOrders.reduce((n, o) => n + o.orderValue, 0))}
+                    </td>
+                    <td colSpan={2} />
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+        ) : (
+                <Card className="gap-0">
           <CardHeader className="pt-2.5 pb-2.5! px-3 border-b border-gray-100">
             <CardTitle className="text-sm flex items-center gap-2">
               <Package className="h-4 w-4 text-purple-600" />
@@ -1198,6 +1419,7 @@ export function OrderDetail() {
             </div>
           </CardContent>
         </Card>
+        )}
       </div>
 
       {/* Confirm Order Modal — no delivery-day gate; any New order can
@@ -1216,16 +1438,16 @@ export function OrderDetail() {
           <div className="py-4">
             <div className="bg-gray-50 p-4 rounded-lg space-y-2">
               <p className="text-sm">
-                <strong>Order ID:</strong> {orderData.orderId}
+                <strong>Order ID:</strong> {actionData.orderId}
               </p>
               <p className="text-sm">
-                <strong>Buyer:</strong> {orderData.buyerStoreName}
+                <strong>Buyer:</strong> {actionData.buyerStoreName}
               </p>
               <p className="text-sm">
-                <strong>Total Items:</strong> {orderData.products.length}
+                <strong>Total Items:</strong> {actionData.products.length}
               </p>
               <p className="text-sm">
-                <strong>Order Value:</strong> ₹{orderData.orderValue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                <strong>Order Value:</strong> ₹{actionData.orderValue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
               </p>
             </div>
             <p className="text-sm text-gray-600 mt-4">
@@ -1316,8 +1538,8 @@ export function OrderDetail() {
               Mark as Delivered
             </DialogTitle>
             <DialogDescription>
-              Confirm that Order #{orderData.orderId} has been delivered to{" "}
-              {orderData.buyerStoreName}. This action moves the order to the
+              Confirm that Order #{actionData.orderId} has been delivered to{" "}
+              {actionData.buyerStoreName}. This action moves the order to the
               Delivered tab and can't be undone.
             </DialogDescription>
           </DialogHeader>

@@ -1855,10 +1855,12 @@ export function Orders() {
                           variant="ghost"
                           onClick={() =>
                             navigate(
-                              `/orders/customer/${encodeURIComponent(g.checkoutId)}`,
+                              g.orders.length > 1
+                                ? `/orders/${first.id}?view=customer`
+                                : `/orders/${first.id}`,
                             )
                           }
-                          title="View Customer Order"
+                          title="View Details"
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
