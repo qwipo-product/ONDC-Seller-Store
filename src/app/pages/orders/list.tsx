@@ -1987,25 +1987,25 @@ export function Orders() {
             >
               {/* Tab Headers with Filters */}
               <div className="border-b border-gray-200 p-3 flex-shrink-0">
-                <div className="flex items-center justify-between gap-3 overflow-x-auto">
+                <div className="flex items-center justify-between gap-2 overflow-x-auto">
                   {/* Tab Toggle */}
                   <TabsList className="bg-gray-100 p-1 rounded-lg inline-flex gap-1 h-auto flex-shrink-0">
                     <TabsTrigger
                       value="all"
-                      className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-2.5 py-2 transition-all whitespace-nowrap"
+                      className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-2 py-2 transition-all whitespace-nowrap text-[13px]"
                     >
                       <span className="font-medium">All ({summary.all})</span>
                     </TabsTrigger>
                     <TabsTrigger
                       value="new"
-                      className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-2.5 py-2 transition-all whitespace-nowrap"
+                      className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-2 py-2 transition-all whitespace-nowrap text-[13px]"
                     >
                       <ShoppingCart className="h-4 w-4 mr-1" />
                       <span className="font-medium">New ({summary.new})</span>
                     </TabsTrigger>
                     <TabsTrigger
                       value="confirmed"
-                      className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-2.5 py-2 transition-all whitespace-nowrap"
+                      className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-2 py-2 transition-all whitespace-nowrap text-[13px]"
                     >
                       <CheckCircle2 className="h-4 w-4 mr-1" />
                       <span className="font-medium">Confirmed ({summary.confirmed})</span>
@@ -2016,7 +2016,7 @@ export function Orders() {
                     {logisticsEnabled && (
                       <TabsTrigger
                         value="logistics"
-                        className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-2.5 py-2 transition-all whitespace-nowrap"
+                        className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-2 py-2 transition-all whitespace-nowrap text-[13px]"
                       >
                         <Truck className="h-4 w-4 mr-1" />
                         <span className="font-medium">3PL Logistics ({summary.logistics})</span>
@@ -2024,14 +2024,14 @@ export function Orders() {
                     )}
                     <TabsTrigger
                       value="delivered"
-                      className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-2.5 py-2 transition-all whitespace-nowrap"
+                      className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-2 py-2 transition-all whitespace-nowrap text-[13px]"
                     >
                       <PackageCheck className="h-4 w-4 mr-1" />
                       <span className="font-medium">Delivered ({summary.delivered})</span>
                     </TabsTrigger>
                     <TabsTrigger
                       value="cancelled"
-                      className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-2.5 py-2 transition-all whitespace-nowrap"
+                      className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-2 py-2 transition-all whitespace-nowrap text-[13px]"
                     >
                       <XCircle className="h-4 w-4 mr-1" />
                       <span className="font-medium">Cancelled ({summary.cancelled})</span>
@@ -2041,26 +2041,47 @@ export function Orders() {
                   {/* Action Buttons */}
                   {!isEmpty && (
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    {/* View toggle — off (default) = Customer Wise View,
-                        on = Company Wise View (the existing list). */}
-                    <label
-                      htmlFor="orders-company-wise"
-                      className="flex items-center gap-2 px-1 text-sm font-medium text-gray-700 cursor-pointer select-none whitespace-nowrap"
-                    >
-                      Company Wise
+                    {/* View toggle — "Customer Wise" on the left (default,
+                        switch off), "Company Wise" on the right (switch
+                        on, the existing list). The active side is
+                        highlighted; either label also switches. */}
+                    <div className="flex items-center gap-1.5 text-xs whitespace-nowrap select-none">
+                      <button
+                        type="button"
+                        onClick={() => handleOrderViewChange("customer")}
+                        className={
+                          orderView === "customer"
+                            ? "p-0 text-xs font-semibold text-purple-700"
+                            : "p-0 text-xs font-medium text-gray-500 hover:text-gray-700"
+                        }
+                      >
+                        Customer Wise
+                      </button>
                       <Switch
                         id="orders-company-wise"
                         checked={orderView === "company"}
                         onCheckedChange={(on) =>
                           handleOrderViewChange(on ? "company" : "customer")
                         }
-                        aria-label="Company Wise View"
+                        aria-label="Switch between Customer Wise and Company Wise view"
                       />
-                    </label>
+                      <button
+                        type="button"
+                        onClick={() => handleOrderViewChange("company")}
+                        className={
+                          orderView === "company"
+                            ? "p-0 text-xs font-semibold text-purple-700"
+                            : "p-0 text-xs font-medium text-gray-500 hover:text-gray-700"
+                        }
+                      >
+                        Company Wise
+                      </button>
+                    </div>
 
                     {/* Filters Button */}
                     <Button
                       variant="outline"
+                      size="sm"
                       className="gap-2"
                       onClick={() => setIsFilterDialogOpen(true)}
                     >
@@ -2070,6 +2091,7 @@ export function Orders() {
 
                     {/* Export Button */}
                     <Button
+                      size="sm"
                       className="gap-2"
                       onClick={() => setIsExportDialogOpen(true)}
                     >
