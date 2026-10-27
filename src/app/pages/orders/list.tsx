@@ -46,7 +46,6 @@ import {
   Clock,
   AlertTriangle,
   Lock,
-  Building2,
   Users,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -1641,11 +1640,10 @@ export function Orders() {
               )}
               <th className={th}>Order Date</th>
               <th className={th}>Delivery Date</th>
-              <th className={th}>Parent Order ID</th>
               <th className={th}>Business Name</th>
               <th className={th}>Mobile</th>
+              <th className={th}>Order Type</th>
               <th className={th}>Delivery Address</th>
-              <th className={th}>Companies</th>
               <th className={`${th} text-right`}>Items</th>
               <th className={`${th} text-right`}>Order Value</th>
               <th className={th}>Status</th>
@@ -1665,8 +1663,10 @@ export function Orders() {
               const deliveryDates = Array.from(
                 new Set(g.orders.map((o) => o.expectedDeliveryDate)),
               ).sort();
-              const companies = Array.from(
-                new Set(g.orders.map((o) => o.company)),
+              // Beat / Non-Beat — one chip per type present in the
+              // customer order.
+              const orderTypes = Array.from(
+                new Set(g.orders.map((o) => getOrderType(o))),
               );
               const items = g.orders.reduce(
                 (n, o) => n + getOrderLines(o).length,
@@ -1741,21 +1741,6 @@ export function Orders() {
                       </span>
                     )}
                   </td>
-                  <td className="px-3 py-2.5 whitespace-nowrap">
-                    <CopyOnHover value={g.checkoutId} label="Parent Order ID">
-                      <code
-                        className="text-[11px] bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded font-mono"
-                        title={g.checkoutId}
-                      >
-                        {g.checkoutId}
-                      </code>
-                    </CopyOnHover>
-                    <span className="mt-1 flex items-center gap-1 text-[10px] text-gray-500">
-                      <Building2 className="h-2.5 w-2.5" />
-                      {g.orders.length} company order
-                      {g.orders.length === 1 ? "" : "s"}
-                    </span>
-                  </td>
                   <td className="px-3 py-2.5">
                     {locked ? (
                       <p className="text-sm text-gray-400 select-none">{maskedText}</p>
@@ -1783,6 +1768,29 @@ export function Orders() {
                       <p className="text-xs text-gray-400">—</p>
                     )}
                   </td>
+                  <td className="px-3 py-2.5 whitespace-nowrap">
+                    <div className="flex flex-col items-start gap-1">
+                      {orderTypes.map((type) =>
+                        type === "beat" ? (
+                          <span
+                            key={type}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-emerald-200 bg-emerald-50 text-[11px] font-medium text-emerald-700"
+                          >
+                            <Route className="h-3 w-3" />
+                            Beat
+                          </span>
+                        ) : (
+                          <span
+                            key={type}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-amber-200 bg-amber-50 text-[11px] font-medium text-amber-800"
+                          >
+                            <Zap className="h-3 w-3" />
+                            Non-Beat
+                          </span>
+                        ),
+                      )}
+                    </div>
+                  </td>
                   <td className="px-3 py-2.5">
                     {locked ? (
                       <p className="text-xs text-gray-400 select-none">{maskedText}</p>
@@ -1795,30 +1803,6 @@ export function Orders() {
                       </p>
                     ) : (
                       <p className="text-xs text-gray-400">—</p>
-                    )}
-                  </td>
-                  <td className="px-3 py-2.5">
-                    {locked ? (
-                      <p className="text-sm text-gray-400 select-none">{maskedText}</p>
-                    ) : (
-                      <div
-                        className="flex flex-wrap gap-1 max-w-[220px]"
-                        title={companies.join(", ")}
-                      >
-                        {companies.slice(0, 2).map((c) => (
-                          <span
-                            key={c}
-                            className="inline-flex items-center px-2 py-0.5 rounded border border-gray-200 bg-white text-[11px] font-medium text-gray-700 max-w-[140px]"
-                          >
-                            <span className="truncate">{c}</span>
-                          </span>
-                        ))}
-                        {companies.length > 2 && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded border border-gray-200 bg-gray-50 text-[11px] font-medium text-gray-600">
-                            +{companies.length - 2}
-                          </span>
-                        )}
-                      </div>
                     )}
                   </td>
                   <td className="px-3 py-2.5 whitespace-nowrap text-right text-sm text-gray-700 tabular-nums">
@@ -2085,37 +2069,27 @@ export function Orders() {
                   they're looking at without exporting a report. */}
               {!isEmpty && (
                 <div className="px-6 py-2.5 border-b border-gray-100 bg-gradient-to-r from-purple-50/40 via-white to-emerald-50/40 flex-shrink-0 flex flex-wrap items-center gap-x-6 gap-y-2">
-                  {/* Orders view toggle — Company-wise (one row per
-                      company order) vs Customer-wise (one row per
-                      customer checkout). */}
-                  <div
-                    role="radiogroup"
-                    aria-label="Orders view"
-                    className="inline-flex items-center gap-1 rounded-lg bg-gray-100 p-1"
+                  {/* Customer-wise View — its own button so the view
+                      is easy to find. On: one row per customer order;
+                      off: the default company-wise list. */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    aria-pressed={orderView === "customer"}
+                    className={`h-8 gap-2 ${
+                      orderView === "customer"
+                        ? "border-purple-600 bg-purple-600 text-white hover:bg-purple-700 hover:text-white"
+                        : "border-purple-300 text-purple-700 hover:bg-purple-50"
+                    }`}
+                    onClick={() =>
+                      handleOrderViewChange(
+                        orderView === "customer" ? "company" : "customer",
+                      )
+                    }
                   >
-                    {(
-                      [
-                        { value: "company", label: "Company-wise", icon: Building2 },
-                        { value: "customer", label: "Customer-wise", icon: Users },
-                      ] as const
-                    ).map(({ value, label, icon: Icon }) => (
-                      <button
-                        key={value}
-                        type="button"
-                        role="radio"
-                        aria-checked={orderView === value}
-                        onClick={() => handleOrderViewChange(value)}
-                        className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
-                          orderView === value
-                            ? "bg-white text-gray-900 shadow-sm"
-                            : "text-gray-600 hover:text-gray-900"
-                        }`}
-                      >
-                        <Icon className="h-3.5 w-3.5" />
-                        {label}
-                      </button>
-                    ))}
-                  </div>
+                    <Users className="h-4 w-4" />
+                    Customer-wise View
+                  </Button>
                   <span className="h-3 w-px bg-gray-200" />
                   <div className="flex items-baseline gap-1.5">
                     <span className="text-[10px] uppercase tracking-wider font-semibold text-gray-500">

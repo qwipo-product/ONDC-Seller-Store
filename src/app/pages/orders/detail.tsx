@@ -456,6 +456,22 @@ export function OrderDetail() {
   // page's order by default, or the company order whose row button was
   // pressed in customer-order mode.
   const [actionOrderId, setActionOrderId] = useState<string | null>(null);
+  // Bulk actions in customer-order mode — the company orders the open
+  // Confirm / Cancel popup acts on together (null = single order).
+  const [bulkIds, setBulkIds] = useState<string[] | null>(null);
+  const confirmableIds = checkoutOrders
+    .filter((o) => o.status === "New")
+    .map((o) => o.id);
+  const cancellableIds = checkoutOrders
+    .filter(
+      (o) =>
+        o.status === "New" ||
+        (o.status === "Confirmed" && !o.logisticsRequested),
+    )
+    .map((o) => o.id);
+  const bulkOrders = bulkIds
+    ? checkoutOrders.filter((o) => bulkIds.includes(o.id))
+    : [];
   const actionStoreOrder = actionOrderId ? getOrderById(actionOrderId) : undefined;
   const actionData: OrderDetails = actionStoreOrder
     ? buildOrderDetailFromStore(actionStoreOrder)
@@ -466,6 +482,7 @@ export function OrderDetail() {
   // list.
   const afterAction = () => {
     setActionOrderId(null);
+    setBulkIds(null);
     if (!isCustomerMode) {
       setTimeout(() => {
         navigate("/orders");
@@ -588,10 +605,23 @@ export function OrderDetail() {
 
   const handleConfirmOrder = () => {
     setActionOrderId(null);
+    setBulkIds(null);
     setIsConfirmModalOpen(true);
   };
 
   const handleConfirm = () => {
+    if (bulkIds) {
+      for (const id of bulkIds) updateOrderStatus(id, "Confirmed");
+      if (bulkIds.includes(orderData.orderId)) {
+        setOrderData((prev) => ({ ...prev, status: "Confirmed" }));
+      }
+      setIsConfirmModalOpen(false);
+      toast.success(
+        `${bulkIds.length} order${bulkIds.length === 1 ? "" : "s"} confirmed successfully!`,
+      );
+      afterAction();
+      return;
+    }
     if (targetId === orderData.orderId) {
       setOrderData((prev) => ({ ...prev, status: "Confirmed" }));
     }
@@ -605,11 +635,33 @@ export function OrderDetail() {
 
   const handleCancelOrder = () => {
     setActionOrderId(null);
+    setBulkIds(null);
     setIsCancelModalOpen(true);
   };
 
   const handleCancel = () => {
     const now = new Date().toISOString();
+    if (bulkIds) {
+      for (const id of bulkIds) {
+        updateOrderStatus(id, "Cancelled", cancelReason, "Seller");
+      }
+      if (bulkIds.includes(orderData.orderId)) {
+        setOrderData((prev) => ({
+          ...prev,
+          status: "Cancelled",
+          cancellationReason: cancelReason,
+          cancelledBy: "Seller",
+          cancellationTime: now,
+        }));
+      }
+      setIsCancelModalOpen(false);
+      toast.error(
+        `${bulkIds.length} order${bulkIds.length === 1 ? "" : "s"} cancelled. Reason: ${cancelReason}`,
+      );
+      setCancelReason("");
+      afterAction();
+      return;
+    }
     if (targetId === orderData.orderId) {
       setOrderData((prev) => ({
         ...prev,
@@ -647,6 +699,15 @@ export function OrderDetail() {
     afterAction();
   };
 
+  // Header bulk actions in customer-order mode: aim the Confirm /
+  // Cancel popups at every eligible company order at once.
+  const openBulk = (action: "confirm" | "cancel") => {
+    setActionOrderId(null);
+    setBulkIds(action === "confirm" ? confirmableIds : cancellableIds);
+    if (action === "confirm") setIsConfirmModalOpen(true);
+    else setIsCancelModalOpen(true);
+  };
+
   // Row actions in customer-order mode: aim the existing popups at one
   // company order.
   const openActionFor = (
@@ -654,6 +715,7 @@ export function OrderDetail() {
     action: "confirm" | "cancel" | "deliver",
   ) => {
     setActionOrderId(id);
+    setBulkIds(null);
     if (action === "confirm") setIsConfirmModalOpen(true);
     else if (action === "cancel") setIsCancelModalOpen(true);
     else setIsDeliverModalOpen(true);
@@ -714,6 +776,32 @@ export function OrderDetail() {
                   Confirmed → Mark as Delivered + Cancel.
                   Delivered / Cancelled → no destructive actions —
                   the order is past the seller's hand. */}
+              {/* Customer-order mode: bulk Confirm / Cancel across the
+                  company orders; each order keeps its own buttons in
+                  the Orders list below. */}
+              {isCustomerMode && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-red-300 text-red-700 hover:bg-red-50 h-8"
+                    disabled={cancellableIds.length === 0}
+                    onClick={() => openBulk("cancel")}
+                  >
+                    <XCircle className="h-3.5 w-3.5 mr-1.5" />
+                    Cancel All ({cancellableIds.length})
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="bg-green-600 hover:bg-green-700 h-8"
+                    disabled={confirmableIds.length === 0}
+                    onClick={() => openBulk("confirm")}
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+                    Confirm All ({confirmableIds.length})
+                  </Button>
+                </>
+              )}
               {!isCustomerMode && orderData.status === "New" && (
                 <>
                   <Button
@@ -1437,13 +1525,36 @@ export function OrderDetail() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-green-600">
               <CheckCircle2 className="h-5 w-5" />
-              Confirm Order
+              {bulkIds ? "Confirm Orders" : "Confirm Order"}
             </DialogTitle>
             <DialogDescription>
-              Are you sure you want to confirm this order?
+              {bulkIds
+                ? `Are you sure you want to confirm ${bulkIds.length} order${bulkIds.length === 1 ? "" : "s"} for ${orderData.buyerStoreName}?`
+                : "Are you sure you want to confirm this order?"}
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
+            {bulkIds ? (
+              <div className="bg-gray-50 p-4 rounded-lg space-y-2">
+                {bulkOrders.map((o) => (
+                  <div key={o.id} className="flex items-center justify-between gap-3 text-sm">
+                    <span className="min-w-0">
+                      <span className="font-medium text-gray-900">{o.company}</span>{" "}
+                      <span className="text-[11px] font-mono text-gray-500">{o.id}</span>
+                    </span>
+                    <span className="tabular-nums text-gray-900">
+                      ₹{o.orderValue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                ))}
+                <div className="flex items-center justify-between gap-3 text-sm border-t border-gray-200 pt-2">
+                  <strong>Total</strong>
+                  <strong className="tabular-nums">
+                    ₹{bulkOrders.reduce((n, o) => n + o.orderValue, 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                  </strong>
+                </div>
+              </div>
+            ) : (
             <div className="bg-gray-50 p-4 rounded-lg space-y-2">
               <p className="text-sm">
                 <strong>Order ID:</strong> {actionData.orderId}
@@ -1458,6 +1569,7 @@ export function OrderDetail() {
                 <strong>Order Value:</strong> ₹{actionData.orderValue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
               </p>
             </div>
+            )}
             <p className="text-sm text-gray-600 mt-4">
               After confirmation, the buyer will be notified and you can proceed with fulfillment.
             </p>
@@ -1467,7 +1579,9 @@ export function OrderDetail() {
               Cancel
             </Button>
             <Button onClick={handleConfirm} className="bg-green-600 hover:bg-green-700">
-              Yes, Confirm Order
+              {bulkIds
+                ? `Yes, Confirm ${bulkIds.length} Order${bulkIds.length === 1 ? "" : "s"}`
+                : "Yes, Confirm Order"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1482,14 +1596,37 @@ export function OrderDetail() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <XCircle className="h-5 w-5 text-red-600" />
-              Cancel Order
+              {bulkIds ? "Cancel Orders" : "Cancel Order"}
             </DialogTitle>
             <DialogDescription>
-              Cancel this order. Please provide a reason for cancellation.
+              {bulkIds
+                ? `Cancel ${bulkIds.length} order${bulkIds.length === 1 ? "" : "s"} for ${orderData.buyerStoreName}. Please provide a reason for cancellation.`
+                : "Cancel this order. Please provide a reason for cancellation."}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
+            {bulkIds && (
+              <div className="bg-gray-50 p-4 rounded-lg space-y-2">
+                {bulkOrders.map((o) => (
+                  <div key={o.id} className="flex items-center justify-between gap-3 text-sm">
+                    <span className="min-w-0">
+                      <span className="font-medium text-gray-900">{o.company}</span>{" "}
+                      <span className="text-[11px] font-mono text-gray-500">{o.id}</span>
+                    </span>
+                    <span className="tabular-nums text-gray-900">
+                      ₹{o.orderValue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                ))}
+                <div className="flex items-center justify-between gap-3 text-sm border-t border-gray-200 pt-2">
+                  <strong>Total</strong>
+                  <strong className="tabular-nums">
+                    ₹{bulkOrders.reduce((n, o) => n + o.orderValue, 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                  </strong>
+                </div>
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="cancelReason">
                 Reason for Cancellation <span className="text-red-500">*</span>
@@ -1530,7 +1667,9 @@ export function OrderDetail() {
               className="gap-2"
             >
               <XCircle className="h-4 w-4" />
-              Cancel Order
+              {bulkIds
+                ? `Cancel ${bulkIds.length} Order${bulkIds.length === 1 ? "" : "s"}`
+                : "Cancel Order"}
             </Button>
           </DialogFooter>
         </DialogContent>
