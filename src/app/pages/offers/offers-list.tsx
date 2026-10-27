@@ -68,6 +68,24 @@ import {
   getAllSchemes,
   setAllSchemes,
 } from "../../lib/offers-data";
+import {
+  type ValueSlabScheme,
+  getAllValueSlabs,
+  setAllValueSlabs,
+} from "../../lib/value-slab-data";
+import {
+  ValueSlabEditorDialog,
+  ValueSlabViewDialog,
+} from "../../components/value-slab-dialogs";
+import {
+  type OffInvoiceScheme,
+  getAllOffInvoices,
+  setAllOffInvoices,
+} from "../../lib/off-invoice-data";
+import {
+  OffInvoiceEditorDialog,
+  OffInvoiceViewDialog,
+} from "../../components/off-invoice-dialogs";
 import { SkuComboBox } from "../../components/sku-combobox";
 import { CopyOnHover } from "../../components/copy-on-hover";
 
@@ -124,7 +142,7 @@ const OFFER_TYPES: OfferType[] = [
   {
     id: "off-invoice",
     label: "Off-Invoice",
-    description: "Flat discount applied on invoice total",
+    description: "Discount on the whole cart when it crosses a value",
     icon: Receipt,
     iconBg: "bg-purple-100",
     iconColor: "text-purple-600",
@@ -207,6 +225,33 @@ export function OffersList() {
     setAllSchemes(qpsSchemes);
   }, [qpsSchemes]);
 
+  // Value Slab schemes (order-value based discount tiers). Kept in a
+  // separate store from QPS because they have no SKU: the discount is
+  // decided by the total order value.
+  const [valueSlabs, setValueSlabs] = useState<ValueSlabScheme[]>(() =>
+    isEmptyMode() ? [] : getAllValueSlabs(),
+  );
+  useEffect(() => {
+    if (isEmptyMode()) return;
+    setAllValueSlabs(valueSlabs);
+  }, [valueSlabs]);
+  const [isValueEditorOpen, setIsValueEditorOpen] = useState(false);
+  const [editingValueSlab, setEditingValueSlab] = useState<ValueSlabScheme | null>(null);
+  const [viewValueSlabId, setViewValueSlabId] = useState<string | null>(null);
+
+  // Off-Invoice schemes: a discount on the whole cart / invoice value,
+  // not tied to a SKU or category.
+  const [offInvoices, setOffInvoices] = useState<OffInvoiceScheme[]>(() =>
+    isEmptyMode() ? [] : getAllOffInvoices(),
+  );
+  useEffect(() => {
+    if (isEmptyMode()) return;
+    setAllOffInvoices(offInvoices);
+  }, [offInvoices]);
+  const [isOffInvoiceEditorOpen, setIsOffInvoiceEditorOpen] = useState(false);
+  const [editingOffInvoice, setEditingOffInvoice] = useState<OffInvoiceScheme | null>(null);
+  const [viewOffInvoiceId, setViewOffInvoiceId] = useState<string | null>(null);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [offerTypeFilter, setOfferTypeFilter] = useState<string>("all");
@@ -263,17 +308,66 @@ export function OffersList() {
   // time via the Create QPS Scheme button.
 
   // ---- Filter + Search ----
-  const filteredSchemes = qpsSchemes.filter((s) => {
+  // One list for every offer type. QPS rows carry a SKU; Value Slab
+  // rows apply to the whole order, so they show "All SKUs".
+  type ListRow = {
+    kind: "qps" | "value-slab" | "off-invoice";
+    id: string;
+    name: string;
+    skuCode: string;
+    skuName: string;
+    startDate: string;
+    endDate: string;
+    status: string;
+    qps?: QpsScheme;
+    valueSlab?: ValueSlabScheme;
+    offInvoice?: OffInvoiceScheme;
+  };
+  const listRows: ListRow[] = [
+    ...offInvoices.map<ListRow>((o) => ({
+      kind: "off-invoice",
+      id: o.id,
+      name: o.name,
+      skuCode: "All SKUs",
+      skuName: "Whole cart (invoice value)",
+      startDate: o.startDate,
+      endDate: o.endDate,
+      status: o.status,
+      offInvoice: o,
+    })),
+    ...valueSlabs.map<ListRow>((v) => ({
+      kind: "value-slab",
+      id: v.id,
+      name: v.name,
+      skuCode: v.skuCode,
+      skuName: v.skuName,
+      startDate: v.startDate,
+      endDate: v.endDate,
+      status: v.status,
+      valueSlab: v,
+    })),
+    ...qpsSchemes.map<ListRow>((q) => ({
+      kind: "qps",
+      id: q.id,
+      name: q.name,
+      skuCode: q.skuCode,
+      skuName: q.skuName,
+      startDate: q.startDate,
+      endDate: q.endDate,
+      status: q.status,
+      qps: q,
+    })),
+  ];
+  const filteredSchemes = listRows.filter((s) => {
     const q = searchQuery.toLowerCase();
     const matchesSearch =
       q === "" ||
+      s.id.toLowerCase().includes(q) ||
       s.skuCode.toLowerCase().includes(q) ||
       s.skuName.toLowerCase().includes(q) ||
       s.name.toLowerCase().includes(q);
     const matchesStatus = statusFilter === "all" || s.status === statusFilter;
-    // Live page only carries QPS schemes; filter still works for
-    // consistency (and so the demo page can reuse the same shape).
-    const matchesType = offerTypeFilter === "all" || offerTypeFilter === "qps";
+    const matchesType = offerTypeFilter === "all" || offerTypeFilter === s.kind;
     return matchesSearch && matchesStatus && matchesType;
   });
   // Slice the filtered list down to the current page's window.
@@ -297,31 +391,97 @@ export function OffersList() {
   //     currently editing in the list (so the seller can re-pick
   //     it without it being filtered out as "already mapped").
   const skuPickerOptions = useMemo(() => {
-    const blockedCodes = new Set(
-      qpsSchemes
-        .filter(
-          (s) => s.status !== "Expired" && s.id !== editingId,
-        )
+    const blockedCodes = new Set([
+      ...qpsSchemes
+        .filter((s) => s.status !== "Expired" && s.id !== editingId)
         .map((s) => s.skuCode),
-    );
+      ...valueSlabs.filter((v) => v.status !== "Expired").map((v) => v.skuCode),
+    ]);
     return catalogSkus.filter((c) => {
       if (c.status !== "Active") return false;
       if (blockedCodes.has(c.skuCode)) return false;
       return true;
     });
-  }, [qpsSchemes, editingId]);
+  }, [qpsSchemes, valueSlabs, editingId]);
+
+  // Same idea for the Value Slab editor: hide Inactive SKUs and SKUs
+  // that already carry a QPS or another Value Slab. The scheme being
+  // edited keeps its own SKU in the list.
+  const valueSlabSkuOptions = useMemo(() => {
+    const blockedCodes = new Set([
+      ...qpsSchemes.filter((q) => q.status !== "Expired").map((q) => q.skuCode),
+      ...valueSlabs
+        .filter((v) => v.status !== "Expired" && v.id !== editingValueSlab?.id)
+        .map((v) => v.skuCode),
+    ]);
+    return catalogSkus.filter(
+      (c) => c.status === "Active" && !blockedCodes.has(c.skuCode),
+    );
+  }, [qpsSchemes, valueSlabs, editingValueSlab]);
 
   const handleOpenCreate = () => {
     setEditingId(null);
     setEditorSkuCode("");
     setEditorStartDate(new Date().toISOString().slice(0, 10));
     setEditorEndDate(new Date(Date.now() + 30 * 86400 * 1000).toISOString().slice(0, 10));
-    // Phase 1 — only Discount % is offered as a slab type. Flat
-    // price is held back for a later phase, so new slabs default
-    // to percent.
+    // New slabs default to a % discount; the seller can switch a
+    // slab to a flat ₹ off per unit.
     setEditorSlabs([{ minQty: 1, maxQty: 5, discountType: "percent", slabPercent: 0 }]);
     setEditorActive(true);
     setIsEditorOpen(true);
+  };
+
+  // Value Slab handlers. A SKU can carry only one non-expired slab
+  // scheme (QPS or Value Slab): both publish as the ONDC "slab" offer
+  // and slab offers are non-additive, so two of them on one SKU would
+  // clash. The SKU pickers below enforce this.
+  const handlePickValueSlab = () => {
+    setIsOfferTypeOpen(false);
+    setEditingValueSlab(null);
+    setIsValueEditorOpen(true);
+  };
+  const handleOpenEditValueSlab = (scheme: ValueSlabScheme) => {
+    setViewValueSlabId(null);
+    setEditingValueSlab(scheme);
+    setIsValueEditorOpen(true);
+  };
+  const handleSaveValueSlab = (scheme: ValueSlabScheme) => {
+    const exists = valueSlabs.some((v) => v.id === scheme.id);
+    setValueSlabs((prev) =>
+      exists ? prev.map((v) => (v.id === scheme.id ? scheme : v)) : [scheme, ...prev],
+    );
+    toast.success(`Value Slab ${exists ? "updated" : "created"} for ${scheme.skuName}`);
+    setIsValueEditorOpen(false);
+  };
+
+  // Off-Invoice handlers. The scheme covers the whole catalog, so two
+  // Active ones would fight over the same cart. Only one can be Active.
+  const handlePickOffInvoice = () => {
+    setIsOfferTypeOpen(false);
+    setEditingOffInvoice(null);
+    setIsOffInvoiceEditorOpen(true);
+  };
+  const handleOpenEditOffInvoice = (scheme: OffInvoiceScheme) => {
+    setViewOffInvoiceId(null);
+    setEditingOffInvoice(scheme);
+    setIsOffInvoiceEditorOpen(true);
+  };
+  const handleSaveOffInvoice = (scheme: OffInvoiceScheme) => {
+    const clash = offInvoices.find(
+      (o) => o.id !== scheme.id && o.status === "Active",
+    );
+    if (scheme.status === "Active" && clash) {
+      toast.error(
+        `"${clash.name}" is already Active. Only one Off-Invoice scheme can be Active at a time because it covers the whole cart. Make that one Inactive first, or save this one as Inactive.`,
+      );
+      return;
+    }
+    const exists = offInvoices.some((o) => o.id === scheme.id);
+    setOffInvoices((prev) =>
+      exists ? prev.map((o) => (o.id === scheme.id ? scheme : o)) : [scheme, ...prev],
+    );
+    toast.success(`Off-Invoice scheme ${exists ? "updated" : "created"}`);
+    setIsOffInvoiceEditorOpen(false);
   };
 
   // Bridges the offer-type picker → existing QPS editor: closes the
@@ -352,6 +512,14 @@ export function OffersList() {
             maxQty: s.maxQty,
             discountType: "percent",
             slabPercent: s.slabPercent,
+          };
+        }
+        if (s.discountType === "amount") {
+          return {
+            minQty: s.minQty,
+            maxQty: s.maxQty,
+            discountType: "amount",
+            slabAmount: s.slabAmount,
           };
         }
         // Convert flat slab → equivalent percent off SP.
@@ -434,6 +602,7 @@ export function OffersList() {
       discountType: s.discountType!,
       slabPrice: s.slabPrice,
       slabPercent: s.slabPercent,
+      slabAmount: s.slabAmount,
       effectivePrice: computeEffectivePrice(s, selectedSku.sellingPrice),
     }));
 
@@ -560,6 +729,13 @@ export function OffersList() {
           return s.slabPercent;
         }
         if (
+          s.discountType === "amount" &&
+          typeof s.slabAmount === "number" &&
+          sellingPrice > 0
+        ) {
+          return +((s.slabAmount / sellingPrice) * 100).toFixed(2);
+        }
+        if (
           s.discountType === "flat" &&
           typeof s.slabPrice === "number" &&
           sellingPrice > 0
@@ -652,7 +828,8 @@ export function OffersList() {
   // the pagination footer. KPI summary stays visible (showing 0s) and
   // the same full-height Card container is preserved so the layout
   // reads identically to the populated state.
-  const isEmpty = qpsSchemes.length === 0;
+  const isEmpty =
+    qpsSchemes.length === 0 && valueSlabs.length === 0 && offInvoices.length === 0;
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
@@ -779,9 +956,19 @@ export function OffersList() {
                           </CopyOnHover>
                         </td>
                         <td className="px-4 py-3">
-                          <Badge variant="outline" className="gap-1 bg-blue-50 text-blue-700 border-blue-200">
-                            <Layers className="h-3 w-3" /> QPS
-                          </Badge>
+                          {s.kind === "qps" ? (
+                            <Badge variant="outline" className="gap-1 bg-blue-50 text-blue-700 border-blue-200">
+                              <Layers className="h-3 w-3" /> QPS
+                            </Badge>
+                          ) : s.kind === "value-slab" ? (
+                            <Badge variant="outline" className="gap-1 bg-emerald-50 text-emerald-700 border-emerald-200">
+                              <IndianRupee className="h-3 w-3" /> Value Slab
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="gap-1 bg-purple-50 text-purple-700 border-purple-200">
+                              <Receipt className="h-3 w-3" /> Off-Invoice
+                            </Badge>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <p className="text-xs text-gray-700">{s.startDate}</p>
@@ -801,7 +988,13 @@ export function OffersList() {
                               size="icon"
                               className="h-8 w-8"
                               title="View Details"
-                              onClick={() => setViewSchemeId(s.id)}
+                              onClick={() =>
+                                s.kind === "qps"
+                                  ? setViewSchemeId(s.id)
+                                  : s.kind === "value-slab"
+                                    ? setViewValueSlabId(s.id)
+                                    : setViewOffInvoiceId(s.id)
+                              }
                             >
                               <Eye className="h-4 w-4 text-blue-600" />
                             </Button>
@@ -811,7 +1004,13 @@ export function OffersList() {
                               className="h-8 w-8"
                               title={s.status === "Expired" ? "Expired schemes cannot be edited" : "Edit"}
                               disabled={s.status === "Expired"}
-                              onClick={() => handleOpenEdit(s)}
+                              onClick={() =>
+                                s.kind === "qps"
+                                  ? handleOpenEdit(s.qps!)
+                                  : s.kind === "value-slab"
+                                    ? handleOpenEditValueSlab(s.valueSlab!)
+                                    : handleOpenEditOffInvoice(s.offInvoice!)
+                              }
                             >
                               <Pencil className={`h-4 w-4 ${s.status === "Expired" ? "text-gray-300" : "text-gray-700"}`} />
                             </Button>
@@ -914,6 +1113,10 @@ export function OffersList() {
                                 <Badge className="bg-purple-50 text-purple-700 border-purple-200">
                                   {slab.slabPercent}% off
                                 </Badge>
+                              ) : slab.discountType === "amount" ? (
+                                <Badge className="bg-blue-50 text-blue-700 border-blue-200">
+                                  ₹{slab.slabAmount} off per unit
+                                </Badge>
                               ) : (
                                 <Badge className="bg-blue-50 text-blue-700 border-blue-200">
                                   Flat ₹{slab.slabPrice}/unit
@@ -1000,13 +1203,22 @@ export function OffersList() {
               right, top-aligned. The whole card is the click target. */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 py-2">
             {OFFER_TYPES.map((t) => {
-              const enabled = t.id === "qps";
+              const enabled =
+                t.id === "qps" || t.id === "value-slab" || t.id === "off-invoice";
               const Icon = t.icon;
               return (
                 <button
                   key={t.id}
                   type="button"
-                  onClick={enabled ? handlePickQps : undefined}
+                  onClick={
+                    t.id === "qps"
+                      ? handlePickQps
+                      : t.id === "value-slab"
+                        ? handlePickValueSlab
+                        : t.id === "off-invoice"
+                          ? handlePickOffInvoice
+                          : undefined
+                  }
                   disabled={!enabled}
                   className={
                     "relative text-left rounded-xl border p-4 transition-all min-h-[140px] " +
@@ -1170,9 +1382,9 @@ export function OffersList() {
               {editingId ? "Edit" : "Create"} Quantity Pricing Scheme (QPS)
             </DialogTitle>
             <DialogDescription>
-              Select a SKU and define quantity-based pricing slabs. Each slab takes a %
-              discount off the Selling Price — the effective per-unit price the customer
-              pays is calculated live.
+              Select a SKU and define quantity-based pricing slabs. Each slab gives either a %
+              discount or a flat ₹ amount off the Selling Price. The effective per-unit
+              price the customer pays is calculated live.
             </DialogDescription>
           </DialogHeader>
 
@@ -1387,20 +1599,28 @@ export function OffersList() {
                             />
                           </td>
                           <td className="px-4 py-3">
-                            {/* Phase 1 — only "% Discount" is on
-                                offer; flat-price slabs are
-                                deferred. The dropdown still
-                                renders so the cell layout stays
-                                stable, but it has only one option
-                                and the seller can't switch off it. */}
+                            {/* Per slab the seller picks how the discount is
+                                given: a percentage off the selling price,
+                                or a flat rupee amount off each unit. */}
                             <Select
-                              value="percent"
+                              value={slab.discountType === "amount" ? "amount" : "percent"}
                               onValueChange={(v) =>
-                                updateSlab(i, {
-                                  discountType: v as SlabDiscountType,
-                                  slabPercent: slab.slabPercent ?? 0,
-                                  slabPrice: undefined,
-                                })
+                                updateSlab(
+                                  i,
+                                  v === "amount"
+                                    ? {
+                                        discountType: "amount",
+                                        slabAmount: slab.slabAmount ?? 0,
+                                        slabPercent: undefined,
+                                        slabPrice: undefined,
+                                      }
+                                    : {
+                                        discountType: "percent",
+                                        slabPercent: slab.slabPercent ?? 0,
+                                        slabAmount: undefined,
+                                        slabPrice: undefined,
+                                      },
+                                )
                               }
                             >
                               <SelectTrigger className="h-8">
@@ -1408,6 +1628,7 @@ export function OffersList() {
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="percent">% Discount</SelectItem>
+                                <SelectItem value="amount">Flat ₹ off</SelectItem>
                               </SelectContent>
                             </Select>
                           </td>
@@ -1424,6 +1645,19 @@ export function OffersList() {
                                   className="h-8 pr-6"
                                 />
                                 <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-500">%</span>
+                              </div>
+                            ) : slab.discountType === "amount" ? (
+                              <div className="relative">
+                                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-500">₹</span>
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  step={0.01}
+                                  placeholder="off / unit"
+                                  value={slab.slabAmount ?? ""}
+                                  onChange={(e) => updateSlab(i, { slabAmount: parseFloat(e.target.value) })}
+                                  className="h-8 pl-5"
+                                />
                               </div>
                             ) : (
                               <div className="relative">
@@ -1531,6 +1765,30 @@ export function OffersList() {
           only ships QPS schemes, so the Offer Type dropdown surfaces
           a single option; the empty-mode demo page uses the same
           drawer with all 10 types. */}
+      <ValueSlabEditorDialog
+        open={isValueEditorOpen}
+        onOpenChange={setIsValueEditorOpen}
+        scheme={editingValueSlab}
+        skuOptions={valueSlabSkuOptions}
+        onSave={handleSaveValueSlab}
+      />
+      <ValueSlabViewDialog
+        scheme={valueSlabs.find((v) => v.id === viewValueSlabId) ?? null}
+        onClose={() => setViewValueSlabId(null)}
+        onEdit={handleOpenEditValueSlab}
+      />
+      <OffInvoiceEditorDialog
+        open={isOffInvoiceEditorOpen}
+        onOpenChange={setIsOffInvoiceEditorOpen}
+        scheme={editingOffInvoice}
+        onSave={handleSaveOffInvoice}
+      />
+      <OffInvoiceViewDialog
+        scheme={offInvoices.find((o) => o.id === viewOffInvoiceId) ?? null}
+        onClose={() => setViewOffInvoiceId(null)}
+        onEdit={handleOpenEditOffInvoice}
+      />
+
       <OffersFilterDrawer
         isOpen={isFilterDrawerOpen}
         onClose={() => setIsFilterDrawerOpen(false)}
@@ -1544,7 +1802,7 @@ export function OffersList() {
           setOfferTypeFilter(v);
           setCurrentPage(1);
         }}
-        offerTypeOptions={OFFER_TYPES.filter((t) => t.id === "qps").map<OfferTypeOption>((t) => ({
+        offerTypeOptions={OFFER_TYPES.filter((t) => t.id === "qps" || t.id === "value-slab" || t.id === "off-invoice").map<OfferTypeOption>((t) => ({
           value: t.id,
           label: t.label,
         }))}
