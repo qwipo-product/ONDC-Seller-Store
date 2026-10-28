@@ -1404,6 +1404,9 @@ export function Orders() {
                 Business Name
               </th>
               <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
+                Qwipo Customer ID
+              </th>
+              <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
                 Mobile
               </th>
               <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
@@ -1512,6 +1515,21 @@ export function Orders() {
                       {order.retailerName}
                     </p>
                   </CopyOnHover>
+                  )}
+                </td>
+                <td className="px-3 py-2.5 whitespace-nowrap">
+                  {isMaskedOrder(order) ? (
+                    <p className="text-xs text-gray-400 select-none">
+                      {maskedText}
+                    </p>
+                  ) : order.qwipoCustomerId ? (
+                    <CopyOnHover value={order.qwipoCustomerId} label="Qwipo Customer ID">
+                      <p className="text-xs text-gray-700 font-mono">
+                        {order.qwipoCustomerId}
+                      </p>
+                    </CopyOnHover>
+                  ) : (
+                    <p className="text-xs text-gray-400">—</p>
                   )}
                 </td>
                 <td className="px-3 py-2.5 whitespace-nowrap">
@@ -1773,15 +1791,15 @@ export function Orders() {
                       </CopyOnHover>
                     )}
                   </td>
-                  {/* Qwipo Customer ID — the buyer code on the order; it tells
-                      apart two stores with the same business name. */}
+                  {/* Qwipo Customer ID — tells apart two stores with the
+                      same business name. */}
                   <td className="px-3 py-2.5 whitespace-nowrap">
                     {locked ? (
                       <p className="text-xs text-gray-400 select-none">{maskedText}</p>
-                    ) : first.buyerCode ? (
-                      <CopyOnHover value={first.buyerCode} label="Qwipo Customer ID">
+                    ) : first.qwipoCustomerId ? (
+                      <CopyOnHover value={first.qwipoCustomerId} label="Qwipo Customer ID">
                         <p className="text-xs text-gray-700 font-mono">
-                          {first.buyerCode}
+                          {first.qwipoCustomerId}
                         </p>
                       </CopyOnHover>
                     ) : (

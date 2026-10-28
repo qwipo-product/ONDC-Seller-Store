@@ -219,6 +219,8 @@ interface OrderDetails {
   /** Handed to the logistics partner — the seller can no longer
    *  cancel or deliver it from here. */
   logisticsRequested?: boolean;
+  /** Qwipo Customer ID of the buyer — shown in the page header. */
+  qwipoCustomerId?: string;
 }
 
 /**
@@ -302,6 +304,7 @@ function buildOrderDetailFromStore(order: Order): OrderDetails {
     cancellationTime: order.cancellationTime,
     gstNumber: order.gstNumber,
     logisticsRequested: order.logisticsRequested,
+    qwipoCustomerId: order.qwipoCustomerId,
   };
 }
 
@@ -774,10 +777,9 @@ export function OrderDetail() {
                 <Calendar className="h-3 w-3" />
                 {orderData.orderTime}
                 <span className="mx-1">•</span>
-                <span className="font-mono">
-                  {isCustomerMode
-                    ? `Parent Order ID ${checkoutId}`
-                    : orderData.channelOrderId}
+                {/* Qwipo Customer ID — same header line in both views. */}
+                <span className="font-mono" title="Qwipo Customer ID">
+                  {orderData.qwipoCustomerId ?? orderData.channelOrderId}
                 </span>
               </div>
             </div>

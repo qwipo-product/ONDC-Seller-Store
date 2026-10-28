@@ -193,6 +193,10 @@ export interface Order {
   buyerContact?: string;
   buyerAddress?: string;
   buyerCode?: string;
+  /** Qwipo Customer ID of the buyer (QWIP + 16 digits) — the same on
+   *  every order the customer places. Shown on the orders list and
+   *  in the order page header. */
+  qwipoCustomerId?: string;
   channelOrderId?: string;
   orderTime?: string;
   lineItems?: OrderLineItem[];
@@ -331,6 +335,7 @@ export const seedOrders: Order[] = [
     buyerAddress:
       "Shop No. 12, MG Road, Koramangala, Bangalore, Karnataka - 560034",
     buyerCode: "BUYER-BAL-456",
+    qwipoCustomerId: "QWIP6021943418321165",
     channelOrderId: "ONDC-ORD-789456",
     gstNumber: "29ABCDE1234F1Z5",
     lineItems: [
@@ -442,6 +447,7 @@ export const seedOrders: Order[] = [
     orderTime: "12:20 PM",
     orderType: "beat",
     buyerCode: "BUYER-BLK-208",
+    qwipoCustomerId: "QWIP6000466011265714",
     channelOrderId: "ONDC-ORD-742218",
     gstNumber: "36AAACB2894G1ZL",
     lineItems: [
@@ -526,6 +532,7 @@ export const seedOrders: Order[] = [
     orderTime: "12:20 PM",
     orderType: "standard",
     buyerCode: "BUYER-BLK-208",
+    qwipoCustomerId: "QWIP6000466011265714",
     channelOrderId: "ONDC-ORD-742219",
     gstNumber: "36AAACB2894G1ZL",
     lineItems: [
@@ -598,6 +605,7 @@ export const seedOrders: Order[] = [
     gstNumber: "29ABCDE1234F1Z5",
     orderType: "standard",
     buyerCode: "BUYER-BAL-456",
+    qwipoCustomerId: "QWIP6021943418321165",
     channelOrderId: "ONDC-ORD-789458",
     lineItems: [
       {
@@ -678,6 +686,7 @@ export const seedOrders: Order[] = [
     orderTime: "11:05 AM",
     orderType: "beat",
     buyerCode: "BUYER-CSM-101",
+    qwipoCustomerId: "QWIP6095417856334092",
     channelOrderId: "FLPK-ORD-518274",
     gstNumber: "36AABCC4521E1ZC",
     lineItems: [
@@ -760,6 +769,7 @@ export const seedOrders: Order[] = [
     orderTime: "01:40 PM",
     orderType: "beat",
     buyerCode: "BUYER-MRC-514",
+    qwipoCustomerId: "QWIP6078668367661533",
     channelOrderId: "AMZN-ORD-694105",
     gstNumber: "36AADCM8265F1ZP",
     lineItems: [
@@ -844,6 +854,7 @@ export const seedOrders: Order[] = [
     orderTime: "10:55 AM",
     orderType: "beat",
     buyerCode: "BUYER-QMT-092",
+    qwipoCustomerId: "QWIP6015038770734131",
     channelOrderId: "ONDC-ORD-628341",
     gstNumber: "36AAECQ1937H1ZT",
     lineItems: [
@@ -911,6 +922,7 @@ export const seedOrders: Order[] = [
     orderTime: "04:32 PM",
     orderType: "beat",
     buyerCode: "BUYER-SUN-233",
+    qwipoCustomerId: "QWIP6084994651408664",
     channelOrderId: "AMZN-ORD-517296",
     gstNumber: "36AAFCS7412K1ZB",
     lineItems: [
@@ -992,6 +1004,7 @@ export const seedOrders: Order[] = [
     orderTime: "12:47 PM",
     orderType: "beat",
     buyerCode: "BUYER-LKY-347",
+    qwipoCustomerId: "QWIP6088200430410147",
     channelOrderId: "ONDC-ORD-806412",
     gstNumber: "36AAGCL5628M1ZD",
     lineItems: [
@@ -1076,6 +1089,7 @@ export const seedOrders: Order[] = [
     orderTime: "09:58 AM",
     orderType: "beat",
     buyerCode: "BUYER-NER-405",
+    qwipoCustomerId: "QWIP6073539072790553",
     channelOrderId: "FLPK-ORD-590148",
     gstNumber: "36AAHCN3971P1ZF",
     lineItems: [
@@ -1144,6 +1158,7 @@ export const seedOrders: Order[] = [
     beatName: "KPHB 1",
     buyerContact: "+91 98765 43210",
     buyerCode: "BUYER-BAL-456",
+    qwipoCustomerId: "QWIP6021943418321165",
     channelOrderId: "ONDC-ORD-789457",
     gstNumber: "29ABCDE1234F1Z5",
     orderType: "beat",
@@ -1227,6 +1242,7 @@ export const seedOrders: Order[] = [
     orderTime: "05:22 PM",
     orderType: "beat",
     buyerCode: "BUYER-HIM-129",
+    qwipoCustomerId: "QWIP6076101937176105",
     channelOrderId: "AMZN-ORD-463870",
     gstNumber: "36AAJCH6084R1ZH",
     lineItems: [
@@ -1308,6 +1324,7 @@ export const seedOrders: Order[] = [
     orderTime: "08:47 AM",
     orderType: "beat",
     buyerCode: "BUYER-AGS-286",
+    qwipoCustomerId: "QWIP6031374576648998",
     channelOrderId: "ONDC-ORD-731529",
     gstNumber: "36AAKCA2749T1ZJ",
     lineItems: [
@@ -1390,6 +1407,7 @@ export const seedOrders: Order[] = [
     orderTime: "03:15 PM",
     orderType: "beat",
     buyerCode: "BUYER-PRM-058",
+    qwipoCustomerId: "QWIP6076803739224769",
     channelOrderId: "FLPK-ORD-402965",
     gstNumber: "36AALCP8156V1ZL",
     lineItems: [
@@ -1474,6 +1492,7 @@ export const seedOrders: Order[] = [
     orderTime: "09:05 AM",
     orderType: "beat",
     buyerCode: "BUYER-VIN-663",
+    qwipoCustomerId: "QWIP6051055421052000",
     channelOrderId: "AMZN-ORD-385214",
     gstNumber: "36AAMCV4392X1ZN",
     lineItems: [
@@ -1563,6 +1582,7 @@ export const seedOrders: Order[] = [
     channelOrderId: "ONDC-ORD-784512",
     orderType: "standard",
     buyerCode: "BUYER-SKP-174",
+    qwipoCustomerId: "QWIP6046080224774902",
     gstNumber: "36AANCS9517Z1ZQ",
     lineItems: [
       {
@@ -1632,6 +1652,7 @@ export const seedOrders: Order[] = [
     channelOrderId: "ONDC-ORD-861247",
     orderType: "standard",
     buyerCode: "BUYER-GFM-521",
+    qwipoCustomerId: "QWIP6065709357048075",
     gstNumber: "36AAPCG6873B1ZS",
     lineItems: [
       {
@@ -1715,6 +1736,7 @@ export const seedOrders: Order[] = [
     channelOrderId: "FLPK-ORD-552031",
     orderType: "standard",
     buyerCode: "BUYER-SLS-390",
+    qwipoCustomerId: "QWIP6089023614622227",
     gstNumber: "36AAQCS3248D1ZU",
     lineItems: [
       {
@@ -1796,6 +1818,7 @@ export const seedOrders: Order[] = [
     orderType: "beat",
     buyerContact: "+91 98765 43224",
     buyerCode: "BUYER-ANP-712",
+    qwipoCustomerId: "QWIP6056636739152741",
     channelOrderId: "ONDC-ORD-987541",
     gstNumber: "36AARCA7591F1ZW",
     lineItems: [
@@ -1879,6 +1902,7 @@ export const seedOrders: Order[] = [
     orderType: "standard",
     buyerContact: "+91 98765 43225",
     buyerCode: "BUYER-QME-301",
+    qwipoCustomerId: "QWIP6091680089887992",
     channelOrderId: "ONDC-ORD-784123",
     gstNumber: "36AASCQ1826H1ZY",
     lineItems: [
@@ -1935,6 +1959,7 @@ export const seedOrders: Order[] = [
     buyerContact: "+91 98765 43226",
     channelOrderId: "FLPK-ORD-661204",
     buyerCode: "BUYER-CSM-101",
+    qwipoCustomerId: "QWIP6095417856334092",
     gstNumber: "36AABCC4521E1ZC",
     lineItems: [
       {
@@ -1990,6 +2015,7 @@ export const seedOrders: Order[] = [
     buyerContact: "+91 98765 43227",
     channelOrderId: "ONDC-ORD-451890",
     buyerCode: "BUYER-PPS-218",
+    qwipoCustomerId: "QWIP6087526691643478",
     gstNumber: "36AATCP5964J1ZA",
     lineItems: [
       {
@@ -2084,6 +2110,7 @@ export const seedOrders: Order[] = [
     buyerAddress: "Shop 7, Ayyappa Society Main Road, Madhapur, Hyderabad, Telangana 500081",
     channelOrderId: "ONDC-ORD-118823",
     buyerCode: "BUYER-GGS-441",
+    qwipoCustomerId: "QWIP6095302961101658",
     gstNumber: "36AAJCG2210K1ZP",
     lineItems: [
       {
@@ -2153,6 +2180,7 @@ export const seedOrders: Order[] = [
     buyerAddress: "Plot 15, KPHB Phase 1, Kukatpally, Hyderabad, Telangana 500072",
     channelOrderId: "ONDC-ORD-118902",
     buyerCode: "BUYER-LSB-552",
+    qwipoCustomerId: "QWIP6023687326486030",
     gstNumber: "36AADCD1140M1ZQ",
     lineItems: [
       {
@@ -2208,6 +2236,7 @@ export const seedOrders: Order[] = [
     buyerAddress: "Shop 3, Road No. 12, Banjara Hills, Hyderabad, Telangana 500034",
     channelOrderId: "ONDC-ORD-119014",
     buyerCode: "BUYER-KKS-663",
+    qwipoCustomerId: "QWIP6042933910379971",
     gstNumber: "36AAECK9021N1ZR",
     lineItems: [
       {
@@ -2263,6 +2292,7 @@ export const seedOrders: Order[] = [
     buyerAddress: "H.No 7-1-61, SR Nagar Main Road, Hyderabad, Telangana 500038",
     channelOrderId: "FLPK-ORD-661377",
     buyerCode: "BUYER-NBM-774",
+    qwipoCustomerId: "QWIP6087105683167565",
     gstNumber: "36AAFCN5502P1ZS",
     lineItems: [
       {
@@ -2332,6 +2362,7 @@ export const seedOrders: Order[] = [
     buyerAddress: "Shop 11, Mythrivanam Road, Ameerpet, Hyderabad, Telangana 500016",
     channelOrderId: "ONDC-ORD-119203",
     buyerCode: "BUYER-SRT-885",
+    qwipoCustomerId: "QWIP6073409428719430",
     gstNumber: "36AAGCS7734Q1ZT",
     lineItems: [
       {
@@ -2401,6 +2432,7 @@ export const seedOrders: Order[] = [
     buyerAddress: "Shop 2, Kavuri Hills Road, Madhapur, Hyderabad, Telangana 500081",
     channelOrderId: "ONDC-ORD-119310",
     buyerCode: "BUYER-APP-120",
+    qwipoCustomerId: "QWIP6087450231757565",
     gstNumber: "36AAKCA3321B1ZV",
     lineItems: [
       {
@@ -2456,6 +2488,7 @@ export const seedOrders: Order[] = [
     buyerAddress: "Shop 5, Tolichowki Main Road, Hyderabad, Telangana 500008",
     channelOrderId: "ONDC-ORD-119355",
     buyerCode: "BUYER-SVS-301",
+    qwipoCustomerId: "QWIP6070781183232318",
     gstNumber: "36AAHCS6618C1ZW",
     lineItems: [
       {
@@ -2525,6 +2558,7 @@ export const seedOrders: Order[] = [
     buyerAddress: "Shop 9, KPHB Phase 3, Kukatpally, Hyderabad, Telangana 500072",
     channelOrderId: "ONDC-ORD-119401",
     buyerCode: "BUYER-BKR-212",
+    qwipoCustomerId: "QWIP6056759718578724",
     gstNumber: "36AAFCB1409D1ZX",
     lineItems: [
       {
@@ -2580,6 +2614,7 @@ export const seedOrders: Order[] = [
     buyerAddress: "Shop 14, Road No. 3, Banjara Hills, Hyderabad, Telangana 500034",
     channelOrderId: "FLPK-ORD-661502",
     buyerCode: "BUYER-HGS-458",
+    qwipoCustomerId: "QWIP6006474738000355",
     gstNumber: "36AAGCH7742E1ZY",
     lineItems: [
       {
@@ -2649,6 +2684,7 @@ export const seedOrders: Order[] = [
     buyerAddress: "Plot 21, Bowenpally Main Road, Secunderabad, Telangana 500011",
     channelOrderId: "ONDC-ORD-119488",
     buyerCode: "BUYER-GSM-519",
+    qwipoCustomerId: "QWIP6085584699379243",
     gstNumber: "36AAHCG8855F1ZZ",
     lineItems: [
       {
@@ -2718,6 +2754,7 @@ export const seedOrders: Order[] = [
     buyerAddress: "Shop 4, BK Guda Road, SR Nagar, Hyderabad, Telangana 500038",
     channelOrderId: "ONDC-ORD-119520",
     buyerCode: "BUYER-SKT-620",
+    qwipoCustomerId: "QWIP6046957495278770",
     gstNumber: "36AAICS9966G1Z1",
     lineItems: [
       {
@@ -2773,6 +2810,7 @@ export const seedOrders: Order[] = [
     buyerAddress: "Shop 6, Satyam Theatre Road, Ameerpet, Hyderabad, Telangana 500016",
     channelOrderId: "ONDC-ORD-119577",
     buyerCode: "BUYER-LNS-731",
+    qwipoCustomerId: "QWIP6046803674783210",
     gstNumber: "36AAJCL1077H1Z2",
     lineItems: [
       {
@@ -2856,6 +2894,7 @@ export const seedOrders: Order[] = [
     buyerAddress: "Shop 18, Hitech City Road, Madhapur, Hyderabad, Telangana 500081",
     channelOrderId: "FLPK-ORD-661590",
     buyerCode: "BUYER-VRM-842",
+    qwipoCustomerId: "QWIP6093182213570386",
     gstNumber: "36AAKCV2188J1Z3",
     lineItems: [
       {
@@ -2925,6 +2964,7 @@ export const seedOrders: Order[] = [
     buyerContact: "+91 98765 43228",
     channelOrderId: "AMZN-ORD-303912",
     buyerCode: "BUYER-SSK-441",
+    qwipoCustomerId: "QWIP6062834269565837",
     gstNumber: "36AAUCS2137L1ZC",
     lineItems: [
       {
@@ -2995,6 +3035,7 @@ export const seedOrders: Order[] = [
     buyerContact: "+91 98765 43229",
     channelOrderId: "ONDC-ORD-562118",
     buyerCode: "BUYER-MRC-514",
+    qwipoCustomerId: "QWIP6078668367661533",
     gstNumber: "36AADCM8265F1ZP",
     lineItems: [
       {
@@ -3065,6 +3106,7 @@ export const seedOrders: Order[] = [
     buyerContact: "+91 98765 43230",
     channelOrderId: "AMZN-ORD-770521",
     buyerCode: "BUYER-GFM-521",
+    qwipoCustomerId: "QWIP6065709357048075",
     gstNumber: "36AAPCG6873B1ZS",
     lineItems: [
       {
@@ -3141,6 +3183,7 @@ export const seedOrders: Order[] = [
     orderType: "beat",
     buyerContact: "+91 98765 43226",
     buyerCode: "BUYER-CSM-101",
+    qwipoCustomerId: "QWIP6095417856334092",
     channelOrderId: "ONDC-ORD-450201",
     gstNumber: "36AABCC4521E1ZC",
     lineItems: [
@@ -3222,6 +3265,7 @@ export const seedOrders: Order[] = [
     orderType: "beat",
     buyerContact: "+91 98765 43226",
     buyerCode: "BUYER-CSM-101",
+    qwipoCustomerId: "QWIP6095417856334092",
     channelOrderId: "ONDC-ORD-450202",
     gstNumber: "36AABCC4521E1ZC",
     lineItems: [
@@ -3289,6 +3333,7 @@ export const seedOrders: Order[] = [
     orderType: "beat",
     buyerContact: "+91 98765 43226",
     buyerCode: "BUYER-CSM-101",
+    qwipoCustomerId: "QWIP6095417856334092",
     channelOrderId: "FLPK-ORD-450203",
     gstNumber: "36AABCC4521E1ZC",
     lineItems: [
@@ -3356,6 +3401,7 @@ export const seedOrders: Order[] = [
     orderType: "beat",
     buyerContact: "+91 98765 43226",
     buyerCode: "BUYER-CSM-101",
+    qwipoCustomerId: "QWIP6095417856334092",
     channelOrderId: "AMZN-ORD-450204",
     gstNumber: "36AABCC4521E1ZC",
     lineItems: [
@@ -3430,6 +3476,7 @@ export const seedOrders: Order[] = [
     buyerContact: "+91 98765 43231",
     channelOrderId: "ONDC-ORD-911047",
     buyerCode: "BUYER-SKP-174",
+    qwipoCustomerId: "QWIP6046080224774902",
     gstNumber: "36AANCS9517Z1ZQ",
     lineItems: [
       {
@@ -3513,6 +3560,7 @@ export const seedOrders: Order[] = [
     orderType: "beat",
     buyerContact: "+91 98765 43301",
     buyerCode: "BUYER-MHS-311",
+    qwipoCustomerId: "QWIP6032022026941329",
     channelOrderId: "ONDC-ORD-930101",
     gstNumber: "36AAFCM4521K1ZP",
     buyerAddress: "Shop 4, KPHB Colony Main Road, Kukatpally, Hyderabad, Telangana 500072",
@@ -3598,6 +3646,7 @@ export const seedOrders: Order[] = [
     orderType: "beat",
     buyerContact: "+91 98765 43301",
     buyerCode: "BUYER-MHS-311",
+    qwipoCustomerId: "QWIP6032022026941329",
     channelOrderId: "ONDC-ORD-930102",
     gstNumber: "36AAFCM4521K1ZP",
     buyerAddress: "Shop 4, KPHB Colony Main Road, Kukatpally, Hyderabad, Telangana 500072",
@@ -3672,6 +3721,7 @@ export const seedOrders: Order[] = [
     orderType: "beat",
     buyerContact: "+91 98765 43301",
     buyerCode: "BUYER-MHS-311",
+    qwipoCustomerId: "QWIP6032022026941329",
     channelOrderId: "ONDC-ORD-930103",
     gstNumber: "36AAFCM4521K1ZP",
     buyerAddress: "Shop 4, KPHB Colony Main Road, Kukatpally, Hyderabad, Telangana 500072",
@@ -3745,6 +3795,7 @@ export const seedOrders: Order[] = [
     orderType: "beat",
     buyerContact: "+91 98765 43302",
     buyerCode: "BUYER-SLG-312",
+    qwipoCustomerId: "QWIP6036865685971305",
     channelOrderId: "ONDC-ORD-930201",
     gstNumber: "36AAKFS7734L1ZQ",
     buyerAddress: "Plot 22, SR Nagar Main Road, Sanjeeva Reddy Nagar, Hyderabad, Telangana 500038",
@@ -3832,6 +3883,7 @@ export const seedOrders: Order[] = [
     orderType: "beat",
     buyerContact: "+91 98765 43302",
     buyerCode: "BUYER-SLG-312",
+    qwipoCustomerId: "QWIP6036865685971305",
     channelOrderId: "ONDC-ORD-930202",
     gstNumber: "36AAKFS7734L1ZQ",
     buyerAddress: "Plot 22, SR Nagar Main Road, Sanjeeva Reddy Nagar, Hyderabad, Telangana 500038",
@@ -3904,6 +3956,7 @@ export const seedOrders: Order[] = [
     orderType: "standard",
     buyerContact: "+91 98765 43303",
     buyerCode: "BUYER-VKK-313",
+    qwipoCustomerId: "QWIP6045723748174892",
     channelOrderId: "ONDC-ORD-930203",
     buyerAddress: "H.No 8-3-214, Yousufguda Main Road, Hyderabad, Telangana 500045",
     buyerLat: 17.4344,
@@ -3989,6 +4042,7 @@ export const seedOrders: Order[] = [
     orderType: "beat",
     buyerContact: "+91 98765 43304",
     buyerCode: "BUYER-GSM-314",
+    qwipoCustomerId: "QWIP6060932331646306",
     channelOrderId: "ONDC-ORD-930301",
     gstNumber: "36AAJCG2210M1ZR",
     buyerAddress: "Shop 9, Ameerpet X Roads, Ameerpet, Hyderabad, Telangana 500016",
@@ -4075,6 +4129,7 @@ export const seedOrders: Order[] = [
     orderType: "beat",
     buyerContact: "+91 98765 43304",
     buyerCode: "BUYER-GSM-314",
+    qwipoCustomerId: "QWIP6060932331646306",
     channelOrderId: "ONDC-ORD-930302",
     gstNumber: "36AAJCG2210M1ZR",
     buyerAddress: "Shop 9, Ameerpet X Roads, Ameerpet, Hyderabad, Telangana 500016",
@@ -4161,6 +4216,7 @@ export const seedOrders: Order[] = [
     orderType: "beat",
     buyerContact: "+91 98765 43304",
     buyerCode: "BUYER-GSM-314",
+    qwipoCustomerId: "QWIP6060932331646306",
     channelOrderId: "ONDC-ORD-930303",
     gstNumber: "36AAJCG2210M1ZR",
     buyerAddress: "Shop 9, Ameerpet X Roads, Ameerpet, Hyderabad, Telangana 500016",
@@ -4234,6 +4290,7 @@ export const seedOrders: Order[] = [
     orderType: "standard",
     buyerContact: "+91 98765 43305",
     buyerCode: "BUYER-SBG-315",
+    qwipoCustomerId: "QWIP6014706095497204",
     channelOrderId: "ONDC-ORD-930401",
     buyerAddress: "Shop 2, Dilsukhnagar Main Road, Dilsukhnagar, Hyderabad, Telangana 500060",
     buyerLat: 17.3688,
@@ -4306,6 +4363,7 @@ export const seedOrders: Order[] = [
     orderType: "standard",
     buyerContact: "+91 98765 43305",
     buyerCode: "BUYER-SBG-315",
+    qwipoCustomerId: "QWIP6014706095497204",
     channelOrderId: "ONDC-ORD-930402",
     buyerAddress: "Shop 2, Dilsukhnagar Main Road, Dilsukhnagar, Hyderabad, Telangana 500060",
     buyerLat: 17.3688,
