@@ -1078,14 +1078,14 @@ export function Orders() {
     // number read like a real ID. "Operation Mode" follows Company.
     // Wholesale rows mask the company as "Wholesaler" — same as the
     // list.
-    // Customer Wise View: the same export plus Retailer Company ID and
-    // Customer Order Value beside Clubbed Orders, rows grouped by
-    // customer order.
+    // Customer Wise View: the same export plus Customer Order Value
+    // beside Clubbed Orders and Retailer Company ID beside Company, rows
+    // grouped by customer order.
     const customerWise = orderView === "customer";
     const headers = [
       "Order ID",
       "Clubbed Orders",
-      ...(customerWise ? ["Retailer Company ID", "Customer Order Value"] : []),
+      ...(customerWise ? ["Customer Order Value"] : []),
       "Order Status",
       "Order Date",
       "Order Type",
@@ -1102,6 +1102,7 @@ export function Orders() {
       "SKU code",
       "Product Name",
       "Company",
+      ...(customerWise ? ["Retailer Company ID"] : []),
       "Operation Mode",
       "Brand",
       "Category",
@@ -1152,10 +1153,7 @@ export function Orders() {
           order.id,
           clubSize > 1 ? clubSize : "",
           ...(customerWise
-            ? [
-                getRetailerCompanyId(order) ?? "",
-                checkoutTotals.get(getCustomerOrderId(order)) ?? order.orderValue,
-              ]
+            ? [checkoutTotals.get(getCustomerOrderId(order)) ?? order.orderValue]
             : []),
           statusLabelFor(order),
           orderDateLabelFor(order),
@@ -1173,6 +1171,7 @@ export function Orders() {
           item.skuCode,
           item.productName,
           isWholesale ? "Wholesaler" : item.company,
+          ...(customerWise ? [getRetailerCompanyId(order) ?? ""] : []),
           isWholesale ? "Wholesale" : "Distribution",
           item.brand,
           item.category,
