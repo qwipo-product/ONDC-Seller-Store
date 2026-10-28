@@ -66,6 +66,7 @@ import {
 // don't redeclare it here.
 import {
   type Order,
+  type OrderLineItem,
   type CancelledBy,
   SELLER_INFO,
   getOrders,
@@ -1015,7 +1016,204 @@ export function Orders() {
     return [upc, inner, rest];
   };
 
+  // Synthesize a single line item from `itemsSummary` for orders
+  // that don't carry full lineItems. Best-effort parsing: pulls the
+  // leading qty + product description, prices to orderValue/qty, and
+  // marks the line as no-discount.
+  const synthesizeLineItems = (order: Order): OrderLineItem[] => {
+    const m = order.itemsSummary.match(/^\s*(\d+)\s+units?\s+(.+?)\s*$/i);
+    const qty = m ? parseInt(m[1], 10) : 1;
+    const name = m ? m[2] : order.itemsSummary;
+    const ppu = qty > 0 ? +(order.orderValue / qty).toFixed(2) : order.orderValue;
+    return [
+      {
+        skuCode: `SKU-${order.id.replace(/[^0-9]/g, "").slice(-5)}`,
+        productName: name,
+        // No richer brand/company info to draw on — fall back to the
+        // order's brand and an em-dash for company. Real builds would
+        // resolve company and category from the SKU catalog.
+        company: "—",
+        brand: order.brand,
+        category: "—",
+        qty,
+        originalPricePerUnit: ppu,
+        finalPricePerUnit: ppu,
+        discountApplied: 0,
+        discountDetails: "No Discount",
+        lineTotal: order.orderValue,
+      },
+    ];
+  };
+
+  // Company Wise View export — the original export, unchanged from
+  // version-3 (28 columns, one row per line item).
+  const handleCompanyExport = () => {
+    const range = resolveExportRange();
+    if (!range) {
+      toast.error("Please select a date range for export");
+      return;
+    }
+    const start = new Date(range.start);
+    const end = new Date(range.end);
+    if (start > end) {
+      toast.error("Start date cannot be after end date");
+      return;
+    }
+    // Phase 1 caps the exportable window at one month to keep
+    // generated sheets reasonable. The End Date input's `max`
+    // attribute keeps the OS picker honest; this guard catches
+    // the typed-date-bypass edge case.
+    if (exportRangeTooLong) {
+      toast.error("Date range can span at most one month (31 days)");
+      return;
+    }
+
+    // Filter orders by export date range
+    const ordersToExport = orders.filter((order) => {
+      const orderDate = new Date(order.orderDate);
+      return orderDate >= start && orderDate <= end;
+    });
+
+    if (ordersToExport.length === 0) {
+      toast.error("No orders found in the selected date range");
+      return;
+    }
+
+    // 28-column layout — one row per line item; order-level fields
+    // (Original Order Value, Order Level Savings, Final Order Value)
+    // repeat on every row. The June 2026 review replaced the
+    // Expected / Actual Delivery Date pair with a single Delivery
+    // Day field, and added Order Type (Beat / Non-Beat) so finance
+    // can reconcile by beat route without re-joining against the
+    // settings sheet.
+    // "Clubbed Orders" (how many seller orders were split out of the
+    // same buyer-app checkout — blank for standalone orders) sits
+    // beside Order ID. The earlier dummy "Parent Order No." was
+    // rejected: order IDs come from the buyer app, and a fabricated
+    // number read like a real ID. "Operation Mode" follows Company.
+    // Wholesale rows mask the company as "Wholesaler" — same as the
+    // list.
+    const headers = [
+      "Order ID",
+      "Clubbed Orders",
+      "Order Status",
+      "Order Date",
+      "Order Type",
+      "Beat Name",
+      "Delivery Day",
+      "Buyer Name",
+      "Buyer Contact",
+      "Buyer Address",
+      "Seller Name",
+      "Seller Contact",
+      "Payment Mode",
+      "Channel Order ID",
+      "Original Order Value",
+      "SKU code",
+      "Product Name",
+      "Company",
+      "Operation Mode",
+      "Brand",
+      "Category",
+      "QTY",
+      "Original Price/Unit",
+      "Final Price/Unit",
+      "Discount Applied",
+      "Discount Details",
+      "Order Level Discount",
+      "Final Order Value",
+    ];
+
+    const csvRows = [headers.join(",")];
+
+    // Clubbed-order counts — how many exported orders share each
+    // checkout. Counted within the export window so the sheet is
+    // self-consistent.
+    const clubSizes = new Map<string, number>();
+    for (const o of ordersToExport) {
+      const k = getCustomerOrderId(o);
+      clubSizes.set(k, (clubSizes.get(k) ?? 0) + 1);
+    }
+
+    ordersToExport.forEach((order) => {
+      const lines =
+        order.lineItems && order.lineItems.length > 0
+          ? order.lineItems
+          : synthesizeLineItems(order);
+      const orderLevelSavings = lines.reduce(
+        (n, l) => n + l.discountApplied,
+        0,
+      );
+      const finalOrderValue = order.orderValue;
+      const isWholesale = getOrderOperationMode(order) === "wholesale";
+      lines.forEach((item) => {
+        const clubSize = clubSizes.get(getCustomerOrderId(order)) ?? 1;
+        const row = [
+          order.id,
+          clubSize > 1 ? clubSize : "",
+          statusLabelFor(order),
+          orderDateLabelFor(order),
+          getOrderType(order) === "beat" ? "Beat" : "Non-Beat",
+          order.beatName ?? "",
+          order.expectedDeliveryDate,
+          order.retailerName,
+          order.buyerContact ?? "",
+          order.buyerAddress ?? "",
+          SELLER_INFO.name,
+          SELLER_INFO.contact,
+          order.paymentMode,
+          channelOrderIdFor(order),
+          order.originalOrderValue ?? order.orderValue,
+          item.skuCode,
+          item.productName,
+          isWholesale ? "Wholesaler" : item.company,
+          isWholesale ? "Wholesale" : "Distribution",
+          item.brand,
+          item.category,
+          item.qty,
+          item.originalPricePerUnit,
+          item.finalPricePerUnit,
+          item.discountApplied,
+          item.discountDetails,
+          orderLevelSavings,
+          finalOrderValue,
+        ];
+        csvRows.push(row.map(escapeCsv).join(","));
+      });
+    });
+
+    const csvContent = csvRows.join("\r\n");
+
+    // Create download link
+    const blob = new Blob(["﻿" + csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+
+    link.setAttribute("href", url);
+    link.setAttribute(
+      "download",
+      `orders_${range.start}_to_${range.end}.${exportFormat}`,
+    );
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast.success(
+      `Successfully exported ${ordersToExport.length} order(s) from ${range.start} to ${range.end}`,
+    );
+    setIsExportDialogOpen(false);
+  };
+
+  // Export button: Company Wise keeps the original export; Customer
+  // Wise adds its columns and groups rows by customer order.
   const handleExport = () => {
+    if (orderView !== "customer") {
+      handleCompanyExport();
+      return;
+    }
     const range = resolveExportRange();
     if (!range) {
       toast.error("Please select a date range for export");
