@@ -86,9 +86,7 @@ import {
   type CustomerCheckout,
   groupOrdersByCheckout,
   getOrderLines,
-  getSkuPackConfig,
 } from "../../lib/orders-data";
-import { sampleSKUs } from "../products/my-sku";
 
 // An order is a "beat" delivery when it rides a configured
 // serviceability beat. The June 2026 review decoupled this from
@@ -1004,18 +1002,6 @@ export function Orders() {
   const orderDateLabelFor = (order: Order): string =>
     order.orderTime ? `${order.orderDate} ${order.orderTime}` : order.orderDate;
 
-  // QTY split into full cases (UPC), inner packs and loose pieces,
-  // per the SKU master packing. SKUs without packing are all pieces.
-  const packBreakdown = (skuCode: string, qty: number): number[] => {
-    const pack = getSkuPackConfig(skuCode);
-    if (!pack) return [0, 0, qty];
-    const upc = pack.upc > 1 ? Math.floor(qty / pack.upc) : 0;
-    let rest = qty - upc * pack.upc;
-    const inner = pack.innerPack > 1 ? Math.floor(rest / pack.innerPack) : 0;
-    rest -= inner * pack.innerPack;
-    return [upc, inner, rest];
-  };
-
   // Synthesize a single line item from `itemsSummary` for orders
   // that don't carry full lineItems. Best-effort parsing: pulls the
   // leading qty + product description, prices to orderValue/qty, and
@@ -1045,9 +1031,7 @@ export function Orders() {
     ];
   };
 
-  // Company Wise View export — the original export, unchanged from
-  // version-3 (28 columns, one row per line item).
-  const handleCompanyExport = () => {
+  const handleExport = () => {
     const range = resolveExportRange();
     if (!range) {
       toast.error("Please select a date range for export");
@@ -1093,9 +1077,14 @@ export function Orders() {
     // number read like a real ID. "Operation Mode" follows Company.
     // Wholesale rows mask the company as "Wholesaler" — same as the
     // list.
+    // Customer Wise View: the same export plus Qwipo Customer ID and
+    // Customer Order Value beside Clubbed Orders, rows grouped by
+    // customer order.
+    const customerWise = orderView === "customer";
     const headers = [
       "Order ID",
       "Clubbed Orders",
+      ...(customerWise ? ["Qwipo Customer ID", "Customer Order Value"] : []),
       "Order Status",
       "Order Date",
       "Order Type",
@@ -1135,7 +1124,17 @@ export function Orders() {
       clubSizes.set(k, (clubSizes.get(k) ?? 0) + 1);
     }
 
-    ordersToExport.forEach((order) => {
+    // Customer order totals within the export window.
+    const checkoutTotals = new Map<string, number>();
+    for (const o of ordersToExport) {
+      const k = getCustomerOrderId(o);
+      checkoutTotals.set(k, (checkoutTotals.get(k) ?? 0) + o.orderValue);
+    }
+    const exportRows = customerWise
+      ? groupOrdersByCheckout(ordersToExport).flatMap((g) => g.orders)
+      : ordersToExport;
+
+    exportRows.forEach((order) => {
       const lines =
         order.lineItems && order.lineItems.length > 0
           ? order.lineItems
@@ -1151,6 +1150,12 @@ export function Orders() {
         const row = [
           order.id,
           clubSize > 1 ? clubSize : "",
+          ...(customerWise
+            ? [
+                order.qwipoCustomerId ?? "",
+                checkoutTotals.get(getCustomerOrderId(order)) ?? order.orderValue,
+              ]
+            : []),
           statusLabelFor(order),
           orderDateLabelFor(order),
           getOrderType(order) === "beat" ? "Beat" : "Non-Beat",
@@ -1205,253 +1210,6 @@ export function Orders() {
       `Successfully exported ${ordersToExport.length} order(s) from ${range.start} to ${range.end}`,
     );
     setIsExportDialogOpen(false);
-  };
-
-  // Export button: Company Wise keeps the original export; Customer
-  // Wise adds its columns and groups rows by customer order.
-  const handleExport = () => {
-    if (orderView !== "customer") {
-      handleCompanyExport();
-      return;
-    }
-    const range = resolveExportRange();
-    if (!range) {
-      toast.error("Please select a date range for export");
-      return;
-    }
-    const start = new Date(range.start);
-    const end = new Date(range.end);
-    if (start > end) {
-      toast.error("Start date cannot be after end date");
-      return;
-    }
-    // Phase 1 caps the exportable window at one month to keep
-    // generated sheets reasonable. The End Date input's `max`
-    // attribute keeps the OS picker honest; this guard catches
-    // the typed-date-bypass edge case.
-    if (exportRangeTooLong) {
-      toast.error("Date range can span at most one month (31 days)");
-      return;
-    }
-
-    // Filter orders by export date range
-    const ordersToExport = orders.filter((order) => {
-      const orderDate = new Date(order.orderDate);
-      return orderDate >= start && orderDate <= end;
-    });
-
-    if (ordersToExport.length === 0) {
-      toast.error("No orders found in the selected date range");
-      return;
-    }
-
-    // 33-column layout — one row per line item; order-level fields
-    // (Original Order Value, Order Level Savings, Final Order Value)
-    // repeat on every row. The June 2026 review replaced the
-    // Expected / Actual Delivery Date pair with a single Delivery
-    // Day field, and added Order Type (Beat / Non-Beat) so finance
-    // can reconcile by beat route without re-joining against the
-    // settings sheet.
-    // "Clubbed Orders" (how many seller orders were split out of the
-    // same buyer-app checkout — blank for standalone orders) sits
-    // beside Order ID. The earlier dummy "Parent Order No." was
-    // rejected: order IDs come from the buyer app, and a fabricated
-    // number read like a real ID. "Operation Mode" follows Company.
-    // Wholesale rows mask the company as "Wholesaler" — same as the
-    // list.
-    // Customer Wise View: same sheet, rows grouped by customer order,
-    // plus the Qwipo Customer ID and customer order total beside Clubbed Orders.
-    const customerWise = orderView === "customer";
-    const headers = [
-      "Order ID",
-      "Clubbed Orders",
-      ...(customerWise ? ["Qwipo Customer ID", "Customer Order Value"] : []),
-      "Order Status",
-      "Order Date",
-      "Order Type",
-      "Beat Name",
-      "Delivery Date",
-      "Buyer Name",
-      "Buyer Contact",
-      "Buyer GST Number",
-      "Buyer Address",
-      "Seller Name",
-      "Seller Contact",
-      "Payment Mode",
-      "Channel Order ID",
-      "Original Order Value",
-      "SKU code",
-      "Short Name",
-      "Product Name",
-      "Company",
-      "Operation Mode",
-      "Brand",
-      "Category",
-      "QTY",
-      "UPC Qty",
-      "Inner Pack Qty",
-      "Piece Qty",
-      "Original Price/Unit",
-      "Final Price/Unit",
-      "Discount Applied",
-      "Discount Details",
-      "Order Level Discount",
-      "Final Order Value",
-    ];
-
-    const csvRows = [headers.join(",")];
-    const sheetRows: (string | number)[][] = [];
-
-    // Clubbed-order counts — how many exported orders share each
-    // checkout. Counted within the export window so the sheet is
-    // self-consistent.
-    const clubSizes = new Map<string, number>();
-    for (const o of ordersToExport) {
-      const k = getCustomerOrderId(o);
-      clubSizes.set(k, (clubSizes.get(k) ?? 0) + 1);
-    }
-
-    // Customer order totals within the export window.
-    const checkoutTotals = new Map<string, number>();
-    for (const o of ordersToExport) {
-      const k = getCustomerOrderId(o);
-      checkoutTotals.set(k, (checkoutTotals.get(k) ?? 0) + o.orderValue);
-    }
-    const exportRows = customerWise
-      ? groupOrdersByCheckout(ordersToExport).flatMap((g) => g.orders)
-      : ordersToExport;
-
-    exportRows.forEach((order) => {
-      // Same lines as the View page, with any seller quantity edits
-      // applied so QTY and line totals add up to Final Order Value.
-      const lines = getOrderLines(order).map((l) => {
-        const mod = order.qtyModifications?.[l.skuCode];
-        return mod
-          ? {
-              ...l,
-              qty: mod.modifiedQty,
-              finalPricePerUnit: mod.pricePerUnit,
-              lineTotal: Math.round(mod.modifiedQty * mod.pricePerUnit * 100) / 100,
-            }
-          : l;
-      });
-      const orderLevelSavings = lines.reduce(
-        (n, l) => n + l.discountApplied,
-        0,
-      );
-      const finalOrderValue = order.orderValue;
-      const isWholesale = getOrderOperationMode(order) === "wholesale";
-      lines.forEach((item) => {
-        const clubSize = clubSizes.get(getCustomerOrderId(order)) ?? 1;
-        const row = [
-          order.id,
-          clubSize > 1 ? clubSize : "",
-          ...(customerWise
-            ? [
-                order.qwipoCustomerId ?? "",
-                checkoutTotals.get(getCustomerOrderId(order)) ?? order.orderValue,
-              ]
-            : []),
-          statusLabelFor(order),
-          orderDateLabelFor(order),
-          getOrderType(order) === "beat" ? "Beat" : "Non-Beat",
-          order.beatName ?? "",
-          order.expectedDeliveryDate,
-          order.retailerName,
-          order.buyerContact ?? "",
-          order.gstNumber ?? "",
-          order.buyerAddress ?? "",
-          SELLER_INFO.name,
-          SELLER_INFO.contact,
-          order.paymentMode,
-          channelOrderIdFor(order),
-          order.originalOrderValue ?? order.orderValue,
-          item.skuCode,
-          item.shortName ??
-            sampleSKUs.find((k) => k.sku === item.skuCode)?.shortName ??
-            "—",
-          item.productName,
-          isWholesale ? "Wholesaler" : item.company,
-          isWholesale ? "Wholesale" : "Distribution",
-          item.brand,
-          item.category,
-          item.qty,
-          ...packBreakdown(item.skuCode, item.qty),
-          item.originalPricePerUnit,
-          item.finalPricePerUnit,
-          item.discountApplied,
-          item.discountDetails,
-          orderLevelSavings,
-          finalOrderValue,
-        ];
-        csvRows.push(row.map(escapeCsv).join(","));
-        sheetRows.push(row);
-      });
-    });
-
-    const fileName = `orders_${customerWise ? "customer-wise_" : ""}${range.start}_to_${range.end}.${exportFormat}`;
-    const exportedLabel = customerWise
-      ? `${groupOrdersByCheckout(ordersToExport).length} customer order(s) (${ordersToExport.length} company orders)`
-      : `${ordersToExport.length} order(s)`;
-    const done = () => {
-      toast.success(
-        `Successfully exported ${exportedLabel} from ${range.start} to ${range.end}`,
-      );
-      setIsExportDialogOpen(false);
-    };
-
-    if (exportFormat === "xlsx") {
-      // A real workbook — Excel rejects CSV text saved as .xlsx.
-      void (async () => {
-        try {
-          const ExcelJS = (await import("exceljs")).default;
-          const wb = new ExcelJS.Workbook();
-          const ws = wb.addWorksheet("Orders");
-          ws.addRow(headers);
-          ws.getRow(1).font = { bold: true };
-          ws.views = [{ state: "frozen", ySplit: 1 }];
-          sheetRows.forEach((r) => ws.addRow(r));
-          ws.columns.forEach((col, i) => {
-            const longest = Math.max(
-              headers[i].length,
-              ...sheetRows.map((r) => String(r[i] ?? "").length),
-            );
-            col.width = Math.min(Math.max(longest + 2, 10), 50);
-          });
-          const buf = await wb.xlsx.writeBuffer();
-          downloadBlob(
-            new Blob([buf], {
-              type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            }),
-            fileName,
-          );
-          done();
-        } catch {
-          toast.error("Could not create the Excel file. Please try CSV.");
-        }
-      })();
-      return;
-    }
-
-    const csvContent = csvRows.join("\r\n");
-    downloadBlob(
-      new Blob(["﻿" + csvContent], { type: "text/csv;charset=utf-8;" }),
-      fileName,
-    );
-    done();
-  };
-
-  const downloadBlob = (blob: Blob, fileName: string) => {
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-
-    link.setAttribute("href", url);
-    link.setAttribute("download", fileName);
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    setTimeout(() => URL.revokeObjectURL(url), 0);
   };
 
   // Get status badge. Cancelled orders fan out into two visually
