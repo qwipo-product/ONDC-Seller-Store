@@ -88,6 +88,8 @@ import {
   groupOrdersByCheckout,
   getOrderLines,
   getRetailerCompanyId,
+  CUSTOMER_ORDER_STAGES,
+  getMixedCustomerOrderStatus,
 } from "../../lib/orders-data";
 
 // An order is a "beat" delivery when it rides a configured
@@ -1640,29 +1642,9 @@ export function Orders() {
   // fulfilment. A checkout is locked while any of its company orders
   // is masked by the status-update gate.
   // ---- Customer order status (Customer Wise View) ----
-  // A customer order's company orders can sit in different states — e.g.
-  // the seller cancels one and confirms the rest. The row then shows a
-  // "Partially …" status for the whole customer order plus a breakdown
-  // ("2 Confirmed · 1 Cancelled"), on every tab it appears in.
-  type Stage = "new" | "confirmed" | "logistics" | "delivered" | "cancelled";
-  const STAGES: Record<Stage, { label: string; dot: string; badge: string }> = {
-    new: { label: "New", dot: "bg-blue-500", badge: "bg-blue-50 text-blue-700 border-blue-200" },
-    confirmed: { label: "Confirmed", dot: "bg-green-500", badge: "bg-green-50 text-green-700 border-green-200" },
-    logistics: { label: "With 3PL", dot: "bg-sky-500", badge: "bg-sky-50 text-sky-700 border-sky-200" },
-    delivered: { label: "Delivered", dot: "bg-emerald-600", badge: "bg-emerald-100 text-emerald-700 border-emerald-300" },
-    cancelled: { label: "Cancelled", dot: "bg-red-500", badge: "bg-purple-50 text-purple-700 border-purple-200" },
-  };
-  const STAGE_ORDER: Stage[] = ["new", "confirmed", "logistics", "delivered", "cancelled"];
-  const stageOf = (o: Order): Stage =>
-    o.status === "Cancelled"
-      ? "cancelled"
-      : o.status === "Delivered"
-        ? "delivered"
-        : o.status === "Confirmed"
-          ? isWithLogisticsPartner(o)
-            ? "logistics"
-            : "confirmed"
-          : "new";
+  // A customer order whose company orders are in different states shows
+  // a "Partially …" badge and a breakdown on every tab it appears in —
+  // see getMixedCustomerOrderStatus.
   // Every company order of each customer order, whatever tab is open.
   const checkoutIndex = useMemo(() => {
     const m = new Map<string, Order[]>();
@@ -1672,31 +1654,6 @@ export function Orders() {
     }
     return m;
   }, [orders]);
-  /** Summary for a mixed customer order; null when every company order
-   *  is in the same state (the normal status badge applies). */
-  const mixedCustomerStatus = (all: Order[]) => {
-    const counts = new Map<Stage, number>();
-    for (const o of all) counts.set(stageOf(o), (counts.get(stageOf(o)) ?? 0) + 1);
-    if (counts.size < 2) return null;
-    const active = STAGE_ORDER.filter((st) => st !== "cancelled" && counts.has(st));
-    const top = active[active.length - 1];
-    const label =
-      !top
-        ? "Cancelled"
-        : top === "new"
-          ? "Partially Cancelled"
-          : `Partially ${STAGES[top].label}`;
-    const badge =
-      !top || top === "new"
-        ? "bg-orange-50 text-orange-700 border-orange-200"
-        : STAGES[top].badge;
-    const parts = STAGE_ORDER.filter((st) => counts.has(st)).map((st) => ({
-      stage: st,
-      count: counts.get(st)!,
-    }));
-    return { label, badge, parts };
-  };
-
   const renderCustomerTable = (groups: CustomerCheckout[]) => {
     const isActionable = activeTab === "new" || activeTab === "confirmed";
     const th =
@@ -1900,14 +1857,10 @@ export function Orders() {
                   <td className="px-3 py-2.5 whitespace-nowrap">
                     {(() => {
                       const all = checkoutIndex.get(g.checkoutId) ?? g.orders;
-                      const mixed = mixedCustomerStatus(all);
-                      // On All (or whenever the whole customer order is on
-                      // this tab) lead with the customer order's status;
-                      // on a status tab keep that tab's status.
-                      const whole = all.length === g.orders.length;
+                      const mixed = getMixedCustomerOrderStatus(all);
                       return (
                         <div className="flex flex-col items-start gap-1">
-                          {mixed && whole ? (
+                          {mixed ? (
                             <Badge className={mixed.badge}>{mixed.label}</Badge>
                           ) : (
                             statusOrders.map((o) => (
@@ -1922,8 +1875,8 @@ export function Orders() {
                               <span className="text-gray-500">{all.length} orders:</span>
                               {mixed.parts.map((p) => (
                                 <span key={p.stage} className="inline-flex items-center gap-1">
-                                  <span className={`h-1.5 w-1.5 rounded-full ${STAGES[p.stage].dot}`} />
-                                  {p.count} {STAGES[p.stage].label}
+                                  <span className={`h-1.5 w-1.5 rounded-full ${CUSTOMER_ORDER_STAGES[p.stage].dot}`} />
+                                  {p.count} {CUSTOMER_ORDER_STAGES[p.stage].label}
                                 </span>
                               ))}
                             </p>

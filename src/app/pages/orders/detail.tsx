@@ -52,6 +52,9 @@ import {
   getCustomerOrderId,
   getOrderLines,
   getRetailerCompanyId,
+  CUSTOMER_ORDER_STAGES,
+  getCustomerOrderStage,
+  getMixedCustomerOrderStatus,
   type Order as StoreOrder,
   updateOrderStatus,
   subscribeToOrders,
@@ -787,10 +790,44 @@ export function OrderDetail() {
                     : `Order #${orderData.orderId}`}
                 </h1>
                 {isCustomerMode ? (
-                  <Badge variant="outline" className="text-sm">
-                    {checkoutOrders.length} company order
-                    {checkoutOrders.length === 1 ? "" : "s"}
-                  </Badge>
+                  <>
+                    <Badge variant="outline" className="text-sm">
+                      {checkoutOrders.length} company order
+                      {checkoutOrders.length === 1 ? "" : "s"}
+                    </Badge>
+                    {/* Customer order status — "Partially …" when the
+                        company orders are in different states. */}
+                    {(() => {
+                      const mixed = getMixedCustomerOrderStatus(checkoutOrders);
+                      if (!mixed) {
+                        // Every company order in one state. With the
+                        // logistics partner reads as such, like the rows.
+                        return checkoutOrders.length > 0 &&
+                          getCustomerOrderStage(checkoutOrders[0]) === "logistics" ? (
+                          <Badge className={CUSTOMER_ORDER_STAGES.logistics.badge}>
+                            With 3PL Partner
+                          </Badge>
+                        ) : (
+                          getStatusBadge(orderData)
+                        );
+                      }
+                      return (
+                        <>
+                          <Badge className={mixed.badge}>{mixed.label}</Badge>
+                          <span className="flex flex-wrap items-center gap-x-2 text-[11px] text-gray-600">
+                            {mixed.parts.map((p) => (
+                              <span key={p.stage} className="inline-flex items-center gap-1">
+                                <span
+                                  className={`h-1.5 w-1.5 rounded-full ${CUSTOMER_ORDER_STAGES[p.stage].dot}`}
+                                />
+                                {p.count} {CUSTOMER_ORDER_STAGES[p.stage].label}
+                              </span>
+                            ))}
+                          </span>
+                        </>
+                      );
+                    })()}
+                  </>
                 ) : (
                   getStatusBadge(orderData)
                 )}

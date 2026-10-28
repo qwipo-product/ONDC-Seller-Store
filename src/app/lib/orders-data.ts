@@ -5309,3 +5309,77 @@ export function getRetailerCompanyId(order: Order): string | undefined {
     (l) => companyKey(l.companyName) === companyKey(order.company),
   )?.retailerCompanyId;
 }
+
+// ---------- Customer order status ----------
+// A customer order's company orders can sit in different states — e.g.
+// the seller cancels one and confirms the rest. Shared by the Customer
+// Wise list and the customer order page so both read the same.
+export type CustomerOrderStage =
+  | "new"
+  | "confirmed"
+  | "logistics"
+  | "delivered"
+  | "cancelled";
+
+export const CUSTOMER_ORDER_STAGES: Record<
+  CustomerOrderStage,
+  { label: string; dot: string; badge: string }
+> = {
+  new: { label: "New", dot: "bg-blue-500", badge: "bg-blue-50 text-blue-700 border-blue-200" },
+  confirmed: { label: "Confirmed", dot: "bg-green-500", badge: "bg-green-50 text-green-700 border-green-200" },
+  logistics: { label: "With 3PL", dot: "bg-sky-500", badge: "bg-sky-50 text-sky-700 border-sky-200" },
+  delivered: { label: "Delivered", dot: "bg-emerald-600", badge: "bg-emerald-100 text-emerald-700 border-emerald-300" },
+  cancelled: { label: "Cancelled", dot: "bg-red-500", badge: "bg-purple-50 text-purple-700 border-purple-200" },
+};
+
+const CUSTOMER_ORDER_STAGE_ORDER: CustomerOrderStage[] = [
+  "new",
+  "confirmed",
+  "logistics",
+  "delivered",
+  "cancelled",
+];
+
+export function getCustomerOrderStage(o: Order): CustomerOrderStage {
+  if (o.status === "Cancelled") return "cancelled";
+  if (o.status === "Delivered") return "delivered";
+  if (o.status === "Confirmed") return o.logisticsRequested ? "logistics" : "confirmed";
+  return "new";
+}
+
+/**
+ * Status of a customer order whose company orders are NOT all in the
+ * same state — "Partially Confirmed / With 3PL / Delivered" (the most
+ * advanced state reached), "Partially Cancelled" when the rest are still
+ * New, plus a per-state count. Null when every company order shares one
+ * state (the normal status badge applies).
+ */
+export function getMixedCustomerOrderStatus(orders: Order[]): {
+  label: string;
+  badge: string;
+  parts: { stage: CustomerOrderStage; count: number }[];
+} | null {
+  const counts = new Map<CustomerOrderStage, number>();
+  for (const o of orders) {
+    const st = getCustomerOrderStage(o);
+    counts.set(st, (counts.get(st) ?? 0) + 1);
+  }
+  if (counts.size < 2) return null;
+  const active = CUSTOMER_ORDER_STAGE_ORDER.filter(
+    (st) => st !== "cancelled" && counts.has(st),
+  );
+  const top = active[active.length - 1];
+  const label = !top
+    ? "Cancelled"
+    : top === "new"
+      ? "Partially Cancelled"
+      : `Partially ${CUSTOMER_ORDER_STAGES[top].label}`;
+  const badge =
+    !top || top === "new"
+      ? "bg-orange-50 text-orange-700 border-orange-200"
+      : CUSTOMER_ORDER_STAGES[top].badge;
+  const parts = CUSTOMER_ORDER_STAGE_ORDER.filter((st) => counts.has(st)).map(
+    (st) => ({ stage: st, count: counts.get(st)! }),
+  );
+  return { label, badge, parts };
+}
