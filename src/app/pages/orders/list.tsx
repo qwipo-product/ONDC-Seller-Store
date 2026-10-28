@@ -67,6 +67,7 @@ import {
 import {
   type Order,
   type OrderLineItem,
+  type DeliveryType,
   type CancelledBy,
   SELLER_INFO,
   getOrders,
@@ -196,10 +197,19 @@ export function Orders() {
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [marketplaceFilter, setMarketplaceFilter] = useState<string>("all");
-  const [selectedCompanyFilters, setSelectedCompanyFilters] = useState<string[]>([]);
+  const [selectedBrandFilters, setSelectedBrandFilters] = useState<string[]>([]);
   const [selectedStatusFilters, setSelectedStatusFilters] = useState<string[]>([]);
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
+  // Delivery filters — Delivery Type (Urgent / Regular) is still
+  // a useful slicer in the drawer; the Today / Tomorrow / Overdue
+  // bucket multi-select and the Tomorrow-only / Urgent-only quick
+  // toggles were retired in June 2026 along with the rest of the
+  // relative-date model. Sellers filter by a concrete Delivery Day
+  // (via the pill row + an optional date range below) instead.
+  const [selectedDeliveryTypes, setSelectedDeliveryTypes] = useState<string[]>([]);
+  const [deliveryStartDate, setDeliveryStartDate] = useState<string>("");
+  const [deliveryEndDate, setDeliveryEndDate] = useState<string>("");
   // "Cancelled By" quick filter — only consulted on the Cancelled
   // tab. "all" matches buyer + seller cancellations; the other two
   // narrow to just one origin so the seller can audit one cancellation
@@ -208,9 +218,9 @@ export function Orders() {
     "all" | CancelledBy
   >("all");
 
-  // Unique companies and statuses for filter options
-  const uniqueCompanies = useMemo(
-    () => Array.from(new Set(orders.map((o) => o.company))).sort(),
+  // Unique brands and statuses for filter options
+  const uniqueBrands = useMemo(
+    () => Array.from(new Set(orders.map((o) => o.brand))).sort(),
     [orders]
   );
   const statusOptions = [
@@ -218,6 +228,10 @@ export function Orders() {
     { label: "Confirmed", value: "Confirmed" },
     { label: "Delivered", value: "Delivered" },
     { label: "Cancelled", value: "Cancelled" },
+  ];
+  const deliveryTypeOptions: { label: string; value: DeliveryType }[] = [
+    { label: "Urgent", value: "Urgent" },
+    { label: "Regular", value: "Regular" },
   ];
 
   // Pagination
@@ -380,8 +394,8 @@ export function Orders() {
         order.retailerName.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesMarketplace =
         marketplaceFilter === "all" || order.marketplace === marketplaceFilter;
-      const matchesCompany =
-        selectedCompanyFilters.length === 0 || selectedCompanyFilters.includes(order.company);
+      const matchesBrand =
+        selectedBrandFilters.length === 0 || selectedBrandFilters.includes(order.brand);
       const matchesStatusFilter =
         selectedStatusFilters.length === 0 || selectedStatusFilters.includes(order.status);
 
@@ -391,6 +405,21 @@ export function Orders() {
         const start = new Date(startDate);
         const end = new Date(endDate);
         matchesDate = orderDate >= start && orderDate <= end;
+      }
+
+      // Delivery filters — Delivery Type stays (Urgent / Regular),
+      // backed by the optional Delivery Day range below. The relative
+      // bucket multi-select and Tomorrow-only / Urgent-only quick
+      // toggles were dropped in June 2026.
+      const matchesDeliveryType =
+        selectedDeliveryTypes.length === 0 ||
+        selectedDeliveryTypes.includes(order.deliveryType);
+
+      let matchesDeliveryDateRange = true;
+      if (deliveryStartDate && deliveryEndDate) {
+        matchesDeliveryDateRange =
+          order.expectedDeliveryDate >= deliveryStartDate &&
+          order.expectedDeliveryDate <= deliveryEndDate;
       }
 
       // Delivery Day pill + Beat/Non-Beat sub-navigation. Same shape
@@ -430,9 +459,11 @@ export function Orders() {
         matchesLogisticsHandoff &&
         matchesSearch &&
         matchesMarketplace &&
-        matchesCompany &&
+        matchesBrand &&
         matchesStatusFilter &&
         matchesDate &&
+        matchesDeliveryType &&
+        matchesDeliveryDateRange &&
         matchesConfirmedSub &&
         matchesCancelledBy
       );
@@ -448,10 +479,13 @@ export function Orders() {
       orders,
       searchQuery,
       marketplaceFilter,
-      selectedCompanyFilters,
+      selectedBrandFilters,
       selectedStatusFilters,
       startDate,
       endDate,
+      selectedDeliveryTypes,
+      deliveryStartDate,
+      deliveryEndDate,
       cancelledByFilter,
     ],
   );
@@ -483,10 +517,18 @@ export function Orders() {
         o.retailerName.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesMarketplace =
         marketplaceFilter === "all" || o.marketplace === marketplaceFilter;
-      const matchesCompany =
-        selectedCompanyFilters.length === 0 ||
-        selectedCompanyFilters.includes(o.company);
-      return matchesSearch && matchesMarketplace && matchesCompany;
+      const matchesBrand =
+        selectedBrandFilters.length === 0 ||
+        selectedBrandFilters.includes(o.brand);
+      const matchesDeliveryType =
+        selectedDeliveryTypes.length === 0 ||
+        selectedDeliveryTypes.includes(o.deliveryType);
+      return (
+        matchesSearch &&
+        matchesMarketplace &&
+        matchesBrand &&
+        matchesDeliveryType
+      );
     });
 
     const dayMap = new Map<string, number>();
@@ -527,7 +569,8 @@ export function Orders() {
       orders,
       searchQuery,
       marketplaceFilter,
-      selectedCompanyFilters,
+      selectedBrandFilters,
+      selectedDeliveryTypes,
       confirmedDeliveryDay,
     ],
   );
@@ -542,7 +585,8 @@ export function Orders() {
       orders,
       searchQuery,
       marketplaceFilter,
-      selectedCompanyFilters,
+      selectedBrandFilters,
+      selectedDeliveryTypes,
       confirmedDeliveryDay,
     ],
   );
@@ -553,7 +597,8 @@ export function Orders() {
       orders,
       searchQuery,
       marketplaceFilter,
-      selectedCompanyFilters,
+      selectedBrandFilters,
+      selectedDeliveryTypes,
       confirmedDeliveryDay,
     ],
   );
@@ -709,10 +754,10 @@ export function Orders() {
         o.retailerName.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesMarketplace =
         marketplaceFilter === "all" || o.marketplace === marketplaceFilter;
-      const matchesCompany =
-        selectedCompanyFilters.length === 0 ||
-        selectedCompanyFilters.includes(o.company);
-      return matchesSearch && matchesMarketplace && matchesCompany;
+      const matchesBrand =
+        selectedBrandFilters.length === 0 ||
+        selectedBrandFilters.includes(o.brand);
+      return matchesSearch && matchesMarketplace && matchesBrand;
     });
     const isBuyer = (o: Order) => (o.cancelledBy ?? "Seller") === "Buyer";
     // Customer Wise View counts customer orders, like the rows and tabs.
@@ -725,7 +770,7 @@ export function Orders() {
       buyer: count(baseCancelled.filter(isBuyer)),
       seller: count(baseCancelled.filter((o) => !isBuyer(o))),
     };
-  }, [orders, searchQuery, marketplaceFilter, selectedCompanyFilters, orderView]);
+  }, [orders, searchQuery, marketplaceFilter, selectedBrandFilters, orderView]);
 
   // Handle select all for current tab
   const handleSelectAll = (checked: boolean) => {
@@ -961,19 +1006,25 @@ export function Orders() {
   const clearFilters = () => {
     setSearchQuery("");
     setMarketplaceFilter("all");
-    setSelectedCompanyFilters([]);
+    setSelectedBrandFilters([]);
     setSelectedStatusFilters([]);
     setStartDate("");
     setEndDate("");
+    setSelectedDeliveryTypes([]);
+    setDeliveryStartDate("");
+    setDeliveryEndDate("");
   };
 
   const hasActiveFilters =
     searchQuery ||
     marketplaceFilter !== "all" ||
-    selectedCompanyFilters.length > 0 ||
+    selectedBrandFilters.length > 0 ||
     selectedStatusFilters.length > 0 ||
     startDate ||
-    endDate;
+    endDate ||
+    selectedDeliveryTypes.length > 0 ||
+    deliveryStartDate ||
+    deliveryEndDate;
 
   // Handle export
   // ---- Export helpers ----
@@ -2110,12 +2161,12 @@ export function Orders() {
               )}
 
               {/* Applied Filter Tags */}
-              {(selectedCompanyFilters.length > 0 || selectedStatusFilters.length > 0 || marketplaceFilter !== "all") && (
+              {(selectedBrandFilters.length > 0 || selectedStatusFilters.length > 0 || marketplaceFilter !== "all") && (
                 <div className="px-6 py-2 border-b flex flex-wrap items-center gap-2 flex-shrink-0">
-                  {selectedCompanyFilters.map((company) => (
-                    <Badge key={company} variant="secondary" className="gap-1 pl-2 pr-1 py-1 text-xs bg-purple-50 text-purple-700 border-purple-200">
-                      {company}
-                      <button onClick={() => setSelectedCompanyFilters(selectedCompanyFilters.filter(c => c !== company))} className="ml-1 hover:bg-purple-200 rounded-full p-0.5">
+                  {selectedBrandFilters.map((brand) => (
+                    <Badge key={brand} variant="secondary" className="gap-1 pl-2 pr-1 py-1 text-xs bg-purple-50 text-purple-700 border-purple-200">
+                      {brand}
+                      <button onClick={() => setSelectedBrandFilters(selectedBrandFilters.filter(b => b !== brand))} className="ml-1 hover:bg-purple-200 rounded-full p-0.5">
                         <X className="h-3 w-3" />
                       </button>
                     </Badge>
@@ -3311,13 +3362,12 @@ export function Orders() {
               <div className="flex-1 overflow-y-auto p-6">
                 <div className="space-y-6">
                   <div className="space-y-2">
-                    <Label>Company</Label>
+                    <Label>Company / Brand</Label>
                     <MultiSelect
-                      options={uniqueCompanies.map((c) => ({ label: c, value: c }))}
-                      selected={selectedCompanyFilters}
-                      onChange={setSelectedCompanyFilters}
-                      placeholder="All Companies"
-                      allLabel="All Companies"
+                      options={uniqueBrands.map((b) => ({ label: b, value: b }))}
+                      selected={selectedBrandFilters}
+                      onChange={setSelectedBrandFilters}
+                      placeholder="All Brands"
                       className="w-full"
                     />
                   </div>
@@ -3329,7 +3379,6 @@ export function Orders() {
                       selected={selectedStatusFilters}
                       onChange={setSelectedStatusFilters}
                       placeholder="All Status"
-                      allLabel="All Status"
                       className="w-full"
                     />
                   </div>
@@ -3353,7 +3402,7 @@ export function Orders() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="dateRange">Date Range</Label>
+                    <Label htmlFor="dateRange">Order Date Range</Label>
                     <div className="flex flex-col gap-2">
                       <Input
                         type="date"
@@ -3372,6 +3421,54 @@ export function Orders() {
                     </div>
                   </div>
 
+                  {/* Delivery filters — June 2026 retired the relative
+                      bucket multi-select (Today / Tomorrow / Overdue)
+                      and the Tomorrow-only / Urgent-only quick toggles
+                      together with the broader Tomorrow indicator
+                      cleanup. Sellers slice deliveries by a concrete
+                      Delivery Day range (or via the pill row on the
+                      New / Confirmed tabs). Delivery Type stays as an
+                      Urgent vs Regular slicer. */}
+                  <div className="pt-2 border-t border-gray-100">
+                    <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-700 mb-3">
+                      Delivery
+                    </h4>
+
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label>Delivery Day Range</Label>
+                        <div className="flex flex-col gap-2">
+                          <Input
+                            type="date"
+                            value={deliveryStartDate}
+                            onChange={(e) =>
+                              setDeliveryStartDate(e.target.value)
+                            }
+                            placeholder="From"
+                          />
+                          <Input
+                            type="date"
+                            value={deliveryEndDate}
+                            onChange={(e) =>
+                              setDeliveryEndDate(e.target.value)
+                            }
+                            placeholder="To"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Delivery Type</Label>
+                        <MultiSelect
+                          options={deliveryTypeOptions}
+                          selected={selectedDeliveryTypes}
+                          onChange={setSelectedDeliveryTypes}
+                          placeholder="Urgent / Regular"
+                          className="w-full"
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
