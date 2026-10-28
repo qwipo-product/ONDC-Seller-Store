@@ -1062,12 +1062,12 @@ export function Orders() {
     // Wholesale rows mask the company as "Wholesaler" — same as the
     // list.
     // Customer Wise View: same sheet, rows grouped by customer order,
-    // plus the customer order's ID and total beside Clubbed Orders.
+    // plus the Qwipo Customer ID and customer order total beside Clubbed Orders.
     const customerWise = orderView === "customer";
     const headers = [
       "Order ID",
       "Clubbed Orders",
-      ...(customerWise ? ["Customer Order ID", "Customer Order Value"] : []),
+      ...(customerWise ? ["Qwipo Customer ID", "Customer Order Value"] : []),
       "Order Status",
       "Order Date",
       "Order Type",
@@ -1150,7 +1150,7 @@ export function Orders() {
           clubSize > 1 ? clubSize : "",
           ...(customerWise
             ? [
-                getCustomerOrderId(order),
+                order.qwipoCustomerId ?? "",
                 checkoutTotals.get(getCustomerOrderId(order)) ?? order.orderValue,
               ]
             : []),
