@@ -1658,7 +1658,7 @@ export function Orders() {
               <th className={th}>Order Date</th>
               <th className={th}>Delivery Date</th>
               <th className={th}>Business Name</th>
-              <th className={th}>Customer ID</th>
+              <th className={th}>Qwipo Customer ID</th>
               <th className={th}>Mobile</th>
               <th className={th}>Order Type</th>
               <th className={th}>Delivery Address</th>
@@ -1773,13 +1773,13 @@ export function Orders() {
                       </CopyOnHover>
                     )}
                   </td>
-                  {/* Customer ID — the buyer code on the order; it tells
+                  {/* Qwipo Customer ID — the buyer code on the order; it tells
                       apart two stores with the same business name. */}
                   <td className="px-3 py-2.5 whitespace-nowrap">
                     {locked ? (
                       <p className="text-xs text-gray-400 select-none">{maskedText}</p>
                     ) : first.buyerCode ? (
-                      <CopyOnHover value={first.buyerCode} label="Customer ID">
+                      <CopyOnHover value={first.buyerCode} label="Qwipo Customer ID">
                         <p className="text-xs text-gray-700 font-mono">
                           {first.buyerCode}
                         </p>
