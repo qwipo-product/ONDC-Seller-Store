@@ -112,9 +112,9 @@ import { CopyOnHover } from "../../components/copy-on-hover";
 
 // Seed QPS schemes — these populate the list on first load.
 // The ten offer types surfaced on the "Create Offers" picker dialog.
-// QPS, Value Slab, Off-Invoice, BOGO and Case Bonus are wired up in
-// Phase 1 — the remaining five carry a "Coming Soon" badge and are
-// non-interactive in the picker UI.
+// QPS, BOGO, Case Bonus, Combo and Off-Invoice are live and listed first;
+// the remaining five (Value Slab and the rest) carry a "Coming Soon"
+// badge, are non-interactive in the picker UI and sit at the bottom.
 //
 // Icon + colour pair follow the same convention used everywhere
 // else in the app (Settings hub tiles, ConnectorCard, dashboard
@@ -138,14 +138,6 @@ const OFFER_TYPES: OfferType[] = [
     iconColor: "text-blue-600",
   },
   {
-    id: "value-slab",
-    label: "Value Slab",
-    description: "Order value-based discount tiers",
-    icon: IndianRupee,
-    iconBg: "bg-emerald-100",
-    iconColor: "text-emerald-600",
-  },
-  {
     id: "bogo",
     label: "BOGO",
     description: "Buy X quantity, get Y free units",
@@ -162,12 +154,28 @@ const OFFER_TYPES: OfferType[] = [
     iconColor: "text-amber-600",
   },
   {
+    id: "combo-bundle",
+    label: "Combo Bundle",
+    description: "Bundled products at discounted rate",
+    icon: Package,
+    iconBg: "bg-indigo-100",
+    iconColor: "text-indigo-600",
+  },
+  {
     id: "off-invoice",
     label: "Off-Invoice",
     description: "Discount on the whole cart when it crosses a value",
     icon: Receipt,
     iconBg: "bg-purple-100",
     iconColor: "text-purple-600",
+  },
+  {
+    id: "value-slab",
+    label: "Value Slab",
+    description: "Order value-based discount tiers",
+    icon: IndianRupee,
+    iconBg: "bg-emerald-100",
+    iconColor: "text-emerald-600",
   },
   {
     id: "display-allowance",
@@ -192,14 +200,6 @@ const OFFER_TYPES: OfferType[] = [
     icon: Award,
     iconBg: "bg-yellow-100",
     iconColor: "text-yellow-600",
-  },
-  {
-    id: "combo-bundle",
-    label: "Combo Bundle",
-    description: "Bundled products at discounted rate",
-    icon: Package,
-    iconBg: "bg-indigo-100",
-    iconColor: "text-indigo-600",
   },
   {
     id: "early-payment",
