@@ -86,6 +86,7 @@ import {
   type CustomerCheckout,
   groupOrdersByCheckout,
   getOrderLines,
+  getRetailerCompanyId,
 } from "../../lib/orders-data";
 
 // An order is a "beat" delivery when it rides a configured
@@ -1077,14 +1078,14 @@ export function Orders() {
     // number read like a real ID. "Operation Mode" follows Company.
     // Wholesale rows mask the company as "Wholesaler" — same as the
     // list.
-    // Customer Wise View: the same export plus Qwipo Customer ID and
+    // Customer Wise View: the same export plus Retailer Company ID and
     // Customer Order Value beside Clubbed Orders, rows grouped by
     // customer order.
     const customerWise = orderView === "customer";
     const headers = [
       "Order ID",
       "Clubbed Orders",
-      ...(customerWise ? ["Qwipo Customer ID", "Customer Order Value"] : []),
+      ...(customerWise ? ["Retailer Company ID", "Customer Order Value"] : []),
       "Order Status",
       "Order Date",
       "Order Type",
@@ -1152,7 +1153,7 @@ export function Orders() {
           clubSize > 1 ? clubSize : "",
           ...(customerWise
             ? [
-                order.qwipoCustomerId ?? "",
+                getRetailerCompanyId(order) ?? "",
                 checkoutTotals.get(getCustomerOrderId(order)) ?? order.orderValue,
               ]
             : []),

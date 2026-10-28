@@ -19,6 +19,8 @@
 // now use the consistent status name "Cancelled" across the
 // whole module.
 
+import { getDemoCustomers } from "./customers-demo-data";
+
 export type OrderStatus = "New" | "Confirmed" | "Delivered" | "Cancelled";
 
 /**
@@ -5279,4 +5281,31 @@ export function synthesizeProducts(
       totalPrice: order.orderValue,
     },
   ];
+}
+
+// ---------- Retailer Company ID ----------
+// The retailer's ID with an order's company — shown on the order view
+// page and in the Customer Wise export. Taken from the order when
+// the system sends it; otherwise fetched from the Customers module —
+// the customer (same mobile and business name) and their link to the
+// order's company. Undefined when neither has it.
+const lastTen = (m?: string) => (m ?? "").replace(/\D/g, "").slice(-10);
+const companyKey = (name: string) =>
+  name
+    .toLowerCase()
+    .replace(/\b(limited|ltd|private|pvt|india)\b|[^a-z0-9]/g, "");
+
+export function getRetailerCompanyId(order: Order): string | undefined {
+  if (order.retailerCompanyId) return order.retailerCompanyId;
+  const mobile = lastTen(order.buyerContact);
+  if (!mobile) return undefined;
+  const customer = getDemoCustomers().find(
+    (c) =>
+      lastTen(c.mobile) === mobile &&
+      c.businessName.trim().toLowerCase() ===
+        order.retailerName.trim().toLowerCase(),
+  );
+  return customer?.companies.find(
+    (l) => companyKey(l.companyName) === companyKey(order.company),
+  )?.retailerCompanyId;
 }

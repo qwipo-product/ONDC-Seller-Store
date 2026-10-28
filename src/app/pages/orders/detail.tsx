@@ -51,6 +51,7 @@ import {
   getCheckoutOrders,
   getCustomerOrderId,
   getOrderLines,
+  getRetailerCompanyId,
   type Order as StoreOrder,
   updateOrderStatus,
   subscribeToOrders,
@@ -65,7 +66,6 @@ import {
   type SkuPackConfig,
 } from "../../lib/orders-data";
 import { sampleSKUs } from "../products/my-sku";
-import { getDemoCustomers } from "../../lib/customers-demo-data";
 
 /** One row in the QPS slab schedule for a SKU. */
 interface QpsSlabDef {
@@ -1818,32 +1818,6 @@ export function OrderDetail() {
       />
     </div>
   );
-}
-
-// ---------- Retailer Company ID ----------
-// The retailer's ID with an order's company. Taken from the order when
-// the system sends it; otherwise fetched from the Customers module —
-// the customer (same mobile and business name) and their link to the
-// order's company. Undefined when neither has it.
-const lastTen = (m?: string) => (m ?? "").replace(/\D/g, "").slice(-10);
-const companyKey = (name: string) =>
-  name
-    .toLowerCase()
-    .replace(/\b(limited|ltd|private|pvt|india)\b|[^a-z0-9]/g, "");
-
-function getRetailerCompanyId(order: StoreOrder): string | undefined {
-  if (order.retailerCompanyId) return order.retailerCompanyId;
-  const mobile = lastTen(order.buyerContact);
-  if (!mobile) return undefined;
-  const customer = getDemoCustomers().find(
-    (c) =>
-      lastTen(c.mobile) === mobile &&
-      c.businessName.trim().toLowerCase() ===
-        order.retailerName.trim().toLowerCase(),
-  );
-  return customer?.companies.find(
-    (l) => companyKey(l.companyName) === companyKey(order.company),
-  )?.retailerCompanyId;
 }
 
 // ---------- Company order items (customer-order view) ----------
