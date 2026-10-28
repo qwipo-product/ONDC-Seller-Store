@@ -1404,9 +1404,6 @@ export function Orders() {
                 Business Name
               </th>
               <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
-                Qwipo Customer ID
-              </th>
-              <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
                 Mobile
               </th>
               <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
@@ -1515,21 +1512,6 @@ export function Orders() {
                       {order.retailerName}
                     </p>
                   </CopyOnHover>
-                  )}
-                </td>
-                <td className="px-3 py-2.5 whitespace-nowrap">
-                  {isMaskedOrder(order) ? (
-                    <p className="text-xs text-gray-400 select-none">
-                      {maskedText}
-                    </p>
-                  ) : order.qwipoCustomerId ? (
-                    <CopyOnHover value={order.qwipoCustomerId} label="Qwipo Customer ID">
-                      <p className="text-xs text-gray-700 font-mono">
-                        {order.qwipoCustomerId}
-                      </p>
-                    </CopyOnHover>
-                  ) : (
-                    <p className="text-xs text-gray-400">—</p>
                   )}
                 </td>
                 <td className="px-3 py-2.5 whitespace-nowrap">
