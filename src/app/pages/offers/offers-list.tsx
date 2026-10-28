@@ -86,13 +86,35 @@ import {
   OffInvoiceEditorDialog,
   OffInvoiceViewDialog,
 } from "../../components/off-invoice-dialogs";
+import {
+  type BogoScheme,
+  getAllBogoSchemes,
+  setAllBogoSchemes,
+} from "../../lib/bogo-data";
+import { BogoEditorDialog, BogoViewDialog } from "../../components/bogo-dialogs";
+import {
+  type CaseBonusScheme,
+  getAllCaseBonusSchemes,
+  setAllCaseBonusSchemes,
+} from "../../lib/case-bonus-data";
+import {
+  CaseBonusEditorDialog,
+  CaseBonusViewDialog,
+} from "../../components/case-bonus-dialogs";
+import {
+  type ComboScheme,
+  getAllCombos,
+  setAllCombos,
+} from "../../lib/combo-data";
+import { ComboEditorDialog, ComboViewDialog } from "../../components/combo-dialogs";
 import { SkuComboBox } from "../../components/sku-combobox";
 import { CopyOnHover } from "../../components/copy-on-hover";
 
 // Seed QPS schemes — these populate the list on first load.
 // The ten offer types surfaced on the "Create Offers" picker dialog.
-// QPS is the only one wired up in Phase 1 — everything else carries
-// a "Coming Soon" badge and is non-interactive in the picker UI.
+// QPS, Value Slab, Off-Invoice, BOGO and Case Bonus are wired up in
+// Phase 1 — the remaining five carry a "Coming Soon" badge and are
+// non-interactive in the picker UI.
 //
 // Icon + colour pair follow the same convention used everywhere
 // else in the app (Settings hub tiles, ConnectorCard, dashboard
@@ -252,6 +274,44 @@ export function OffersList() {
   const [editingOffInvoice, setEditingOffInvoice] = useState<OffInvoiceScheme | null>(null);
   const [viewOffInvoiceId, setViewOffInvoiceId] = useState<string | null>(null);
 
+  // BOGO schemes (buy-quantity triggers that give free units of the same
+  // SKU). Kept in its own store since it doesn't discount price.
+  const [bogoSchemes, setBogoSchemes] = useState<BogoScheme[]>(() =>
+    isEmptyMode() ? [] : getAllBogoSchemes(),
+  );
+  useEffect(() => {
+    if (isEmptyMode()) return;
+    setAllBogoSchemes(bogoSchemes);
+  }, [bogoSchemes]);
+  const [isBogoEditorOpen, setIsBogoEditorOpen] = useState(false);
+  const [editingBogo, setEditingBogo] = useState<BogoScheme | null>(null);
+  const [viewBogoId, setViewBogoId] = useState<string | null>(null);
+
+  // Case Bonus schemes — same mechanic as BOGO but in case units.
+  const [caseBonusSchemes, setCaseBonusSchemes] = useState<CaseBonusScheme[]>(() =>
+    isEmptyMode() ? [] : getAllCaseBonusSchemes(),
+  );
+  useEffect(() => {
+    if (isEmptyMode()) return;
+    setAllCaseBonusSchemes(caseBonusSchemes);
+  }, [caseBonusSchemes]);
+  const [isCaseBonusEditorOpen, setIsCaseBonusEditorOpen] = useState(false);
+  const [editingCaseBonus, setEditingCaseBonus] = useState<CaseBonusScheme | null>(null);
+  const [viewCaseBonusId, setViewCaseBonusId] = useState<string | null>(null);
+
+  // Combo schemes — the first multi-SKU scheme (a bundle + optional
+  // companion items), not a single SKU with tiers.
+  const [comboSchemes, setComboSchemes] = useState<ComboScheme[]>(() =>
+    isEmptyMode() ? [] : getAllCombos(),
+  );
+  useEffect(() => {
+    if (isEmptyMode()) return;
+    setAllCombos(comboSchemes);
+  }, [comboSchemes]);
+  const [isComboEditorOpen, setIsComboEditorOpen] = useState(false);
+  const [editingCombo, setEditingCombo] = useState<ComboScheme | null>(null);
+  const [viewComboId, setViewComboId] = useState<string | null>(null);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [offerTypeFilter, setOfferTypeFilter] = useState<string>("all");
@@ -311,7 +371,7 @@ export function OffersList() {
   // One list for every offer type. QPS rows carry a SKU; Value Slab
   // rows apply to the whole order, so they show "All SKUs".
   type ListRow = {
-    kind: "qps" | "value-slab" | "off-invoice";
+    kind: "qps" | "value-slab" | "off-invoice" | "bogo" | "case-bonus" | "combo-bundle";
     id: string;
     name: string;
     skuCode: string;
@@ -322,6 +382,9 @@ export function OffersList() {
     qps?: QpsScheme;
     valueSlab?: ValueSlabScheme;
     offInvoice?: OffInvoiceScheme;
+    bogo?: BogoScheme;
+    caseBonus?: CaseBonusScheme;
+    combo?: ComboScheme;
   };
   const listRows: ListRow[] = [
     ...offInvoices.map<ListRow>((o) => ({
@@ -335,17 +398,9 @@ export function OffersList() {
       status: o.status,
       offInvoice: o,
     })),
-    ...valueSlabs.map<ListRow>((v) => ({
-      kind: "value-slab",
-      id: v.id,
-      name: v.name,
-      skuCode: v.skuCode,
-      skuName: v.skuName,
-      startDate: v.startDate,
-      endDate: v.endDate,
-      status: v.status,
-      valueSlab: v,
-    })),
+    // Value Slab is temporarily pulled from the list/filters and the
+    // Create Offers picker — back to "Coming Soon" for now. The data
+    // layer and dialogs are left in place to re-enable later.
     ...qpsSchemes.map<ListRow>((q) => ({
       kind: "qps",
       id: q.id,
@@ -356,6 +411,39 @@ export function OffersList() {
       endDate: q.endDate,
       status: q.status,
       qps: q,
+    })),
+    ...bogoSchemes.map<ListRow>((b) => ({
+      kind: "bogo",
+      id: b.id,
+      name: b.name,
+      skuCode: b.skuCode,
+      skuName: b.skuName,
+      startDate: b.startDate,
+      endDate: b.endDate,
+      status: b.status,
+      bogo: b,
+    })),
+    ...caseBonusSchemes.map<ListRow>((c) => ({
+      kind: "case-bonus",
+      id: c.id,
+      name: c.name,
+      skuCode: c.skuCode,
+      skuName: c.skuName,
+      startDate: c.startDate,
+      endDate: c.endDate,
+      status: c.status,
+      caseBonus: c,
+    })),
+    ...comboSchemes.map<ListRow>((c) => ({
+      kind: "combo-bundle",
+      id: c.id,
+      name: c.name,
+      skuCode: c.bundleSkuCodes.join(", "),
+      skuName: c.bundleSkuNames.join(" + "),
+      startDate: c.startDate,
+      endDate: c.endDate,
+      status: c.status,
+      combo: c,
     })),
   ];
   const filteredSchemes = listRows.filter((s) => {
@@ -418,6 +506,61 @@ export function OffersList() {
       (c) => c.status === "Active" && !blockedCodes.has(c.skuCode),
     );
   }, [qpsSchemes, valueSlabs, editingValueSlab]);
+
+  // BOGO gives free units rather than discounting price, so it doesn't
+  // clash with QPS/Value Slab — only with another non-expired BOGO on
+  // the same SKU. The scheme being edited keeps its own SKU in the list.
+  const bogoSkuOptions = useMemo(() => {
+    const blockedCodes = new Set(
+      bogoSchemes
+        .filter((b) => b.status !== "Expired" && b.id !== editingBogo?.id)
+        .map((b) => b.skuCode),
+    );
+    return catalogSkus.filter(
+      (c) => c.status === "Active" && !blockedCodes.has(c.skuCode),
+    );
+  }, [bogoSchemes, editingBogo]);
+
+  // Free-item picker for a cross-SKU BOGO — any active SKU is eligible to be
+  // given away free; it isn't "mapped" the way a bought SKU is, so no
+  // exclusivity filtering applies here.
+  const bogoFreeSkuOptions = useMemo(
+    () => catalogSkus.filter((c) => c.status === "Active"),
+    [],
+  );
+
+  // Same idea for Case Bonus — only clashes with another non-expired
+  // Case Bonus scheme on the same SKU.
+  const caseBonusSkuOptions = useMemo(() => {
+    const blockedCodes = new Set(
+      caseBonusSchemes
+        .filter((c) => c.status !== "Expired" && c.id !== editingCaseBonus?.id)
+        .map((c) => c.skuCode),
+    );
+    return catalogSkus.filter(
+      (c) => c.status === "Active" && !blockedCodes.has(c.skuCode),
+    );
+  }, [caseBonusSchemes, editingCaseBonus]);
+
+  // SKU codes carrying another active price-discount scheme — passed into
+  // the BOGO editor as a heads-up (not a block) so the seller sees the
+  // combined margin impact before saving, since BOGO stacks with these.
+  const activeQpsSkuCodes = useMemo(
+    () => qpsSchemes.filter((q) => q.status === "Active").map((q) => q.skuCode),
+    [qpsSchemes],
+  );
+  const activeValueSlabSkuCodes = useMemo(
+    () => valueSlabs.filter((v) => v.status === "Active").map((v) => v.skuCode),
+    [valueSlabs],
+  );
+  const activeBogoSkuCodes = useMemo(
+    () => bogoSchemes.filter((b) => b.status === "Active").map((b) => b.skuCode),
+    [bogoSchemes],
+  );
+  const activeCaseBonusSkuCodes = useMemo(
+    () => caseBonusSchemes.filter((c) => c.status === "Active").map((c) => c.skuCode),
+    [caseBonusSchemes],
+  );
 
   const handleOpenCreate = () => {
     setEditingId(null);
@@ -482,6 +625,66 @@ export function OffersList() {
     );
     toast.success(`Off-Invoice scheme ${exists ? "updated" : "created"}`);
     setIsOffInvoiceEditorOpen(false);
+  };
+
+  // BOGO handlers.
+  const handlePickBogo = () => {
+    setIsOfferTypeOpen(false);
+    setEditingBogo(null);
+    setIsBogoEditorOpen(true);
+  };
+  const handleOpenEditBogo = (scheme: BogoScheme) => {
+    setViewBogoId(null);
+    setEditingBogo(scheme);
+    setIsBogoEditorOpen(true);
+  };
+  const handleSaveBogo = (scheme: BogoScheme) => {
+    const exists = bogoSchemes.some((b) => b.id === scheme.id);
+    setBogoSchemes((prev) =>
+      exists ? prev.map((b) => (b.id === scheme.id ? scheme : b)) : [scheme, ...prev],
+    );
+    toast.success(`BOGO scheme ${exists ? "updated" : "created"} for ${scheme.skuName}`);
+    setIsBogoEditorOpen(false);
+  };
+
+  // Case Bonus handlers.
+  const handlePickCaseBonus = () => {
+    setIsOfferTypeOpen(false);
+    setEditingCaseBonus(null);
+    setIsCaseBonusEditorOpen(true);
+  };
+  const handleOpenEditCaseBonus = (scheme: CaseBonusScheme) => {
+    setViewCaseBonusId(null);
+    setEditingCaseBonus(scheme);
+    setIsCaseBonusEditorOpen(true);
+  };
+  const handleSaveCaseBonus = (scheme: CaseBonusScheme) => {
+    const exists = caseBonusSchemes.some((c) => c.id === scheme.id);
+    setCaseBonusSchemes((prev) =>
+      exists ? prev.map((c) => (c.id === scheme.id ? scheme : c)) : [scheme, ...prev],
+    );
+    toast.success(`Case Bonus scheme ${exists ? "updated" : "created"} for ${scheme.skuName}`);
+    setIsCaseBonusEditorOpen(false);
+  };
+
+  // Combo handlers.
+  const handlePickCombo = () => {
+    setIsOfferTypeOpen(false);
+    setEditingCombo(null);
+    setIsComboEditorOpen(true);
+  };
+  const handleOpenEditCombo = (scheme: ComboScheme) => {
+    setViewComboId(null);
+    setEditingCombo(scheme);
+    setIsComboEditorOpen(true);
+  };
+  const handleSaveCombo = (scheme: ComboScheme) => {
+    const exists = comboSchemes.some((c) => c.id === scheme.id);
+    setComboSchemes((prev) =>
+      exists ? prev.map((c) => (c.id === scheme.id ? scheme : c)) : [scheme, ...prev],
+    );
+    toast.success(`Combo ${exists ? "updated" : "created"}`);
+    setIsComboEditorOpen(false);
   };
 
   // Bridges the offer-type picker → existing QPS editor: closes the
@@ -829,7 +1032,11 @@ export function OffersList() {
   // the same full-height Card container is preserved so the layout
   // reads identically to the populated state.
   const isEmpty =
-    qpsSchemes.length === 0 && valueSlabs.length === 0 && offInvoices.length === 0;
+    qpsSchemes.length === 0 &&
+    offInvoices.length === 0 &&
+    bogoSchemes.length === 0 &&
+    caseBonusSchemes.length === 0 &&
+    comboSchemes.length === 0;
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
@@ -964,9 +1171,21 @@ export function OffersList() {
                             <Badge variant="outline" className="gap-1 bg-emerald-50 text-emerald-700 border-emerald-200">
                               <IndianRupee className="h-3 w-3" /> Value Slab
                             </Badge>
-                          ) : (
+                          ) : s.kind === "off-invoice" ? (
                             <Badge variant="outline" className="gap-1 bg-purple-50 text-purple-700 border-purple-200">
                               <Receipt className="h-3 w-3" /> Off-Invoice
+                            </Badge>
+                          ) : s.kind === "bogo" ? (
+                            <Badge variant="outline" className="gap-1 bg-pink-50 text-pink-700 border-pink-200">
+                              <Gift className="h-3 w-3" /> BOGO
+                            </Badge>
+                          ) : s.kind === "case-bonus" ? (
+                            <Badge variant="outline" className="gap-1 bg-amber-50 text-amber-700 border-amber-200">
+                              <Boxes className="h-3 w-3" /> Case Bonus
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="gap-1 bg-indigo-50 text-indigo-700 border-indigo-200">
+                              <Package className="h-3 w-3" /> Combo
                             </Badge>
                           )}
                         </td>
@@ -993,7 +1212,13 @@ export function OffersList() {
                                   ? setViewSchemeId(s.id)
                                   : s.kind === "value-slab"
                                     ? setViewValueSlabId(s.id)
-                                    : setViewOffInvoiceId(s.id)
+                                    : s.kind === "off-invoice"
+                                      ? setViewOffInvoiceId(s.id)
+                                      : s.kind === "bogo"
+                                        ? setViewBogoId(s.id)
+                                        : s.kind === "case-bonus"
+                                          ? setViewCaseBonusId(s.id)
+                                          : setViewComboId(s.id)
                               }
                             >
                               <Eye className="h-4 w-4 text-blue-600" />
@@ -1009,7 +1234,13 @@ export function OffersList() {
                                   ? handleOpenEdit(s.qps!)
                                   : s.kind === "value-slab"
                                     ? handleOpenEditValueSlab(s.valueSlab!)
-                                    : handleOpenEditOffInvoice(s.offInvoice!)
+                                    : s.kind === "off-invoice"
+                                      ? handleOpenEditOffInvoice(s.offInvoice!)
+                                      : s.kind === "bogo"
+                                        ? handleOpenEditBogo(s.bogo!)
+                                        : s.kind === "case-bonus"
+                                          ? handleOpenEditCaseBonus(s.caseBonus!)
+                                          : handleOpenEditCombo(s.combo!)
                               }
                             >
                               <Pencil className={`h-4 w-4 ${s.status === "Expired" ? "text-gray-300" : "text-gray-700"}`} />
@@ -1180,10 +1411,10 @@ export function OffersList() {
 
       {/* ====================== Offer-Type Picker Dialog ======================
           Phase-1 entry point for "Create Offers". Surfaces all 10
-          offer types as cards with hover affordances. Only QPS is
-          live; the rest carry a "Coming Soon" badge and are
-          non-interactive. Picking QPS bridges to the existing QPS
-          editor below. */}
+          offer types as cards with hover affordances. QPS, Value Slab,
+          Off-Invoice, BOGO and Case Bonus are live; the rest carry a
+          "Coming Soon" badge and are non-interactive. Picking a live
+          type bridges to its own editor below. */}
       <Dialog open={isOfferTypeOpen} onOpenChange={setIsOfferTypeOpen}>
         <DialogContent className="!max-w-[min(95vw,1100px)] w-[min(95vw,1100px)] max-h-[92vh] overflow-y-auto p-5">
           <DialogHeader>
@@ -1204,7 +1435,11 @@ export function OffersList() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 py-2">
             {OFFER_TYPES.map((t) => {
               const enabled =
-                t.id === "qps" || t.id === "value-slab" || t.id === "off-invoice";
+                t.id === "qps" ||
+                t.id === "off-invoice" ||
+                t.id === "bogo" ||
+                t.id === "case-bonus" ||
+                t.id === "combo-bundle";
               const Icon = t.icon;
               return (
                 <button
@@ -1213,11 +1448,15 @@ export function OffersList() {
                   onClick={
                     t.id === "qps"
                       ? handlePickQps
-                      : t.id === "value-slab"
-                        ? handlePickValueSlab
-                        : t.id === "off-invoice"
-                          ? handlePickOffInvoice
-                          : undefined
+                      : t.id === "off-invoice"
+                        ? handlePickOffInvoice
+                        : t.id === "bogo"
+                          ? handlePickBogo
+                          : t.id === "case-bonus"
+                            ? handlePickCaseBonus
+                            : t.id === "combo-bundle"
+                              ? handlePickCombo
+                              : undefined
                   }
                   disabled={!enabled}
                   className={
@@ -1788,6 +2027,55 @@ export function OffersList() {
         onClose={() => setViewOffInvoiceId(null)}
         onEdit={handleOpenEditOffInvoice}
       />
+      <BogoEditorDialog
+        open={isBogoEditorOpen}
+        onOpenChange={setIsBogoEditorOpen}
+        scheme={editingBogo}
+        skuOptions={bogoSkuOptions}
+        freeSkuOptions={bogoFreeSkuOptions}
+        activeQpsSkuCodes={activeQpsSkuCodes}
+        activeValueSlabSkuCodes={activeValueSlabSkuCodes}
+        activeCaseBonusSkuCodes={activeCaseBonusSkuCodes}
+        onSave={handleSaveBogo}
+      />
+      <BogoViewDialog
+        scheme={bogoSchemes.find((b) => b.id === viewBogoId) ?? null}
+        onClose={() => setViewBogoId(null)}
+        onEdit={handleOpenEditBogo}
+      />
+      <CaseBonusEditorDialog
+        open={isCaseBonusEditorOpen}
+        onOpenChange={setIsCaseBonusEditorOpen}
+        scheme={editingCaseBonus}
+        skuOptions={caseBonusSkuOptions}
+        freeSkuOptions={bogoFreeSkuOptions}
+        activeQpsSkuCodes={activeQpsSkuCodes}
+        activeValueSlabSkuCodes={activeValueSlabSkuCodes}
+        activeBogoSkuCodes={activeBogoSkuCodes}
+        onSave={handleSaveCaseBonus}
+      />
+      <CaseBonusViewDialog
+        scheme={caseBonusSchemes.find((c) => c.id === viewCaseBonusId) ?? null}
+        onClose={() => setViewCaseBonusId(null)}
+        onEdit={handleOpenEditCaseBonus}
+      />
+      <ComboEditorDialog
+        open={isComboEditorOpen}
+        onOpenChange={setIsComboEditorOpen}
+        scheme={editingCombo}
+        skuOptions={bogoFreeSkuOptions}
+        otherCombos={comboSchemes}
+        activeQpsSkuCodes={activeQpsSkuCodes}
+        activeValueSlabSkuCodes={activeValueSlabSkuCodes}
+        activeBogoSkuCodes={activeBogoSkuCodes}
+        activeCaseBonusSkuCodes={activeCaseBonusSkuCodes}
+        onSave={handleSaveCombo}
+      />
+      <ComboViewDialog
+        scheme={comboSchemes.find((c) => c.id === viewComboId) ?? null}
+        onClose={() => setViewComboId(null)}
+        onEdit={handleOpenEditCombo}
+      />
 
       <OffersFilterDrawer
         isOpen={isFilterDrawerOpen}
@@ -1802,7 +2090,9 @@ export function OffersList() {
           setOfferTypeFilter(v);
           setCurrentPage(1);
         }}
-        offerTypeOptions={OFFER_TYPES.filter((t) => t.id === "qps" || t.id === "value-slab" || t.id === "off-invoice").map<OfferTypeOption>((t) => ({
+        offerTypeOptions={OFFER_TYPES.filter((t) =>
+          ["qps", "off-invoice", "bogo", "case-bonus", "combo-bundle"].includes(t.id),
+        ).map<OfferTypeOption>((t) => ({
           value: t.id,
           label: t.label,
         }))}
