@@ -65,6 +65,7 @@ import {
   type SkuPackConfig,
 } from "../../lib/orders-data";
 import { sampleSKUs } from "../products/my-sku";
+import { getDemoCustomers } from "../../lib/customers-demo-data";
 
 /** One row in the QPS slab schedule for a SKU. */
 interface QpsSlabDef {
@@ -476,6 +477,9 @@ export function OrderDetail() {
         (o.status === "Confirmed" && !o.logisticsRequested),
     )
     .map((o) => o.id);
+  const deliverableIds = checkoutOrders
+    .filter((o) => o.status === "Confirmed" && !o.logisticsRequested)
+    .map((o) => o.id);
   const bulkOrders = bulkIds
     ? checkoutOrders.filter((o) => bulkIds.includes(o.id))
     : [];
@@ -697,6 +701,18 @@ export function OrderDetail() {
   };
 
   const handleConfirmDelivered = () => {
+    if (bulkIds) {
+      for (const id of bulkIds) updateOrderStatus(id, "Delivered");
+      if (bulkIds.includes(orderData.orderId)) {
+        setOrderData((prev) => ({ ...prev, status: "Delivered" }));
+      }
+      setIsDeliverModalOpen(false);
+      toast.success(
+        `${bulkIds.length} order${bulkIds.length === 1 ? "" : "s"} marked as delivered.`,
+      );
+      afterAction();
+      return;
+    }
     if (targetId === orderData.orderId) {
       setOrderData((prev) => ({ ...prev, status: "Delivered" }));
     }
@@ -708,11 +724,18 @@ export function OrderDetail() {
 
   // Header bulk actions in customer-order mode: aim the Confirm /
   // Cancel popups at every eligible company order at once.
-  const openBulk = (action: "confirm" | "cancel") => {
+  const openBulk = (action: "confirm" | "cancel" | "deliver") => {
     setActionOrderId(null);
-    setBulkIds(action === "confirm" ? confirmableIds : cancellableIds);
+    setBulkIds(
+      action === "confirm"
+        ? confirmableIds
+        : action === "cancel"
+          ? cancellableIds
+          : deliverableIds,
+    );
     if (action === "confirm") setIsConfirmModalOpen(true);
-    else setIsCancelModalOpen(true);
+    else if (action === "cancel") setIsCancelModalOpen(true);
+    else setIsDeliverModalOpen(true);
   };
 
   // Row actions in customer-order mode: aim the existing popups at one
@@ -805,6 +828,16 @@ export function OrderDetail() {
                 >
                   <XCircle className="h-3.5 w-3.5 mr-1.5" />
                   Cancel All ({cancellableIds.length})
+                </Button>
+              )}
+              {isCustomerMode && deliverableIds.length > 0 && (
+                <Button
+                  size="sm"
+                  className="bg-green-600 hover:bg-green-700 h-8"
+                  onClick={() => openBulk("deliver")}
+                >
+                  <Truck className="h-3.5 w-3.5 mr-1.5" />
+                  Mark All as Delivered ({deliverableIds.length})
                 </Button>
               )}
               {isCustomerMode && confirmableIds.length > 0 && (
@@ -1191,15 +1224,16 @@ export function OrderDetail() {
                 <div className="overflow-x-auto">
                   <table className="w-full table-fixed min-w-[860px] text-sm">
                     <colgroup>
-                      <col className="w-[26%]" />
                       <col className="w-[22%]" />
-                      <col className="w-[14%]" />
-                      <col className="w-[14%]" />
-                      <col className="w-[24%]" />
+                      <col className="w-[17%]" />
+                      <col className="w-[15%]" />
+                      <col className="w-[11%]" />
+                      <col className="w-[13%]" />
+                      <col className="w-[22%]" />
                     </colgroup>
                     <thead className="bg-gray-50 border-b border-gray-200">
                       <tr>
-                        {["Order ID", "Company", "Delivery Date", "Status", "Actions"].map((h) => (
+                        {["Order ID", "Company", "Retailer Company ID", "Delivery Date", "Status", "Actions"].map((h) => (
                           <th
                             key={h}
                             className={`px-3 py-2 text-[10px] font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap ${h === "Actions" ? "text-right" : "text-left"}`}
@@ -1223,6 +1257,16 @@ export function OrderDetail() {
                         </td>
                         <td className="px-3 py-2.5 font-medium text-gray-900 truncate" title={o.company}>
                           {o.company}
+                        </td>
+                        <td className="px-3 py-2.5 whitespace-nowrap">
+                          {(() => {
+                            const rid = getRetailerCompanyId(o);
+                            return rid ? (
+                              <span className="text-[13px] font-mono text-gray-700">{rid}</span>
+                            ) : (
+                              <span className="text-xs text-gray-400">Not available</span>
+                            );
+                          })()}
                         </td>
                         <td className="px-3 py-2.5 text-gray-700 tabular-nums whitespace-nowrap">
                           {o.expectedDeliveryDate}
@@ -1720,14 +1764,35 @@ export function OrderDetail() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Truck className="h-5 w-5 text-green-600" />
-              Mark as Delivered
+              {bulkIds ? "Mark All as Delivered" : "Mark as Delivered"}
             </DialogTitle>
             <DialogDescription>
-              Confirm that Order #{actionData.orderId} has been delivered to{" "}
-              {actionData.buyerStoreName}. This action moves the order to the
-              Delivered tab and can't be undone.
+              {bulkIds
+                ? `Confirm that ${bulkIds.length} order${bulkIds.length === 1 ? " has" : "s have"} been delivered to ${orderData.buyerStoreName}. This moves ${bulkIds.length === 1 ? "it" : "them"} to the Delivered tab and can't be undone.`
+                : `Confirm that Order #${actionData.orderId} has been delivered to ${actionData.buyerStoreName}. This action moves the order to the Delivered tab and can't be undone.`}
             </DialogDescription>
           </DialogHeader>
+          {bulkIds && (
+            <div className="bg-gray-50 p-4 rounded-lg space-y-2">
+              {bulkOrders.map((o) => (
+                <div key={o.id} className="flex items-center justify-between gap-3 text-sm">
+                  <span className="min-w-0">
+                    <span className="font-medium text-gray-900">{o.company}</span>{" "}
+                    <span className="text-[11px] font-mono text-gray-500">{o.id}</span>
+                  </span>
+                  <span className="tabular-nums text-gray-900">
+                    ₹{o.orderValue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              ))}
+              <div className="flex items-center justify-between gap-3 text-sm border-t border-gray-200 pt-2">
+                <strong>Total</strong>
+                <strong className="tabular-nums">
+                  ₹{bulkOrders.reduce((n, o) => n + o.orderValue, 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                </strong>
+              </div>
+            </div>
+          )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDeliverModalOpen(false)}>
               Cancel
@@ -1737,7 +1802,9 @@ export function OrderDetail() {
               className="bg-green-600 hover:bg-green-700 text-white"
             >
               <Truck className="h-4 w-4 mr-1.5" />
-              Confirm Delivery
+              {bulkIds
+                ? `Confirm Delivery of ${bulkIds.length} Order${bulkIds.length === 1 ? "" : "s"}`
+                : "Confirm Delivery"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1751,6 +1818,32 @@ export function OrderDetail() {
       />
     </div>
   );
+}
+
+// ---------- Retailer Company ID ----------
+// The retailer's ID with an order's company. Taken from the order when
+// the system sends it; otherwise fetched from the Customers module —
+// the customer (same mobile and business name) and their link to the
+// order's company. Undefined when neither has it.
+const lastTen = (m?: string) => (m ?? "").replace(/\D/g, "").slice(-10);
+const companyKey = (name: string) =>
+  name
+    .toLowerCase()
+    .replace(/\b(limited|ltd|private|pvt|india)\b|[^a-z0-9]/g, "");
+
+function getRetailerCompanyId(order: StoreOrder): string | undefined {
+  if (order.retailerCompanyId) return order.retailerCompanyId;
+  const mobile = lastTen(order.buyerContact);
+  if (!mobile) return undefined;
+  const customer = getDemoCustomers().find(
+    (c) =>
+      lastTen(c.mobile) === mobile &&
+      c.businessName.trim().toLowerCase() ===
+        order.retailerName.trim().toLowerCase(),
+  );
+  return customer?.companies.find(
+    (l) => companyKey(l.companyName) === companyKey(order.company),
+  )?.retailerCompanyId;
 }
 
 // ---------- Company order items (customer-order view) ----------

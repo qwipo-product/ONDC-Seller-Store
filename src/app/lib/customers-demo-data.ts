@@ -16,6 +16,9 @@ export interface CompanyLink {
   companyName: string;
   /** Per-company status — Active / Blocked. */
   status: "Active" | "Blocked";
+  /** The retailer's ID with this company (the company's own code for
+   *  the outlet). Optional — absent until the company shares it. */
+  retailerCompanyId?: string;
 }
 
 /**
@@ -138,8 +141,18 @@ const SEED: DemoCustomer[] = [
     totalOrders: 14,
     totalRevenue: 145600,
     companies: [
-      { companyId: "co-itc", companyName: "ITC Limited", status: "Active" },
-      { companyId: "co-marico", companyName: "Marico", status: "Active" },
+      {
+        companyId: "co-itc",
+        companyName: "ITC Limited",
+        status: "Active",
+        retailerCompanyId: "ITC-RT-983884",
+      },
+      {
+        companyId: "co-marico",
+        companyName: "Marico",
+        status: "Active",
+        retailerCompanyId: "MRC-RT-379731",
+      },
     ],
     // Sunshine Kirana sits on ITC's KPHB 1 beat — that beat is
     // configured (in Admin → Serviceability) to deliver on Monday
@@ -167,7 +180,12 @@ const SEED: DemoCustomer[] = [
     totalOrders: 47,
     totalRevenue: 612400,
     companies: [
-      { companyId: "co-itc", companyName: "ITC Limited", status: "Active" },
+      {
+        companyId: "co-itc",
+        companyName: "ITC Limited",
+        status: "Active",
+        retailerCompanyId: "ITC-RT-764641",
+      },
     ],
     // Same company (ITC), two addresses that fall on DIFFERENT beats —
     // so the same wholesaler gets a Saturday delivery at the main shop
@@ -220,6 +238,7 @@ const SEED: DemoCustomer[] = [
     companies: [
       {
         companyId: "co-freedom",
+        retailerCompanyId: "GEF-RT-870922",
         companyName: "Gemini Edibles & Fats India",
         status: "Active",
       },
@@ -242,16 +261,32 @@ const SEED: DemoCustomer[] = [
     totalOrders: 92,
     totalRevenue: 1480000,
     companies: [
-      { companyId: "co-itc", companyName: "ITC Limited", status: "Active" },
-      { companyId: "co-marico", companyName: "Marico", status: "Active" },
+      {
+        companyId: "co-itc",
+        companyName: "ITC Limited",
+        status: "Active",
+        retailerCompanyId: "ITC-RT-768655",
+      },
+      {
+        companyId: "co-marico",
+        companyName: "Marico",
+        status: "Active",
+        retailerCompanyId: "MRC-RT-942538",
+      },
       {
         companyId: "co-freedom",
+        retailerCompanyId: "GEF-RT-300951",
         companyName: "Gemini Edibles & Fats India",
         status: "Active",
       },
       // Per-company block example: this customer is Active overall but
       // blocked for this one company.
-      { companyId: "co-adani", companyName: "Adani Wilmar Ltd", status: "Blocked" },
+      {
+        companyId: "co-adani",
+        companyName: "Adani Wilmar Ltd",
+        status: "Blocked",
+        retailerCompanyId: "AWL-RT-620096",
+      },
     ],
     // Multi-address showcase. City Supermart runs three locations, and
     // each one falls in a different beat — so the COMPANY set and the
@@ -327,7 +362,12 @@ const SEED: DemoCustomer[] = [
     totalRevenue: 12450,
     origin: "polygon-sync",
     companies: [
-      { companyId: "co-itc", companyName: "ITC Limited", status: "Active" },
+      {
+        companyId: "co-itc",
+        companyName: "ITC Limited",
+        status: "Active",
+        retailerCompanyId: "ITC-RT-181104",
+      },
     ],
   },
   {
@@ -346,7 +386,12 @@ const SEED: DemoCustomer[] = [
     totalOrders: 21,
     totalRevenue: 256000,
     companies: [
-      { companyId: "co-marico", companyName: "Marico", status: "Active" },
+      {
+        companyId: "co-marico",
+        companyName: "Marico",
+        status: "Active",
+        retailerCompanyId: "MRC-RT-563708",
+      },
     ],
   },
   {
@@ -370,6 +415,7 @@ const SEED: DemoCustomer[] = [
     companies: [
       {
         companyId: "co-freedom",
+        retailerCompanyId: "GEF-RT-913254",
         companyName: "Gemini Edibles & Fats India",
         status: "Active",
       },

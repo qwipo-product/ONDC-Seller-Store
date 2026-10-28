@@ -549,9 +549,19 @@ export function CustomerDemoDetail() {
                           <div className="bg-blue-100 text-blue-700 p-1 rounded">
                             <Building2 className="h-3.5 w-3.5" />
                           </div>
-                          <p className="text-sm font-semibold text-gray-900 truncate">
-                            {co.companyName}
-                          </p>
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-gray-900 truncate">
+                              {co.companyName}
+                            </p>
+                            {co.retailerCompanyId && (
+                              <p className="text-[11px] text-gray-500">
+                                Retailer Company ID{" "}
+                                <span className="font-mono text-gray-700">
+                                  {co.retailerCompanyId}
+                                </span>
+                              </p>
+                            )}
+                          </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           {effStatus === "Active" ? (

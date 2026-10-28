@@ -197,6 +197,10 @@ export interface Order {
    *  every order the customer places. Shown on the orders list and
    *  in the order page header. */
   qwipoCustomerId?: string;
+  /** The retailer's ID with this order's company, when the system
+   *  sends it with the order. Otherwise looked up in the Customers
+   *  module. */
+  retailerCompanyId?: string;
   channelOrderId?: string;
   orderTime?: string;
   lineItems?: OrderLineItem[];
@@ -3561,6 +3565,7 @@ export const seedOrders: Order[] = [
     buyerContact: "+91 98765 43301",
     buyerCode: "BUYER-MHS-311",
     qwipoCustomerId: "QWIP6032022026941329",
+    retailerCompanyId: "ITC-RT-458213",
     channelOrderId: "ONDC-ORD-930101",
     gstNumber: "36AAFCM4521K1ZP",
     buyerAddress: "Shop 4, KPHB Colony Main Road, Kukatpally, Hyderabad, Telangana 500072",
@@ -3647,6 +3652,7 @@ export const seedOrders: Order[] = [
     buyerContact: "+91 98765 43301",
     buyerCode: "BUYER-MHS-311",
     qwipoCustomerId: "QWIP6032022026941329",
+    retailerCompanyId: "HUL-RT-772940",
     channelOrderId: "ONDC-ORD-930102",
     gstNumber: "36AAFCM4521K1ZP",
     buyerAddress: "Shop 4, KPHB Colony Main Road, Kukatpally, Hyderabad, Telangana 500072",
@@ -3722,6 +3728,7 @@ export const seedOrders: Order[] = [
     buyerContact: "+91 98765 43301",
     buyerCode: "BUYER-MHS-311",
     qwipoCustomerId: "QWIP6032022026941329",
+    retailerCompanyId: "NES-RT-319675",
     channelOrderId: "ONDC-ORD-930103",
     gstNumber: "36AAFCM4521K1ZP",
     buyerAddress: "Shop 4, KPHB Colony Main Road, Kukatpally, Hyderabad, Telangana 500072",
