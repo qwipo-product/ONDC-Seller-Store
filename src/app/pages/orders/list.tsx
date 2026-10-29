@@ -1130,6 +1130,7 @@ export function Orders() {
     fileName: string,
     range: { start: string; end: string },
     delivery: string,
+    totalValue: number,
   ) => {
     const [{ jsPDF }, { default: autoTable }] = await Promise.all([
       import("jspdf"),
@@ -1142,7 +1143,15 @@ export function Orders() {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
     doc.setTextColor(55, 65, 81);
-    doc.text(`Delivery Date: ${delivery}`, 28, 49);
+    // Delivery date and the total order value side by side in the heading.
+    const deliveryText = `Delivery Date: ${delivery}`;
+    doc.text(deliveryText, 28, 49);
+    doc.setTextColor(30, 58, 138);
+    doc.text(
+      `Total Order Value: Rs ${totalValue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      28 + doc.getTextWidth(deliveryText) + 24,
+      49,
+    );
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8.5);
     doc.setTextColor(90);
@@ -1516,7 +1525,15 @@ export function Orders() {
       // Delivery Date heading, so the reader knows what the file covers.
       doc.setFontSize(12.5);
       doc.setTextColor(...ink);
-      doc.text(`Delivery Date: ${delivery}`, margin.left, 56);
+      // Delivery date and the total order value side by side in the heading.
+      const deliveryText = `Delivery Date: ${delivery}`;
+      doc.text(deliveryText, margin.left, 56);
+      doc.setTextColor(30, 58, 138);
+      doc.text(
+        `Total Order Value: Rs ${money(totals.value)}`,
+        margin.left + doc.getTextWidth(deliveryText) + 30,
+        56,
+      );
       doc.setFont("helvetica", "normal");
       doc.setFontSize(9);
       doc.setTextColor(...muted);
@@ -1709,6 +1726,7 @@ export function Orders() {
         `${base}.pdf`,
         range,
         deliveryHeading(list),
+        list.reduce((n, o) => n + o.orderValue, 0),
       )
         .then(done)
         .catch(() => toast.error("Could not create the PDF. Please try again."));
@@ -1885,6 +1903,7 @@ export function Orders() {
         `orders_${range.start}_to_${range.end}${deliverySuffix()}.pdf`,
         range,
         deliveryHeading(ordersToExport),
+        ordersToExport.reduce((n, o) => n + o.orderValue, 0),
       )
         .then(() => {
           toast.success(
