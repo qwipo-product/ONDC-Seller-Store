@@ -56,6 +56,8 @@ import { CopyOnHover } from "../../components/copy-on-hover";
 import { ListPagination } from "../../components/ui/list-pagination";
 import { OrdersMapDialog } from "../../components/orders-map-dialog";
 import { useAuth } from "../../lib/auth-context";
+import { Calendar as DatePickerCalendar } from "../../components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "../../components/ui/popover";
 import {
   getLogisticsSettings,
   subscribeToLogisticsSettings,
@@ -298,6 +300,9 @@ export function Orders() {
   // orders created in the export range. Reset when the dialog opens or
   // the range changes.
   const [exportDeliveryDate, setExportDeliveryDate] = useState("all");
+  const [deliveryPickerOpen, setDeliveryPickerOpen] = useState(false);
+  const toIsoDate = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   const inExportRange = (o: Order) => {
     const d = new Date(o.orderDate);
     return d >= new Date(exportStartDate) && d <= new Date(exportEndDate);
@@ -4000,21 +4005,55 @@ export function Orders() {
 
             <div className="space-y-2">
               <Label htmlFor="exportDeliveryDate">Delivery Date</Label>
-              <Select value={exportDeliveryDate} onValueChange={setExportDeliveryDate}>
-                <SelectTrigger id="exportDeliveryDate" className="w-full">
-                  <SelectValue placeholder="All delivery dates" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All delivery dates</SelectItem>
-                  {exportDeliveryOptions.map((d) => (
-                    <SelectItem key={d} value={d}>
-                      {shortDate(d)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/* Calendar picker: only dates with deliveries in the
+                  export range can be picked; "All delivery dates" clears it. */}
+              <Popover open={deliveryPickerOpen} onOpenChange={setDeliveryPickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    id="exportDeliveryDate"
+                    variant="outline"
+                    className="w-full justify-start gap-2 font-normal"
+                  >
+                    <CalendarDays className="h-4 w-4 text-gray-500" />
+                    {exportDeliveryDate === "all" ? "All delivery dates" : shortDate(exportDeliveryDate)}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <DatePickerCalendar
+                    mode="single"
+                    selected={
+                      exportDeliveryDate === "all"
+                        ? undefined
+                        : new Date(`${exportDeliveryDate}T00:00:00`)
+                    }
+                    defaultMonth={
+                      new Date(
+                        `${exportDeliveryDate === "all" ? todayIso : exportDeliveryDate}T00:00:00`,
+                      )
+                    }
+                    onSelect={(day) => {
+                      setExportDeliveryDate(day ? toIsoDate(day) : "all");
+                      setDeliveryPickerOpen(false);
+                    }}
+                    disabled={(day) => !exportDeliveryOptions.includes(toIsoDate(day))}
+                  />
+                  <div className="border-t p-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => {
+                        setExportDeliveryDate("all");
+                        setDeliveryPickerOpen(false);
+                      }}
+                    >
+                      All delivery dates
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
               <p className="text-[11px] text-gray-600">
-                Only orders created in the date range above that are due on this delivery date are exported.
+                Only dates with deliveries can be picked. Orders created in the date range above that are due on this date are exported.
               </p>
             </div>
 
