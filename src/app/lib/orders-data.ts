@@ -5362,19 +5362,38 @@ const companyKey = (name: string) =>
     .toLowerCase()
     .replace(/\b(limited|ltd|private|pvt|india)\b|[^a-z0-9]/g, "");
 
+// Demo fallback: the ID the company would have given this retailer —
+// company initials + "-RT-" + six digits, stable for the same retailer
+// and company, so every order of a pair shows the same ID.
+const COMPANY_FILLER = /^(limited|ltd|pvt|private|india|co|and|&)$/i;
+function demoRetailerCompanyId(order: Order): string {
+  const words = order.company.split(/[\s.]+/).filter((w) => w && !COMPANY_FILLER.test(w));
+  const prefix = (
+    words.length > 1 ? words.slice(0, 3).map((w) => w[0]).join("") : (words[0] ?? "RTL").slice(0, 3)
+  ).toUpperCase();
+  let h = 2166136261;
+  for (const ch of `${lastTen(order.buyerContact)}|${order.retailerName.trim().toLowerCase()}|${companyKey(order.company)}`) {
+    h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+  }
+  return `${prefix}-RT-${100000 + ((h >>> 0) % 900000)}`;
+}
+
 export function getRetailerCompanyId(order: Order): string | undefined {
   if (order.retailerCompanyId) return order.retailerCompanyId;
   const mobile = lastTen(order.buyerContact);
-  if (!mobile) return undefined;
-  const customer = getDemoCustomers().find(
-    (c) =>
-      lastTen(c.mobile) === mobile &&
-      c.businessName.trim().toLowerCase() ===
-        order.retailerName.trim().toLowerCase(),
+  const customer = mobile
+    ? getDemoCustomers().find(
+        (c) =>
+          lastTen(c.mobile) === mobile &&
+          c.businessName.trim().toLowerCase() ===
+            order.retailerName.trim().toLowerCase(),
+      )
+    : undefined;
+  return (
+    customer?.companies.find(
+      (l) => companyKey(l.companyName) === companyKey(order.company),
+    )?.retailerCompanyId ?? demoRetailerCompanyId(order)
   );
-  return customer?.companies.find(
-    (l) => companyKey(l.companyName) === companyKey(order.company),
-  )?.retailerCompanyId;
 }
 
 // ---------- Customer order status ----------

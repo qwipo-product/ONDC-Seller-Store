@@ -1141,7 +1141,7 @@ export function Orders() {
     doc.text(title, 28, 32);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
-    doc.setTextColor(31, 56, 100);
+    doc.setTextColor(55, 65, 81);
     doc.text(`Delivery Date: ${delivery}`, 28, 49);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8.5);
@@ -1167,8 +1167,9 @@ export function Orders() {
         cellPadding: 2.5,
         overflow: "linebreak",
       },
-      headStyles: { fillColor: [124, 58, 237], textColor: 255, fontStyle: "bold" },
-      alternateRowStyles: { fillColor: [248, 246, 252] },
+      headStyles: { fillColor: [241, 243, 247], textColor: [31, 41, 55], fontStyle: "bold", lineColor: [220, 224, 230], lineWidth: 0.4 },
+      bodyStyles: { textColor: [55, 65, 81], lineColor: [229, 231, 235], lineWidth: 0.3 },
+      alternateRowStyles: { fillColor: [250, 251, 252] },
       // Short fields stay on one line so only long text (names,
       // addresses, companies, status) wraps. The wide Item level sheet
       // lets every column wrap to fit the page.
@@ -1498,9 +1499,15 @@ export function Orders() {
       const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a3" });
       const pageH = doc.internal.pageSize.getHeight();
       const margin = { left: 28, right: 28 };
-      const navy: [number, number, number] = [31, 56, 100];
-      const labelFill: [number, number, number] = [238, 242, 248];
-      const link: [number, number, number] = [17, 85, 204];
+      // Light, print-friendly palette: soft grey fills, dark grey text and
+      // one muted blue accent for the retailer name and links.
+      const ink: [number, number, number] = [31, 41, 55];
+      const muted: [number, number, number] = [107, 114, 128];
+      const accent: [number, number, number] = [37, 99, 235];
+      const rule: [number, number, number] = [226, 232, 240];
+      const headFill: [number, number, number] = [241, 245, 249];
+      const labelFill: [number, number, number] = [248, 250, 252];
+      const link = accent;
       const lastY = () =>
         (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 40;
       doc.setFont("helvetica", "bold");
@@ -1508,11 +1515,11 @@ export function Orders() {
       doc.text(title, margin.left, 36);
       // Delivery Date heading, so the reader knows what the file covers.
       doc.setFontSize(12.5);
-      doc.setTextColor(31, 56, 100);
+      doc.setTextColor(...ink);
       doc.text(`Delivery Date: ${delivery}`, margin.left, 56);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(9);
-      doc.setTextColor(90);
+      doc.setTextColor(...muted);
       doc.text(
         `Orders created ${shortDate(range.start)} to ${shortDate(range.end)}  |  ${totals.retailers} retailers, ${totals.orders} orders  |  Amounts in Rs`,
         margin.left,
@@ -1522,7 +1529,7 @@ export function Orders() {
       let y = 84;
       const lbl = (content: string) => ({
         content,
-        styles: { fontStyle: "bold" as const, fillColor: labelFill, textColor: [68, 84, 106] as [number, number, number] },
+        styles: { fontStyle: "bold" as const, fillColor: labelFill, textColor: muted },
       });
       for (const s of sections) {
         // Start a retailer on a new page when the whole section won't fit
@@ -1538,8 +1545,8 @@ export function Orders() {
           startY: y,
           margin,
           theme: "grid",
-          styles: { fontSize: 8.5, cellPadding: 4, lineColor: [191, 197, 210], lineWidth: 0.4, valign: "middle" },
-          head: [[{ content: `${s.no}. ${s.name}`, colSpan: 6, styles: { fillColor: navy, textColor: 255, fontSize: 11, fontStyle: "bold" } }]],
+          styles: { fontSize: 8.5, cellPadding: 4, textColor: ink, lineColor: rule, lineWidth: 0.4, valign: "middle" },
+          head: [[{ content: `${s.no}. ${s.name}`, colSpan: 6, styles: { fillColor: [255, 255, 255], textColor: accent, fontSize: 11.5, fontStyle: "bold", cellPadding: { top: 6, bottom: 5, left: 4, right: 4 } } }]],
           body: [
             [lbl("Mobile"), s.mobile, lbl("Area"), s.area, lbl("Location"), { content: s.url ? "Open in Maps" : "-", styles: s.url ? { textColor: link } : {} }],
             [lbl("Address"), { content: s.address, colSpan: 3 }, lbl("Latitude, Longitude"), s.latLng || "-"],
@@ -1572,8 +1579,8 @@ export function Orders() {
           startY: lastY(),
           margin,
           theme: "grid",
-          styles: { fontSize: 8, cellPadding: 3.5, lineColor: [191, 197, 210], lineWidth: 0.4, valign: "middle" },
-          headStyles: { fillColor: [47, 85, 151], textColor: 255, fontStyle: "bold", halign: "center" },
+          styles: { fontSize: 8, cellPadding: 3.5, textColor: ink, lineColor: rule, lineWidth: 0.4, valign: "middle" },
+          headStyles: { fillColor: headFill, textColor: ink, fontStyle: "bold", halign: "center" },
           head: [RETAILER_LINE_COLS.map((c) => c.replace("(₹)", "(Rs)"))],
           body,
           foot: [[
@@ -1583,7 +1590,7 @@ export function Orders() {
             "",
             money(s.value),
           ]],
-          footStyles: { fillColor: [220, 230, 241], textColor: [20, 20, 20], fontStyle: "bold" },
+          footStyles: { fillColor: headFill, textColor: ink, fontStyle: "bold" },
           showFoot: "lastPage",
           columnStyles: {
             0: { cellWidth: 118 },
@@ -1613,7 +1620,7 @@ export function Orders() {
         startY: y,
         margin,
         theme: "grid",
-        styles: { fontSize: 9.5, cellPadding: 5, fontStyle: "bold", fillColor: navy, textColor: 255, lineColor: [191, 197, 210], lineWidth: 0.4 },
+        styles: { fontSize: 9.5, cellPadding: 5, fontStyle: "bold", fillColor: [239, 246, 255], textColor: ink, lineColor: [191, 219, 254], lineWidth: 0.6 },
         body: [[
           { content: `GRAND TOTAL - ${totals.retailers} retailers, ${totals.orders} orders, ${totals.items} items`, colSpan: 3 },
           { content: `QTY ${totals.qty}`, styles: { halign: "center" } },
