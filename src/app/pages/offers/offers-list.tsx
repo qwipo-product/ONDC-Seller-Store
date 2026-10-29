@@ -299,8 +299,8 @@ export function OffersList() {
   const [editingCaseBonus, setEditingCaseBonus] = useState<CaseBonusScheme | null>(null);
   const [viewCaseBonusId, setViewCaseBonusId] = useState<string | null>(null);
 
-  // Combo schemes — the first multi-SKU scheme (a bundle + optional
-  // companion items), not a single SKU with tiers.
+  // Combo schemes — the first multi-SKU scheme (a bundle of 2+ items
+  // bought together), not a single SKU with tiers.
   const [comboSchemes, setComboSchemes] = useState<ComboScheme[]>(() =>
     isEmptyMode() ? [] : getAllCombos(),
   );

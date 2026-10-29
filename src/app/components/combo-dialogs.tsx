@@ -13,12 +13,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "./ui/tooltip";
 import { SkuComboBox } from "./sku-combobox";
 import { type CatalogSku, findSku } from "../lib/sku-catalog";
 import {
@@ -124,7 +118,6 @@ export function ComboEditorDialog({
   onSave,
 }: EditorProps) {
   const [bundleCodes, setBundleCodes] = useState<string[]>([]);
-  const [companionCodes, setCompanionCodes] = useState<string[]>([]);
   const [endDate, setEndDate] = useState("");
   const [active, setActive] = useState(true);
   const [discountPercent, setDiscountPercent] = useState<number | undefined>();
@@ -134,14 +127,12 @@ export function ComboEditorDialog({
     if (!open) return;
     if (scheme) {
       setBundleCodes(scheme.bundleSkuCodes);
-      setCompanionCodes(scheme.companionSkuCodes);
       setEndDate(scheme.endDate);
       setActive(scheme.status === "Active" || scheme.status === "Scheduled");
       setDiscountPercent(scheme.discountPercent);
       setMaxDiscount(scheme.maxDiscount);
     } else {
       setBundleCodes([]);
-      setCompanionCodes([]);
       setEndDate(new Date(Date.now() + 30 * 86400 * 1000).toISOString().slice(0, 10));
       setActive(true);
       setDiscountPercent(10);
@@ -152,8 +143,8 @@ export function ComboEditorDialog({
   const bundleSkus = bundleCodes.map(findSku).filter((s): s is CatalogSku => !!s);
   const bundleValue = bundleSkus.reduce((sum, s) => sum + s.sellingPrice, 0);
   const errors = useMemo(
-    () => validateCombo(bundleCodes, companionCodes, discountPercent, maxDiscount),
-    [bundleCodes, companionCodes, discountPercent, maxDiscount],
+    () => validateCombo(bundleCodes, discountPercent, maxDiscount),
+    [bundleCodes, discountPercent, maxDiscount],
   );
   const pastEnd = !!endDate && endDate < todayIso();
   const canSave = !!endDate && errors.length === 0;
@@ -188,14 +179,11 @@ export function ComboEditorDialog({
     if (!canSave) return;
     const today = todayIso();
     const status: ComboScheme["status"] = endDate < today ? "Expired" : active ? "Active" : "Inactive";
-    const companionSkus = companionCodes.map(findSku).filter((s): s is CatalogSku => !!s);
     onSave({
       id: scheme?.id ?? `COMBO-${Date.now()}`,
       name: scheme?.name ?? `Combo – ${bundleSkus.map((s) => s.skuName).join(" + ")}`,
       bundleSkuCodes: bundleCodes,
       bundleSkuNames: bundleSkus.map((s) => s.skuName),
-      companionSkuCodes: companionCodes,
-      companionSkuNames: companionSkus.map((s) => s.skuName),
       discountPercent: discountPercent!,
       maxDiscount: maxDiscount && maxDiscount > 0 ? maxDiscount : undefined,
       startDate: today,
@@ -213,15 +201,15 @@ export function ComboEditorDialog({
             {scheme ? "Edit" : "Create"} Combo
           </DialogTitle>
           <DialogDescription>
-            Pick the bundle items the discount applies to, and optionally the companion items that
-            must also be in the cart for it to trigger.
+            Pick the items to sell together. The buyer gets the discount when all of them are in the
+            cart.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3">
           <div>
             <Label className="text-xs font-medium text-gray-700 mb-1 block">
-              Bundle Items <span className="text-red-500">*</span> (2 or more — the discount applies to these)
+              Bundle Items <span className="text-red-500">*</span> (2 or more — all must be bought together)
             </Label>
             <SkuMultiPicker
               skus={skuOptions}
@@ -229,30 +217,6 @@ export function ComboEditorDialog({
               onChange={setBundleCodes}
               placeholder="Add a bundle item…"
               chipClassName="bg-indigo-50 text-indigo-700 border-indigo-200"
-            />
-          </div>
-
-          <div>
-            <div className="flex items-center gap-1 mb-1">
-              <Label className="text-xs font-medium text-gray-700">Companion Items (optional)</Label>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Info className="h-3 w-3 text-gray-400 cursor-help" />
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-xs">
-                    All of these must also be in the cart for the combo to trigger (AND logic) — not
-                    just one of them.
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-            <SkuMultiPicker
-              skus={skuOptions}
-              selected={companionCodes}
-              onChange={setCompanionCodes}
-              placeholder="Add a companion item…"
-              chipClassName="bg-gray-100 text-gray-700 border-gray-300"
             />
           </div>
 
@@ -399,19 +363,6 @@ export function ComboViewDialog({ scheme, onClose, onEdit }: ViewProps) {
                 ))}
               </div>
             </div>
-
-            {scheme.companionSkuNames.length > 0 && (
-              <div className="space-y-1">
-                <p className="text-xs font-semibold text-gray-700">Companion Items (all required)</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {scheme.companionSkuNames.map((name, i) => (
-                    <Badge key={i} variant="outline" className="bg-gray-100 text-gray-700 border-gray-300">
-                      {name}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
 
             <div className="grid grid-cols-3 gap-3 bg-blue-50/60 border border-blue-200 rounded-lg p-3 text-sm">
               <div>

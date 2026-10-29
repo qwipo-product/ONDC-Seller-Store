@@ -3,27 +3,24 @@
  * together (Offers & Schemes).
  *
  * The only scheme so far that spans multiple SKUs instead of one SKU with
- * tiers: a Bundle (the items the discount actually applies to) plus,
- * optionally, Companion items that must also be in the cart for the combo
- * to trigger at all.
+ * tiers: a Bundle of 2 or more items that must all be bought together.
+ * There are no companion (required but undiscounted) items: every item in
+ * the bundle is both required and discounted.
  *
  *   Bundle: Sunflower Oil 1L, Sunflower Oil 5L
- *   Companions: Mustard Oil 1L, Groundnut Oil 1L  (must ALSO be in the cart)
  *   Benefit: 50% off the bundle items, capped at ₹200
  *
  * ONDC mapping: one "combo" offer (spec 0094 per the API Contract Detail
  * sheet; the Annexure feature list separately numbers it 0095 — the two
  * source sections disagree and this hasn't been reconciled). item_ids =
- * the bundle; qualifier.item_id = comma-separated companion item ids.
+ * the bundle; qualifier.item_id is left empty (the protocol allows a
+ * separate "must also be in cart" list, which this build doesn't use).
  * benefit.value_type = "percent", value + value_cap. meta.additive = no,
  * auto = yes.
  *
- * Two assumptions the draft protocol leaves unstated, made explicit here
- * rather than left silent:
- *   1. The companion list is AND logic — every companion item must be in
- *      the cart, not just one of them.
- *   2. The percent discount is computed against the bundle items' combined
- *      selling price (at qty 1 each), not the companions or the whole cart.
+ * One assumption the draft protocol leaves unstated, made explicit here
+ * rather than left silent: the percent discount is computed against the
+ * bundle items' combined selling price (at qty 1 each), not the whole cart.
  *
  * Prototype storage: localStorage.
  */
@@ -34,11 +31,6 @@ export interface ComboScheme {
   /** The items the discount applies to. */
   bundleSkuCodes: string[];
   bundleSkuNames: string[];
-  /** Items that must also be in the cart (AND) for the combo to trigger.
-   *  Can be empty — a combo doesn't have to require anything beyond the
-   *  bundle itself. */
-  companionSkuCodes: string[];
-  companionSkuNames: string[];
   discountPercent: number;
   maxDiscount?: number;
   startDate: string;
@@ -69,7 +61,6 @@ export function comboDiscountLabel(discountPercent: number, maxDiscount?: number
 
 export function validateCombo(
   bundleSkuCodes: string[],
-  companionSkuCodes: string[],
   discountPercent: number | undefined,
   maxDiscount: number | undefined,
 ): ComboError[] {
@@ -78,10 +69,6 @@ export function validateCombo(
 
   if (bundleSkuCodes.length < 2) {
     push("bundle", "A combo needs at least 2 bundle items.");
-  }
-  const overlap = bundleSkuCodes.filter((c) => companionSkuCodes.includes(c));
-  if (overlap.length > 0) {
-    push("overlap", `${overlap.join(", ")} ${overlap.length === 1 ? "is" : "are"} in both the bundle and companion lists — a SKU can't be both.`);
   }
   if (
     typeof discountPercent !== "number" ||
@@ -107,8 +94,6 @@ export const seedComboSchemes: ComboScheme[] = [
     name: "Sunflower Oil Combo",
     bundleSkuCodes: ["180000008", "180000076"],
     bundleSkuNames: ["FREEDOM REF. SUNFLOWER OIL 1 LTR.X16NOS.", "FREEDOM REF.SUNFLOWER OIL 1 LTR X 12PET"],
-    companionSkuCodes: ["180000260"],
-    companionSkuNames: ["FREEDOM K.GHANI MUSTARD OIL 1LTRX12 PET"],
     discountPercent: 10,
     maxDiscount: 200,
     startDate: "2026-10-01",
