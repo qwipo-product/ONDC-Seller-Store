@@ -1070,6 +1070,7 @@ export function Orders() {
         "Order Type",
         "Beat Name",
         "Company Orders",
+        "Order IDs",
         "Companies",
         "Items",
         "Customer Order Value",
@@ -1088,6 +1089,8 @@ export function Orders() {
           joinUnique(g.orders.map(orderTypeLabel)),
           joinUnique(g.orders.map((o) => o.beatName)),
           g.orders.length,
+          // Each company order in this customer order, one per line.
+          g.orders.map((o) => `${o.id} (${o.company})`).join("\n"),
           joinUnique(g.orders.map((o) => o.company)),
           g.orders.reduce((n, o) => n + getOrderLines(o).length, 0),
           g.orders.reduce((n, o) => n + o.orderValue, 0),
@@ -1095,7 +1098,7 @@ export function Orders() {
           joinUnique(g.orders.map((o) => o.paymentMode)),
         ];
       });
-      return { headers, rows, moneyCols: [10], records: groups.length };
+      return { headers, rows, moneyCols: [11], records: groups.length };
     }
     const headers = [
       "Order ID",
