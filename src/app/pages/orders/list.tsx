@@ -1524,7 +1524,7 @@ export function Orders() {
         (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 40;
       doc.setFont("helvetica", "bold");
       doc.setFontSize(15);
-      doc.text(title, margin.left, 36);
+      doc.text(title, doc.internal.pageSize.getWidth() / 2, 36, { align: "center" });
       // Seller, then delivery date and total order value, so the reader
       // knows what the file covers.
       doc.setFontSize(12.5);
