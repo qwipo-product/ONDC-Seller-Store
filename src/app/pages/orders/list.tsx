@@ -304,13 +304,20 @@ export function Orders() {
   };
   const exportDeliveryOptions = (() => {
     if (!exportStartDate || !exportEndDate) return [];
-    const counts = new Map<string, number>();
+    // Per date: company orders and the retailers (customer orders) they
+    // belong to — one retailer can have several company orders.
+    const counts = new Map<string, { orders: number; retailers: Set<string> }>();
     for (const o of orders) {
       if (inExportRange(o)) {
-        counts.set(o.expectedDeliveryDate, (counts.get(o.expectedDeliveryDate) ?? 0) + 1);
+        const c = counts.get(o.expectedDeliveryDate) ?? { orders: 0, retailers: new Set<string>() };
+        c.orders += 1;
+        c.retailers.add(getCustomerOrderId(o));
+        counts.set(o.expectedDeliveryDate, c);
       }
     }
-    return [...counts.entries()].sort(([a], [b]) => a.localeCompare(b));
+    return [...counts.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([d, c]) => [d, c.retailers.size, c.orders] as const);
   })();
 
   /** Resolve the active export range. Returns null when either date
@@ -4008,9 +4015,9 @@ export function Orders() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All delivery dates</SelectItem>
-                  {exportDeliveryOptions.map(([d, n]) => (
+                  {exportDeliveryOptions.map(([d, r, n]) => (
                     <SelectItem key={d} value={d}>
-                      {shortDate(d)} ({n} order{n === 1 ? "" : "s"})
+                      {shortDate(d)} ({r} retailer{r === 1 ? "" : "s"}, {n} order{n === 1 ? "" : "s"})
                     </SelectItem>
                   ))}
                 </SelectContent>
