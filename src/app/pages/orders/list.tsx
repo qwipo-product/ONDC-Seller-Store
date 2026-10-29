@@ -1167,9 +1167,9 @@ export function Orders() {
         cellPadding: 2.5,
         overflow: "linebreak",
       },
-      headStyles: { fillColor: [241, 243, 247], textColor: [31, 41, 55], fontStyle: "bold", lineColor: [220, 224, 230], lineWidth: 0.4 },
+      headStyles: { fillColor: [203, 213, 225], textColor: [30, 41, 59], fontStyle: "bold", lineColor: [220, 224, 230], lineWidth: 0.4 },
       bodyStyles: { textColor: [55, 65, 81], lineColor: [229, 231, 235], lineWidth: 0.3 },
-      alternateRowStyles: { fillColor: [250, 251, 252] },
+      alternateRowStyles: { fillColor: [246, 248, 251] },
       // Short fields stay on one line so only long text (names,
       // addresses, companies, status) wraps. The wide Item level sheet
       // lets every column wrap to fit the page.
@@ -1504,9 +1504,9 @@ export function Orders() {
       const ink: [number, number, number] = [31, 41, 55];
       const muted: [number, number, number] = [107, 114, 128];
       const accent: [number, number, number] = [37, 99, 235];
-      const rule: [number, number, number] = [226, 232, 240];
-      const headFill: [number, number, number] = [241, 245, 249];
-      const labelFill: [number, number, number] = [248, 250, 252];
+      const rule: [number, number, number] = [203, 213, 225];
+      const headFill: [number, number, number] = [203, 213, 225];
+      const labelFill: [number, number, number] = [241, 245, 249];
       const link = accent;
       const lastY = () =>
         (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 40;
@@ -1546,7 +1546,7 @@ export function Orders() {
           margin,
           theme: "grid",
           styles: { fontSize: 8.5, cellPadding: 4, textColor: ink, lineColor: rule, lineWidth: 0.4, valign: "middle" },
-          head: [[{ content: `${s.no}. ${s.name}`, colSpan: 6, styles: { fillColor: [255, 255, 255], textColor: accent, fontSize: 11.5, fontStyle: "bold", cellPadding: { top: 6, bottom: 5, left: 4, right: 4 } } }]],
+          head: [[{ content: `${s.no}. ${s.name}`, colSpan: 6, styles: { fillColor: [219, 234, 254], textColor: [30, 58, 138], fontSize: 11.5, fontStyle: "bold", cellPadding: { top: 6, bottom: 5, left: 4, right: 4 } } }]],
           body: [
             [lbl("Mobile"), s.mobile, lbl("Area"), s.area, lbl("Location"), { content: s.url ? "Open in Maps" : "-", styles: s.url ? { textColor: link } : {} }],
             [lbl("Address"), { content: s.address, colSpan: 3 }, lbl("Latitude, Longitude"), s.latLng || "-"],
@@ -1590,7 +1590,7 @@ export function Orders() {
             "",
             money(s.value),
           ]],
-          footStyles: { fillColor: headFill, textColor: ink, fontStyle: "bold" },
+          footStyles: { fillColor: [239, 246, 255], textColor: ink, fontStyle: "bold" },
           showFoot: "lastPage",
           columnStyles: {
             0: { cellWidth: 118 },
@@ -1620,7 +1620,7 @@ export function Orders() {
         startY: y,
         margin,
         theme: "grid",
-        styles: { fontSize: 9.5, cellPadding: 5, fontStyle: "bold", fillColor: [239, 246, 255], textColor: ink, lineColor: [191, 219, 254], lineWidth: 0.6 },
+        styles: { fontSize: 9.5, cellPadding: 5, fontStyle: "bold", fillColor: [191, 219, 254], textColor: [30, 58, 138], lineColor: [147, 197, 253], lineWidth: 0.6 },
         body: [[
           { content: `GRAND TOTAL - ${totals.retailers} retailers, ${totals.orders} orders, ${totals.items} items`, colSpan: 3 },
           { content: `QTY ${totals.qty}`, styles: { halign: "center" } },
