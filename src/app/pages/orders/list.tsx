@@ -1164,10 +1164,11 @@ export function Orders() {
   // Each retailer (customer order) is its own section. The top table
   // holds the retailer's static details (order, contact, location,
   // totals); the product table below holds everything that varies per
-  // line — delivery date, company, Retailer Company ID, SKU — then a
+  // line — created / delivery date, company, Retailer Company ID, SKU — then a
   // retailer total; a grand total closes the file. Same layout in Excel
   // and PDF; CSV gets the same fields as one flat row per product line.
   const RETAILER_LINE_COLS = [
+    "Created Date",
     "Delivery Date",
     "Company",
     "Retailer Company ID",
@@ -1219,7 +1220,6 @@ export function Orders() {
     no: number;
     name: string;
     orderId: string;
-    created: string;
     status: string;
     mobile: string;
     area: string;
@@ -1230,6 +1230,7 @@ export function Orders() {
     qty: number;
     value: number;
     lines: {
+      created: string;
       delivery: string;
       company: string;
       retailerCompanyId: string;
@@ -1245,14 +1246,11 @@ export function Orders() {
   const buildRetailerSections = (list: Order[]) => {
     const sections: RetailerSection[] = groupOrdersByCheckout(list).map((g, gi) => {
       const first = g.orders[0];
-      // Earliest company order = when the customer placed the order.
-      const placed = [...g.orders].sort((x, y) =>
-        `${x.orderDate} ${x.orderTime ?? ""}`.localeCompare(`${y.orderDate} ${y.orderTime ?? ""}`),
-      )[0];
       const mixed = getMixedCustomerOrderStatus(g.orders);
       const lines = g.orders.flatMap((o) => {
         const rid = getRetailerCompanyId(o) ?? "Not available";
         return linesWithEdits(o).map((l) => ({
+          created: `${shortDate(o.orderDate)}${o.orderTime ? ` ${o.orderTime}` : ""}`,
           delivery: shortDate(o.expectedDeliveryDate),
           company: l.company || o.company,
           retailerCompanyId: rid,
@@ -1268,7 +1266,6 @@ export function Orders() {
         no: gi + 1,
         name: first.retailerName,
         orderId: g.checkoutId,
-        created: `${shortDate(placed.orderDate)}${placed.orderTime ? ` ${placed.orderTime}` : ""}`,
         status: mixed
           ? `${mixed.label} (${mixed.parts
               .map((p) => `${p.count} ${CUSTOMER_ORDER_STAGES[p.stage].label}`)
@@ -1322,20 +1319,21 @@ export function Orders() {
       const ExcelJS = (await import("exceljs")).default;
       const wb = new ExcelJS.Workbook();
       const ws = wb.addWorksheet("Retailer Summary");
-      const COLS = RETAILER_LINE_COLS.length; // 9
+      const COLS = RETAILER_LINE_COLS.length; // 10
       const thin = { style: "thin" as const, color: { argb: "FFBFC5D2" } };
       const border = { top: thin, left: thin, bottom: thin, right: thin };
       const solid = (argb: string) => ({ type: "pattern" as const, pattern: "solid" as const, fgColor: { argb } });
       const navy = solid("FF1F3864");
-      [13, 24, 19, 17, 40, 8, 12, 14, 15].forEach((w, i) => (ws.getColumn(i + 1).width = w));
+      [19, 13, 24, 19, 17, 38, 8, 12, 14, 15].forEach((w, i) => (ws.getColumn(i + 1).width = w));
       ws.mergeCells(1, 1, 1, COLS);
       ws.getCell(1, 1).value = title;
       ws.getCell(1, 1).font = { bold: true, size: 14 };
       let r = 3;
       type Val = string | number | { text: string; hyperlink: string };
-      // One row of three label / value pairs: [label col, value from, value to].
-      const kv = (row: number, pairs: [number, number, number, string, Val, string?][]) => {
-        for (const [keyCol, from, to, key, val, numFmt] of pairs) {
+      // One row of label / value pairs: [label from, label to, value from, value to].
+      const kv = (row: number, pairs: [number, number, number, number, string, Val, string?][]) => {
+        for (const [keyCol, keyTo, from, to, key, val, numFmt] of pairs) {
+          if (keyTo > keyCol) ws.mergeCells(row, keyCol, row, keyTo);
           const k = ws.getCell(row, keyCol);
           k.value = key;
           k.font = { bold: true, color: { argb: "FF44546A" } };
@@ -1362,23 +1360,22 @@ export function Orders() {
         ws.getRow(r).height = 20;
         r++;
         kv(r++, [
-          [1, 2, 3, "Order ID", s.orderId],
-          [4, 5, 5, "Created Date", s.created],
-          [6, 7, 9, "Status", s.status],
+          [1, 1, 2, 3, "Order ID", s.orderId],
+          [4, 4, 5, 6, "Mobile", s.mobile],
+          [7, 8, 9, 10, "Area", s.area],
         ]);
         kv(r++, [
-          [1, 2, 3, "Mobile", s.mobile],
-          [4, 5, 5, "Area", s.area],
-          [6, 7, 9, "Location", s.url ? { text: "Open in Maps", hyperlink: s.url } : "—"],
+          [1, 1, 2, 6, "Address", s.address],
+          [7, 8, 9, 10, "Location", s.url ? { text: "Open in Maps", hyperlink: s.url } : "—"],
         ]);
         kv(r++, [
-          [1, 2, 5, "Address", s.address],
-          [6, 7, 9, "Latitude, Longitude", s.latLng || "—"],
+          [1, 1, 2, 6, "Status", s.status],
+          [7, 8, 9, 10, "Latitude, Longitude", s.latLng || "—"],
         ]);
         kv(r++, [
-          [1, 2, 3, "No. of Items", s.items],
-          [4, 5, 5, "Total QTY", s.qty],
-          [6, 7, 9, "Order Value (₹)", s.value, "#,##0.00"],
+          [1, 1, 2, 3, "No. of Items", s.items],
+          [4, 4, 5, 6, "Total QTY", s.qty],
+          [7, 8, 9, 10, "Order Value (₹)", s.value, "#,##0.00"],
         ]);
         // Product table — what varies per line.
         const head = ws.getRow(r);
@@ -1392,47 +1389,47 @@ export function Orders() {
         r++;
         for (const l of s.lines) {
           const row = ws.getRow(r++);
-          row.values = [l.delivery, l.company, l.retailerCompanyId, l.skuId, l.sku, l.qty, l.mrp, l.price, l.subtotal];
+          row.values = [l.created, l.delivery, l.company, l.retailerCompanyId, l.skuId, l.sku, l.qty, l.mrp, l.price, l.subtotal];
           row.eachCell((c, col) => {
             c.border = border;
             c.alignment = {
               vertical: "middle",
               wrapText: true,
-              horizontal: col === 6 ? "center" : col >= 7 ? "right" : "left",
+              horizontal: col === 7 ? "center" : col >= 8 ? "right" : "left",
             };
-            if (col >= 7) c.numFmt = "#,##0.00";
+            if (col >= 8) c.numFmt = "#,##0.00";
           });
         }
         // Retailer total
-        ws.mergeCells(r, 1, r, 5);
+        ws.mergeCells(r, 1, r, 6);
         const t = ws.getRow(r);
         t.getCell(1).value = `Retailer total — ${s.items} item${s.items === 1 ? "" : "s"}`;
-        t.getCell(6).value = s.qty;
-        t.getCell(9).value = s.value;
+        t.getCell(7).value = s.qty;
+        t.getCell(10).value = s.value;
         for (let c = 1; c <= COLS; c++) {
           const cell = t.getCell(c);
           cell.font = { bold: true };
           cell.fill = solid("FFDCE6F1");
           cell.border = border;
-          cell.alignment = { vertical: "middle", horizontal: c === 6 ? "center" : c >= 7 ? "right" : "left" };
+          cell.alignment = { vertical: "middle", horizontal: c === 7 ? "center" : c >= 8 ? "right" : "left" };
         }
-        t.getCell(9).numFmt = "#,##0.00";
+        t.getCell(10).numFmt = "#,##0.00";
         r += 2;
       }
       // Grand total
-      ws.mergeCells(r, 1, r, 5);
+      ws.mergeCells(r, 1, r, 6);
       const g = ws.getRow(r);
       g.getCell(1).value = `GRAND TOTAL — ${totals.retailers} retailers, ${totals.items} items`;
-      g.getCell(6).value = totals.qty;
-      g.getCell(9).value = totals.value;
+      g.getCell(7).value = totals.qty;
+      g.getCell(10).value = totals.value;
       for (let c = 1; c <= COLS; c++) {
         const cell = g.getCell(c);
         cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
         cell.fill = navy;
         cell.border = border;
-        cell.alignment = { vertical: "middle", horizontal: c === 6 ? "center" : c >= 7 ? "right" : "left" };
+        cell.alignment = { vertical: "middle", horizontal: c === 7 ? "center" : c >= 8 ? "right" : "left" };
       }
-      g.getCell(9).numFmt = "#,##0.00";
+      g.getCell(10).numFmt = "#,##0.00";
       const buf = await wb.xlsx.writeBuffer();
       saveBlob(
         new Blob([buf], {
@@ -1478,9 +1475,9 @@ export function Orders() {
           styles: { fontSize: 8, cellPadding: 3.5, lineColor: [191, 197, 210], lineWidth: 0.4, valign: "middle" },
           head: [[{ content: `${s.no}. ${s.name}`, colSpan: 6, styles: { fillColor: navy, textColor: 255, fontSize: 10.5, fontStyle: "bold" } }]],
           body: [
-            [lbl("Order ID"), s.orderId, lbl("Created Date"), s.created, lbl("Status"), s.status],
-            [lbl("Mobile"), s.mobile, lbl("Area"), s.area, lbl("Location"), { content: s.url ? "Open in Maps" : "-", styles: s.url ? { textColor: link } : {} }],
-            [lbl("Address"), { content: s.address, colSpan: 3 }, lbl("Latitude, Longitude"), s.latLng || "-"],
+            [lbl("Order ID"), s.orderId, lbl("Mobile"), s.mobile, lbl("Area"), s.area],
+            [lbl("Address"), { content: s.address, colSpan: 3 }, lbl("Location"), { content: s.url ? "Open in Maps" : "-", styles: s.url ? { textColor: link } : {} }],
+            [lbl("Status"), { content: s.status, colSpan: 3 }, lbl("Latitude, Longitude"), s.latLng || "-"],
             [lbl("No. of Items"), String(s.items), lbl("Total QTY"), String(s.qty), lbl("Order Value (Rs)"), money(s.value)],
           ],
           columnStyles: { 0: { cellWidth: 80 }, 2: { cellWidth: 80 }, 4: { cellWidth: 96 } },
@@ -1499,6 +1496,7 @@ export function Orders() {
           headStyles: { fillColor: [47, 85, 151], textColor: 255, fontStyle: "bold", halign: "center" },
           head: [RETAILER_LINE_COLS.map((c) => c.replace("(₹)", "(Rs)"))],
           body: s.lines.map((l) => [
+            l.created,
             l.delivery,
             l.company,
             l.retailerCompanyId,
@@ -1510,7 +1508,7 @@ export function Orders() {
             money(l.subtotal),
           ]),
           foot: [[
-            { content: `Retailer total - ${s.items} item${s.items === 1 ? "" : "s"}`, colSpan: 5 },
+            { content: `Retailer total - ${s.items} item${s.items === 1 ? "" : "s"}`, colSpan: 6 },
             String(s.qty),
             "",
             "",
@@ -1519,18 +1517,19 @@ export function Orders() {
           footStyles: { fillColor: [220, 230, 241], textColor: [20, 20, 20], fontStyle: "bold" },
           showFoot: "lastPage",
           columnStyles: {
-            0: { cellWidth: 62 },
-            1: { cellWidth: 110 },
-            2: { cellWidth: 84 },
-            3: { cellWidth: 84 },
-            5: { halign: "center", cellWidth: 34 },
-            6: { halign: "right", cellWidth: 58 },
-            7: { halign: "right", cellWidth: 70 },
-            8: { halign: "right", cellWidth: 70 },
+            0: { cellWidth: 90 },
+            1: { cellWidth: 56 },
+            2: { cellWidth: 92 },
+            3: { cellWidth: 72 },
+            4: { cellWidth: 72 },
+            6: { halign: "center", cellWidth: 30 },
+            7: { halign: "right", cellWidth: 54 },
+            8: { halign: "right", cellWidth: 62 },
+            9: { halign: "right", cellWidth: 64 },
           },
           didParseCell: (data) => {
-            if (data.section === "foot" && data.column.index >= 5) {
-              data.cell.styles.halign = data.column.index === 5 ? "center" : "right";
+            if (data.section === "foot" && data.column.index >= 6) {
+              data.cell.styles.halign = data.column.index === 6 ? "center" : "right";
             }
           },
         });
@@ -1557,7 +1556,6 @@ export function Orders() {
       const headers = [
         "S.No",
         "Order ID",
-        "Created Date",
         "Status",
         "Buyer Name",
         "Buyer Mobile",
@@ -1574,7 +1572,6 @@ export function Orders() {
         s.lines.map((l) => [
           s.no,
           s.orderId,
-          s.created,
           s.status,
           s.name,
           s.mobile,
@@ -1585,6 +1582,7 @@ export function Orders() {
           s.items,
           s.qty,
           s.value,
+          l.created,
           l.delivery,
           l.company,
           l.retailerCompanyId,

@@ -532,10 +532,10 @@ export const seedOrders: Order[] = [
     customerOrderId: "QWI-ORD-260519-BLJ7P9",
     status: "Confirmed",
     marketplace: "ONDC",
-    expectedDeliveryDate: "2026-05-21",
+    expectedDeliveryDate: "2026-05-22",
     deliveryType: "Regular",
     buyerContact: "+91 98765 43211",
-    orderTime: "12:20 PM",
+    orderTime: "12:26 PM",
     orderType: "standard",
     buyerCode: "BUYER-BLK-208",
     qwipoCustomerId: "QWIP6000466011265714",
@@ -603,7 +603,7 @@ export const seedOrders: Order[] = [
     customerOrderId: "QWI-ORD-260520-BLJ42K",
     status: "New",
     marketplace: "ONDC",
-    expectedDeliveryDate: "2026-05-21",
+    expectedDeliveryDate: "2026-05-22",
     deliveryType: "Regular",
     buyerContact: "+91 98765 43210",
     buyerAddress:
@@ -1159,7 +1159,7 @@ export const seedOrders: Order[] = [
     customerOrderId: "QWI-ORD-260520-BLJ42K",
     status: "New",
     marketplace: "ONDC",
-    expectedDeliveryDate: "2026-05-21",
+    expectedDeliveryDate: "2026-05-23",
     deliveryType: "Regular",
     beatName: "KPHB 1",
     buyerContact: "+91 98765 43210",
@@ -3359,7 +3359,7 @@ export const seedOrders: Order[] = [
     orderTime: "10:10 AM",
     status: "New",
     marketplace: "Flipkart",
-    expectedDeliveryDate: "2026-05-21",
+    expectedDeliveryDate: "2026-05-22",
     deliveryType: "Regular",
     beatName: "Madhapur",
     orderType: "beat",
@@ -3427,7 +3427,7 @@ export const seedOrders: Order[] = [
     orderTime: "10:13 AM",
     status: "New",
     marketplace: "Amazon",
-    expectedDeliveryDate: "2026-05-21",
+    expectedDeliveryDate: "2026-05-23",
     deliveryType: "Regular",
     beatName: "Madhapur",
     orderType: "beat",
@@ -3669,11 +3669,11 @@ export const seedOrders: Order[] = [
     orderValue: 5280,
     paymentMode: "COD",
     orderDate: "2026-05-19",
-    orderTime: "11:40 AM",
+    orderTime: "11:42 AM",
     customerOrderId: "QWI-ORD-260519-MXD7K2",
     status: "Confirmed",
     marketplace: "ONDC",
-    expectedDeliveryDate: "2026-05-21",
+    expectedDeliveryDate: "2026-05-22",
     deliveryType: "Regular",
     beatName: "KPHB 1",
     orderType: "beat",
@@ -3742,14 +3742,14 @@ export const seedOrders: Order[] = [
     orderValue: 2880,
     paymentMode: "COD",
     orderDate: "2026-05-19",
-    orderTime: "11:40 AM",
+    orderTime: "11:45 AM",
     customerOrderId: "QWI-ORD-260519-MXD7K2",
     status: "Cancelled",
     cancellationReason: "Out of Stock",
     cancelledBy: "Seller",
     cancellationTime: "2026-05-19T15:10:00+05:30",
     marketplace: "ONDC",
-    expectedDeliveryDate: "2026-05-21",
+    expectedDeliveryDate: "2026-05-23",
     deliveryType: "Regular",
     beatName: "KPHB 1",
     orderType: "beat",
@@ -3906,13 +3906,13 @@ export const seedOrders: Order[] = [
     orderValue: 4560,
     paymentMode: "COD",
     orderDate: "2026-05-18",
-    orderTime: "04:05 PM",
+    orderTime: "04:09 PM",
     customerOrderId: "QWI-ORD-260518-LGX4P8",
     status: "Confirmed",
     logisticsRequested: true,
     logisticsRequestedAt: "2026-05-19T10:15:00+05:30",
     marketplace: "ONDC",
-    expectedDeliveryDate: "2026-05-21",
+    expectedDeliveryDate: "2026-05-22",
     deliveryType: "Regular",
     beatName: "SR Nagar",
     orderType: "beat",
@@ -4153,12 +4153,12 @@ export const seedOrders: Order[] = [
     orderValue: 6400,
     paymentMode: "COD",
     orderDate: "2026-05-17",
-    orderTime: "10:20 AM",
+    orderTime: "10:24 AM",
     customerOrderId: "QWI-ORD-260517-DLV3M6",
     status: "Delivered",
     marketplace: "ONDC",
-    expectedDeliveryDate: "2026-05-18",
-    actualDeliveryDate: "2026-05-18",
+    expectedDeliveryDate: "2026-05-19",
+    actualDeliveryDate: "2026-05-19",
     deliveryType: "Regular",
     beatName: "Ameerpet",
     orderType: "beat",
@@ -4240,12 +4240,12 @@ export const seedOrders: Order[] = [
     orderValue: 3850,
     paymentMode: "COD",
     orderDate: "2026-05-17",
-    orderTime: "10:20 AM",
+    orderTime: "10:27 AM",
     customerOrderId: "QWI-ORD-260517-DLV3M6",
     status: "Delivered",
     marketplace: "ONDC",
-    expectedDeliveryDate: "2026-05-18",
-    actualDeliveryDate: "2026-05-18",
+    expectedDeliveryDate: "2026-05-19",
+    actualDeliveryDate: "2026-05-19",
     deliveryType: "Regular",
     beatName: "Ameerpet",
     orderType: "beat",
@@ -4386,14 +4386,14 @@ export const seedOrders: Order[] = [
     orderValue: 3360,
     paymentMode: "COD",
     orderDate: "2026-05-18",
-    orderTime: "09:45 AM",
+    orderTime: "09:48 AM",
     customerOrderId: "QWI-ORD-260518-CNL5R4",
     status: "Cancelled",
     cancellationReason: "Ordered by mistake",
     cancelledBy: "Buyer",
     cancellationTime: "2026-05-18T11:05:00+05:30",
     marketplace: "ONDC",
-    expectedDeliveryDate: "2026-05-19",
+    expectedDeliveryDate: "2026-05-20",
     deliveryType: "Regular",
     orderType: "standard",
     buyerContact: "+91 98765 43305",
@@ -4687,7 +4687,49 @@ for (let i = 0; i < seedOrders.length; i++) {
 // deliver, the detail page does single-order actions). When either
 // writes, the other gets a re-render via the subscribe callback.
 
-let _orders: Order[] = [...seedOrders];
+// ---- Keep the demo data current ----
+// The seed was written around SEED_TODAY. When the app loads, every
+// date in it moves forward by the days between SEED_TODAY and the real
+// today, so the demo always shows this month's orders with the same
+// relative timing (order ages, pending days, upcoming deliveries).
+// Deliveries never land on a Sunday.
+const SEED_TODAY = "2026-05-20";
+const LOCAL_TODAY = (() => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+})();
+const SEED_SHIFT_DAYS = Math.round(
+  (Date.parse(`${LOCAL_TODAY}T00:00:00Z`) - Date.parse(`${SEED_TODAY}T00:00:00Z`)) / 86400000,
+);
+const shiftSeedDate = (iso: string): string => {
+  const t = Date.parse(`${iso}T00:00:00Z`);
+  if (Number.isNaN(t)) return iso;
+  return new Date(t + SEED_SHIFT_DAYS * 86400000).toISOString().slice(0, 10);
+};
+const skipSunday = (iso: string): string => {
+  const t = Date.parse(`${iso}T00:00:00Z`);
+  if (Number.isNaN(t) || new Date(t).getUTCDay() !== 0) return iso;
+  return new Date(t + 86400000).toISOString().slice(0, 10);
+};
+// ISO timestamps keep their time and zone; only the date part moves.
+const shiftSeedStamp = (ts: string): string =>
+  /^\d{4}-\d{2}-\d{2}/.test(ts) ? shiftSeedDate(ts.slice(0, 10)) + ts.slice(10) : ts;
+function shiftSeedOrder(o: Order): Order {
+  if (!SEED_SHIFT_DAYS) return o;
+  const delivery = skipSunday(shiftSeedDate(o.expectedDeliveryDate));
+  const next: Order = { ...o, orderDate: shiftSeedDate(o.orderDate), expectedDeliveryDate: delivery };
+  if (o.actualDeliveryDate) {
+    next.actualDeliveryDate =
+      o.actualDeliveryDate === o.expectedDeliveryDate
+        ? delivery
+        : skipSunday(shiftSeedDate(o.actualDeliveryDate));
+  }
+  if (o.cancellationTime) next.cancellationTime = shiftSeedStamp(o.cancellationTime);
+  if (o.logisticsRequestedAt) next.logisticsRequestedAt = shiftSeedStamp(o.logisticsRequestedAt);
+  return next;
+}
+
+let _orders: Order[] = seedOrders.map(shiftSeedOrder);
 const _listeners = new Set<() => void>();
 
 const notify = () => {
@@ -5114,12 +5156,11 @@ export function subscribeToOrders(cb: () => void): () => void {
 
 // ---- Delivery-bucket helpers ----
 //
-// "Today" is what the user is looking at right now. Hard-coding a
-// demo-day baseline keeps the seed data and the bucketing logic in
-// sync across screens — there's no live clock to chase. Override via
-// `OVERRIDE_TODAY` if you ever need a different anchor for QA.
+// "Today" is the real today — the seed is shifted to it at load (see
+// "Keep the demo data current"), so the seed data and the bucketing
+// logic stay in sync across screens.
 
-const DEMO_TODAY = "2026-05-20";
+const DEMO_TODAY = shiftSeedDate(SEED_TODAY);
 
 /** Resolve "today" for the orders module. */
 export function getOrdersToday(): string {
