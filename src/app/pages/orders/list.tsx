@@ -1766,7 +1766,7 @@ export function Orders() {
       return;
     }
 
-    // 28-column layout — one row per line item; order-level fields
+    // 27-column layout (SKU code removed) — one row per line item; order-level fields
     // (Original Order Value, Order Level Savings, Final Order Value)
     // repeat on every row. The June 2026 review replaced the
     // Expected / Actual Delivery Date pair with a single Delivery
@@ -1796,7 +1796,6 @@ export function Orders() {
       "Payment Mode",
       "Channel Order ID",
       "Original Order Value",
-      "SKU code",
       "Product Name",
       "Company",
       "Operation Mode",
@@ -1852,7 +1851,6 @@ export function Orders() {
           order.paymentMode,
           channelOrderIdFor(order),
           order.originalOrderValue ?? order.orderValue,
-          item.skuCode,
           item.productName,
           isWholesale ? "Wholesaler" : item.company,
           isWholesale ? "Wholesale" : "Distribution",
