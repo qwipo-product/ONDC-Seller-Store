@@ -1162,12 +1162,15 @@ export function Orders() {
 
   // ---- Customer level: Retailer-wise Order Summary ----
   // Each retailer (customer order) is its own section. The top table
-  // holds the retailer's static details (order, contact, location,
-  // totals); the product table below holds everything that varies per
-  // line — created / delivery date, company, Retailer Company ID, SKU — then a
+  // holds the retailer's static details (contact, location, totals); the
+  // table below holds everything that belongs to an order or a line —
+  // each company order's Order ID, Status, dates, company and Retailer
+  // Company ID (merged across that order's lines), then its SKUs — and a
   // retailer total; a grand total closes the file. Same layout in Excel
   // and PDF; CSV gets the same fields as one flat row per product line.
   const RETAILER_LINE_COLS = [
+    "Order ID",
+    "Status",
     "Created Date",
     "Delivery Date",
     "Company",
@@ -1179,6 +1182,8 @@ export function Orders() {
     "Unit Selling Price (₹)",
     "Line Subtotal (₹)",
   ];
+  // Columns that belong to the company order (merged across its lines).
+  const ORDER_COLS = 6;
 
   const shortDate = (iso: string) => {
     const d = new Date(`${iso}T00:00:00`);
@@ -1216,24 +1221,14 @@ export function Orders() {
     });
   const round2 = (n: number) => Math.round(n * 100) / 100;
 
-  type RetailerSection = {
-    no: number;
-    name: string;
+  type SectionOrder = {
     orderId: string;
     status: string;
-    mobile: string;
-    area: string;
-    address: string;
-    latLng: string;
-    url: string;
-    items: number;
-    qty: number;
-    value: number;
+    created: string;
+    delivery: string;
+    company: string;
+    retailerCompanyId: string;
     lines: {
-      created: string;
-      delivery: string;
-      company: string;
-      retailerCompanyId: string;
       skuId: string;
       sku: string;
       qty: number;
@@ -1242,35 +1237,43 @@ export function Orders() {
       subtotal: number;
     }[];
   };
+  type RetailerSection = {
+    no: number;
+    name: string;
+    mobile: string;
+    area: string;
+    address: string;
+    latLng: string;
+    url: string;
+    items: number;
+    qty: number;
+    value: number;
+    orders: SectionOrder[];
+  };
 
   const buildRetailerSections = (list: Order[]) => {
     const sections: RetailerSection[] = groupOrdersByCheckout(list).map((g, gi) => {
       const first = g.orders[0];
-      const mixed = getMixedCustomerOrderStatus(g.orders);
-      const lines = g.orders.flatMap((o) => {
-        const rid = getRetailerCompanyId(o) ?? "Not available";
-        return linesWithEdits(o).map((l) => ({
-          created: `${shortDate(o.orderDate)}${o.orderTime ? ` ${o.orderTime}` : ""}`,
-          delivery: shortDate(o.expectedDeliveryDate),
-          company: l.company || o.company,
-          retailerCompanyId: rid,
+      const orders: SectionOrder[] = g.orders.map((o) => ({
+        orderId: o.id,
+        status: stageLabel(o),
+        created: `${shortDate(o.orderDate)}${o.orderTime ? ` ${o.orderTime}` : ""}`,
+        delivery: shortDate(o.expectedDeliveryDate),
+        company: o.company,
+        retailerCompanyId: getRetailerCompanyId(o) ?? "Not available",
+        lines: linesWithEdits(o).map((l) => ({
           skuId: l.skuCode,
           sku: l.productName,
           qty: l.qty,
           mrp: l.originalPricePerUnit,
           price: l.finalPricePerUnit,
           subtotal: l.lineTotal,
-        }));
-      });
+        })),
+      }));
+      const lines = orders.flatMap((o) => o.lines);
       return {
         no: gi + 1,
         name: first.retailerName,
-        orderId: g.checkoutId,
-        status: mixed
-          ? `${mixed.label} (${mixed.parts
-              .map((p) => `${p.count} ${CUSTOMER_ORDER_STAGES[p.stage].label}`)
-              .join(", ")})`
-          : stageLabel(first),
         mobile: mobileDigits(first.buyerContact),
         area: areaOf(first.buyerAddress),
         address: first.buyerAddress ?? "",
@@ -1282,11 +1285,12 @@ export function Orders() {
         items: lines.length,
         qty: lines.reduce((n, l) => n + l.qty, 0),
         value: round2(g.orders.reduce((n, o) => n + o.orderValue, 0)),
-        lines,
+        orders,
       };
     });
     const totals = {
       retailers: sections.length,
+      orders: sections.reduce((n, s) => n + s.orders.length, 0),
       items: sections.reduce((n, s) => n + s.items, 0),
       qty: sections.reduce((n, s) => n + s.qty, 0),
       value: round2(sections.reduce((n, s) => n + s.value, 0)),
@@ -1314,26 +1318,27 @@ export function Orders() {
     const base = `orders_customer-level_${range.start}_to_${range.end}`;
     const money = (n: number) =>
       n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const COLS = RETAILER_LINE_COLS.length; // 12
+    const QTY_COL = 9; // 1-based
+    const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
 
     if (exportFormat === "xlsx") {
       const ExcelJS = (await import("exceljs")).default;
       const wb = new ExcelJS.Workbook();
       const ws = wb.addWorksheet("Retailer Summary");
-      const COLS = RETAILER_LINE_COLS.length; // 10
       const thin = { style: "thin" as const, color: { argb: "FFBFC5D2" } };
       const border = { top: thin, left: thin, bottom: thin, right: thin };
       const solid = (argb: string) => ({ type: "pattern" as const, pattern: "solid" as const, fgColor: { argb } });
       const navy = solid("FF1F3864");
-      [19, 13, 24, 19, 17, 38, 8, 12, 14, 15].forEach((w, i) => (ws.getColumn(i + 1).width = w));
+      [24, 21, 20, 13, 22, 18, 17, 34, 7, 11, 13, 14].forEach((w, i) => (ws.getColumn(i + 1).width = w));
       ws.mergeCells(1, 1, 1, COLS);
       ws.getCell(1, 1).value = title;
       ws.getCell(1, 1).font = { bold: true, size: 14 };
       let r = 3;
       type Val = string | number | { text: string; hyperlink: string };
-      // One row of label / value pairs: [label from, label to, value from, value to].
-      const kv = (row: number, pairs: [number, number, number, number, string, Val, string?][]) => {
-        for (const [keyCol, keyTo, from, to, key, val, numFmt] of pairs) {
-          if (keyTo > keyCol) ws.mergeCells(row, keyCol, row, keyTo);
+      // One row of label / value pairs: [label col, value from, value to].
+      const kv = (row: number, pairs: [number, number, number, string, Val, string?][]) => {
+        for (const [keyCol, from, to, key, val, numFmt] of pairs) {
           const k = ws.getCell(row, keyCol);
           k.value = key;
           k.font = { bold: true, color: { argb: "FF44546A" } };
@@ -1349,6 +1354,21 @@ export function Orders() {
           if (typeof val === "object") v.font = { color: { argb: "FF1155CC" }, underline: true };
         }
       };
+      const totalRow = (row: number, label: string, qty: number, value: number, fill: ReturnType<typeof solid>, white: boolean) => {
+        ws.mergeCells(row, 1, row, QTY_COL - 1);
+        const t = ws.getRow(row);
+        t.getCell(1).value = label;
+        t.getCell(QTY_COL).value = qty;
+        t.getCell(COLS).value = value;
+        for (let c = 1; c <= COLS; c++) {
+          const cell = t.getCell(c);
+          cell.font = { bold: true, ...(white ? { color: { argb: "FFFFFFFF" } } : {}) };
+          cell.fill = fill;
+          cell.border = border;
+          cell.alignment = { vertical: "middle", horizontal: c === QTY_COL ? "center" : c > QTY_COL ? "right" : "left" };
+        }
+        t.getCell(COLS).numFmt = "#,##0.00";
+      };
       for (const s of sections) {
         // Top table — the retailer's static details.
         ws.mergeCells(r, 1, r, COLS);
@@ -1360,24 +1380,20 @@ export function Orders() {
         ws.getRow(r).height = 20;
         r++;
         kv(r++, [
-          [1, 1, 2, 3, "Order ID", s.orderId],
-          [4, 4, 5, 6, "Mobile", s.mobile],
-          [7, 8, 9, 10, "Area", s.area],
+          [1, 2, 3, "Mobile", s.mobile],
+          [4, 5, 6, "Area", s.area],
+          [7, 8, COLS, "Location", s.url ? { text: "Open in Maps", hyperlink: s.url } : "—"],
         ]);
         kv(r++, [
-          [1, 1, 2, 6, "Address", s.address],
-          [7, 8, 9, 10, "Location", s.url ? { text: "Open in Maps", hyperlink: s.url } : "—"],
+          [1, 2, 6, "Address", s.address],
+          [7, 8, COLS, "Latitude, Longitude", s.latLng || "—"],
         ]);
         kv(r++, [
-          [1, 1, 2, 6, "Status", s.status],
-          [7, 8, 9, 10, "Latitude, Longitude", s.latLng || "—"],
+          [1, 2, 3, "No. of Items", s.items],
+          [4, 5, 6, "Total QTY", s.qty],
+          [7, 8, COLS, "Order Value (₹)", s.value, "#,##0.00"],
         ]);
-        kv(r++, [
-          [1, 1, 2, 3, "No. of Items", s.items],
-          [4, 4, 5, 6, "Total QTY", s.qty],
-          [7, 8, 9, 10, "Order Value (₹)", s.value, "#,##0.00"],
-        ]);
-        // Product table — what varies per line.
+        // Orders & products — per company order, then its lines.
         const head = ws.getRow(r);
         head.values = RETAILER_LINE_COLS;
         head.eachCell((c) => {
@@ -1387,49 +1403,49 @@ export function Orders() {
           c.border = border;
         });
         r++;
-        for (const l of s.lines) {
-          const row = ws.getRow(r++);
-          row.values = [l.created, l.delivery, l.company, l.retailerCompanyId, l.skuId, l.sku, l.qty, l.mrp, l.price, l.subtotal];
-          row.eachCell((c, col) => {
-            c.border = border;
-            c.alignment = {
-              vertical: "middle",
-              wrapText: true,
-              horizontal: col === 7 ? "center" : col >= 8 ? "right" : "left",
-            };
-            if (col >= 8) c.numFmt = "#,##0.00";
-          });
+        for (const o of s.orders) {
+          const start = r;
+          for (const l of o.lines) {
+            const row = ws.getRow(r++);
+            row.values = [
+              o.orderId,
+              o.status,
+              o.created,
+              o.delivery,
+              o.company,
+              o.retailerCompanyId,
+              l.skuId,
+              l.sku,
+              l.qty,
+              l.mrp,
+              l.price,
+              l.subtotal,
+            ];
+            row.eachCell((c, col) => {
+              c.border = border;
+              c.alignment = {
+                vertical: "middle",
+                wrapText: true,
+                horizontal: col === QTY_COL ? "center" : col > QTY_COL ? "right" : "left",
+              };
+              if (col > QTY_COL) c.numFmt = "#,##0.00";
+            });
+          }
+          if (o.lines.length > 1) {
+            for (let c = 1; c <= ORDER_COLS; c++) ws.mergeCells(start, c, r - 1, c);
+          }
         }
-        // Retailer total
-        ws.mergeCells(r, 1, r, 6);
-        const t = ws.getRow(r);
-        t.getCell(1).value = `Retailer total — ${s.items} item${s.items === 1 ? "" : "s"}`;
-        t.getCell(7).value = s.qty;
-        t.getCell(10).value = s.value;
-        for (let c = 1; c <= COLS; c++) {
-          const cell = t.getCell(c);
-          cell.font = { bold: true };
-          cell.fill = solid("FFDCE6F1");
-          cell.border = border;
-          cell.alignment = { vertical: "middle", horizontal: c === 7 ? "center" : c >= 8 ? "right" : "left" };
-        }
-        t.getCell(10).numFmt = "#,##0.00";
+        totalRow(r, `Retailer total — ${plural(s.orders.length, "order")}, ${plural(s.items, "item")}`, s.qty, s.value, solid("FFDCE6F1"), false);
         r += 2;
       }
-      // Grand total
-      ws.mergeCells(r, 1, r, 6);
-      const g = ws.getRow(r);
-      g.getCell(1).value = `GRAND TOTAL — ${totals.retailers} retailers, ${totals.items} items`;
-      g.getCell(7).value = totals.qty;
-      g.getCell(10).value = totals.value;
-      for (let c = 1; c <= COLS; c++) {
-        const cell = g.getCell(c);
-        cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
-        cell.fill = navy;
-        cell.border = border;
-        cell.alignment = { vertical: "middle", horizontal: c === 7 ? "center" : c >= 8 ? "right" : "left" };
-      }
-      g.getCell(10).numFmt = "#,##0.00";
+      totalRow(
+        r,
+        `GRAND TOTAL — ${totals.retailers} retailers, ${totals.orders} orders, ${totals.items} items`,
+        totals.qty,
+        totals.value,
+        navy,
+        true,
+      );
       const buf = await wb.xlsx.writeBuffer();
       saveBlob(
         new Blob([buf], {
@@ -1442,7 +1458,7 @@ export function Orders() {
         import("jspdf"),
         import("jspdf-autotable"),
       ]);
-      const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+      const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a3" });
       const pageH = doc.internal.pageSize.getHeight();
       const margin = { left: 28, right: 28 };
       const navy: [number, number, number] = [31, 56, 100];
@@ -1451,9 +1467,9 @@ export function Orders() {
       const lastY = () =>
         (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 40;
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(14);
-      doc.text(title, margin.left, 34);
-      let y = 46;
+      doc.setFontSize(15);
+      doc.text(title, margin.left, 36);
+      let y = 50;
       const lbl = (content: string) => ({
         content,
         styles: { fontStyle: "bold" as const, fillColor: labelFill, textColor: [68, 84, 106] as [number, number, number] },
@@ -1462,8 +1478,8 @@ export function Orders() {
         // Start a retailer on a new page when the whole section won't fit
         // (unless it is longer than a page anyway), and never leave a
         // heading alone at the bottom of a page.
-        const needed = 100 + (s.lines.length + 2) * 15;
-        if ((y + needed > pageH - 30 && needed < pageH - 80) || y > pageH - 170) {
+        const needed = 90 + (s.items + 2) * 16;
+        if ((y + needed > pageH - 30 && needed < pageH - 80) || y > pageH - 160) {
           doc.addPage();
           y = 36;
         }
@@ -1472,34 +1488,29 @@ export function Orders() {
           startY: y,
           margin,
           theme: "grid",
-          styles: { fontSize: 8, cellPadding: 3.5, lineColor: [191, 197, 210], lineWidth: 0.4, valign: "middle" },
-          head: [[{ content: `${s.no}. ${s.name}`, colSpan: 6, styles: { fillColor: navy, textColor: 255, fontSize: 10.5, fontStyle: "bold" } }]],
+          styles: { fontSize: 8.5, cellPadding: 4, lineColor: [191, 197, 210], lineWidth: 0.4, valign: "middle" },
+          head: [[{ content: `${s.no}. ${s.name}`, colSpan: 6, styles: { fillColor: navy, textColor: 255, fontSize: 11, fontStyle: "bold" } }]],
           body: [
-            [lbl("Order ID"), s.orderId, lbl("Mobile"), s.mobile, lbl("Area"), s.area],
-            [lbl("Address"), { content: s.address, colSpan: 3 }, lbl("Location"), { content: s.url ? "Open in Maps" : "-", styles: s.url ? { textColor: link } : {} }],
-            [lbl("Status"), { content: s.status, colSpan: 3 }, lbl("Latitude, Longitude"), s.latLng || "-"],
+            [lbl("Mobile"), s.mobile, lbl("Area"), s.area, lbl("Location"), { content: s.url ? "Open in Maps" : "-", styles: s.url ? { textColor: link } : {} }],
+            [lbl("Address"), { content: s.address, colSpan: 3 }, lbl("Latitude, Longitude"), s.latLng || "-"],
             [lbl("No. of Items"), String(s.items), lbl("Total QTY"), String(s.qty), lbl("Order Value (Rs)"), money(s.value)],
           ],
-          columnStyles: { 0: { cellWidth: 80 }, 2: { cellWidth: 80 }, 4: { cellWidth: 96 } },
+          columnStyles: { 0: { cellWidth: 90 }, 2: { cellWidth: 90 }, 4: { cellWidth: 110 } },
           didDrawCell: (data) => {
-            if (data.section === "body" && data.row.index === 1 && data.column.index === 5 && s.url) {
+            if (data.section === "body" && data.row.index === 0 && data.column.index === 5 && s.url) {
               doc.link(data.cell.x, data.cell.y, data.cell.width, data.cell.height, { url: s.url });
             }
           },
         });
-        // Product table — what varies per line.
-        autoTable(doc, {
-          startY: lastY(),
-          margin,
-          theme: "grid",
-          styles: { fontSize: 7.5, cellPadding: 3, lineColor: [191, 197, 210], lineWidth: 0.4, valign: "middle" },
-          headStyles: { fillColor: [47, 85, 151], textColor: 255, fontStyle: "bold", halign: "center" },
-          head: [RETAILER_LINE_COLS.map((c) => c.replace("(₹)", "(Rs)"))],
-          body: s.lines.map((l) => [
-            l.created,
-            l.delivery,
-            l.company,
-            l.retailerCompanyId,
+        // Orders & products — order cells span the order's lines.
+        const body = s.orders.flatMap((o) =>
+          o.lines.map((l, li) => [
+            ...(li === 0
+              ? [o.orderId, o.status, o.created, o.delivery, o.company, o.retailerCompanyId].map((v) => ({
+                  content: v,
+                  rowSpan: o.lines.length,
+                }))
+              : []),
             l.skuId,
             l.sku,
             String(l.qty),
@@ -1507,8 +1518,17 @@ export function Orders() {
             money(l.price),
             money(l.subtotal),
           ]),
+        );
+        autoTable(doc, {
+          startY: lastY(),
+          margin,
+          theme: "grid",
+          styles: { fontSize: 8, cellPadding: 3.5, lineColor: [191, 197, 210], lineWidth: 0.4, valign: "middle" },
+          headStyles: { fillColor: [47, 85, 151], textColor: 255, fontStyle: "bold", halign: "center" },
+          head: [RETAILER_LINE_COLS.map((c) => c.replace("(₹)", "(Rs)"))],
+          body,
           foot: [[
-            { content: `Retailer total - ${s.items} item${s.items === 1 ? "" : "s"}`, colSpan: 6 },
+            { content: `Retailer total - ${plural(s.orders.length, "order")}, ${plural(s.items, "item")}`, colSpan: 8 },
             String(s.qty),
             "",
             "",
@@ -1517,23 +1537,25 @@ export function Orders() {
           footStyles: { fillColor: [220, 230, 241], textColor: [20, 20, 20], fontStyle: "bold" },
           showFoot: "lastPage",
           columnStyles: {
-            0: { cellWidth: 90 },
-            1: { cellWidth: 56 },
-            2: { cellWidth: 92 },
-            3: { cellWidth: 72 },
-            4: { cellWidth: 72 },
-            6: { halign: "center", cellWidth: 30 },
-            7: { halign: "right", cellWidth: 54 },
-            8: { halign: "right", cellWidth: 62 },
-            9: { halign: "right", cellWidth: 64 },
+            0: { cellWidth: 118 },
+            1: { cellWidth: 100 },
+            2: { cellWidth: 98 },
+            3: { cellWidth: 64 },
+            4: { cellWidth: 118 },
+            5: { cellWidth: 84 },
+            6: { cellWidth: 86 },
+            8: { halign: "center", cellWidth: 32 },
+            9: { halign: "right", cellWidth: 60 },
+            10: { halign: "right", cellWidth: 72 },
+            11: { halign: "right", cellWidth: 74 },
           },
           didParseCell: (data) => {
-            if (data.section === "foot" && data.column.index >= 6) {
-              data.cell.styles.halign = data.column.index === 6 ? "center" : "right";
+            if (data.section === "foot" && data.column.index >= 8) {
+              data.cell.styles.halign = data.column.index === 8 ? "center" : "right";
             }
           },
         });
-        y = lastY() + 16;
+        y = lastY() + 18;
       }
       if (y > pageH - 50) {
         doc.addPage();
@@ -1543,9 +1565,9 @@ export function Orders() {
         startY: y,
         margin,
         theme: "grid",
-        styles: { fontSize: 9, cellPadding: 4, fontStyle: "bold", fillColor: navy, textColor: 255, lineColor: [191, 197, 210], lineWidth: 0.4 },
+        styles: { fontSize: 9.5, cellPadding: 5, fontStyle: "bold", fillColor: navy, textColor: 255, lineColor: [191, 197, 210], lineWidth: 0.4 },
         body: [[
-          { content: `GRAND TOTAL - ${totals.retailers} retailers, ${totals.items} items`, colSpan: 3 },
+          { content: `GRAND TOTAL - ${totals.retailers} retailers, ${totals.orders} orders, ${totals.items} items`, colSpan: 3 },
           { content: `QTY ${totals.qty}`, styles: { halign: "center" } },
           { content: `Rs ${money(totals.value)}`, styles: { halign: "right" } },
         ]],
@@ -1555,8 +1577,6 @@ export function Orders() {
       // Same fields, flat: the retailer's details repeat on each line.
       const headers = [
         "S.No",
-        "Order ID",
-        "Status",
         "Buyer Name",
         "Buyer Mobile",
         "Area",
@@ -1569,30 +1589,32 @@ export function Orders() {
         ...RETAILER_LINE_COLS,
       ];
       const rows = sections.flatMap((s) =>
-        s.lines.map((l) => [
-          s.no,
-          s.orderId,
-          s.status,
-          s.name,
-          s.mobile,
-          s.area,
-          s.address,
-          s.latLng,
-          s.url,
-          s.items,
-          s.qty,
-          s.value,
-          l.created,
-          l.delivery,
-          l.company,
-          l.retailerCompanyId,
-          l.skuId,
-          l.sku,
-          l.qty,
-          l.mrp,
-          l.price,
-          l.subtotal,
-        ]),
+        s.orders.flatMap((o) =>
+          o.lines.map((l) => [
+            s.no,
+            s.name,
+            s.mobile,
+            s.area,
+            s.address,
+            s.latLng,
+            s.url,
+            s.items,
+            s.qty,
+            s.value,
+            o.orderId,
+            o.status,
+            o.created,
+            o.delivery,
+            o.company,
+            o.retailerCompanyId,
+            l.skuId,
+            l.sku,
+            l.qty,
+            l.mrp,
+            l.price,
+            l.subtotal,
+          ]),
+        ),
       );
       const csv = [headers, ...rows].map((row) => row.map(escapeCsv).join(",")).join("\r\n");
       saveBlob(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" }), `${base}.csv`);
