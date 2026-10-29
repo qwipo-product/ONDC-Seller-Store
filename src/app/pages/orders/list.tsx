@@ -294,6 +294,25 @@ export function Orders() {
     "item",
   );
 
+  // Delivery Date filter: "all", or one expected delivery date among the
+  // orders created in the export range. Reset when the dialog opens or
+  // the range changes.
+  const [exportDeliveryDate, setExportDeliveryDate] = useState("all");
+  const inExportRange = (o: Order) => {
+    const d = new Date(o.orderDate);
+    return d >= new Date(exportStartDate) && d <= new Date(exportEndDate);
+  };
+  const exportDeliveryOptions = (() => {
+    if (!exportStartDate || !exportEndDate) return [];
+    const counts = new Map<string, number>();
+    for (const o of orders) {
+      if (inExportRange(o)) {
+        counts.set(o.expectedDeliveryDate, (counts.get(o.expectedDeliveryDate) ?? 0) + 1);
+      }
+    }
+    return [...counts.entries()].sort(([a], [b]) => a.localeCompare(b));
+  })();
+
   /** Resolve the active export range. Returns null when either date
    *  input is empty — the Export button is also disabled in that
    *  state so this is a belt-and-suspenders check. */
@@ -1110,6 +1129,7 @@ export function Orders() {
     moneyCols: number[],
     fileName: string,
     range: { start: string; end: string },
+    delivery: string,
   ) => {
     const [{ jsPDF }, { default: autoTable }] = await Promise.all([
       import("jspdf"),
@@ -1119,12 +1139,17 @@ export function Orders() {
     const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: wide ? "a3" : "a4" });
     doc.setFontSize(13);
     doc.text(title, 28, 32);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(31, 56, 100);
+    doc.text(`Delivery Date: ${delivery}`, 28, 49);
+    doc.setFont("helvetica", "normal");
     doc.setFontSize(8.5);
     doc.setTextColor(90);
     doc.text(
-      `${SELLER_INFO.name}  |  ${range.start} to ${range.end}  |  ${rows.length} row${rows.length === 1 ? "" : "s"}  |  Amounts in Rs`,
+      `${SELLER_INFO.name}  |  Orders created ${range.start} to ${range.end}  |  ${rows.length} row${rows.length === 1 ? "" : "s"}  |  Amounts in Rs`,
       28,
-      47,
+      63,
     );
     const money = (n: number) =>
       n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -1135,7 +1160,7 @@ export function Orders() {
           moneyCols.includes(i) && typeof v === "number" ? money(v) : String(v ?? ""),
         ),
       ),
-      startY: 58,
+      startY: 72,
       margin: { left: 20, right: 20 },
       styles: {
         fontSize: wide ? 6 : headers.length > 13 ? 6.5 : 7.5,
@@ -1175,7 +1200,6 @@ export function Orders() {
     "Delivery Date",
     "Company",
     "Retailer Company ID",
-    "SKU ID",
     "SKU Name",
     "QTY",
     "Unit MRP (₹)",
@@ -1200,6 +1224,18 @@ export function Orders() {
       ? parts[parts.length - 2] ?? last
       : last;
   };
+  // The Delivery Date filter as a heading: the chosen date, or the span
+  // of delivery dates in the export.
+  const deliveryHeading = (list: Order[]) => {
+    if (exportDeliveryDate !== "all") return shortDate(exportDeliveryDate);
+    const ds = list.map((o) => o.expectedDeliveryDate).sort();
+    if (!ds.length) return "All";
+    return ds[0] === ds[ds.length - 1]
+      ? shortDate(ds[0])
+      : `All (${shortDate(ds[0])} to ${shortDate(ds[ds.length - 1])})`;
+  };
+  const deliverySuffix = () =>
+    exportDeliveryDate === "all" ? "" : `_delivery_${exportDeliveryDate}`;
   const mobileDigits = (m?: string) => (m ?? "").replace(/\D/g, "").slice(-10);
   const mapsUrl = (o: Order) =>
     typeof o.buyerLat === "number" && typeof o.buyerLng === "number"
@@ -1229,7 +1265,6 @@ export function Orders() {
     company: string;
     retailerCompanyId: string;
     lines: {
-      skuId: string;
       sku: string;
       qty: number;
       mrp: number;
@@ -1262,7 +1297,6 @@ export function Orders() {
         company: o.company,
         retailerCompanyId: getRetailerCompanyId(o) ?? "Not available",
         lines: linesWithEdits(o).map((l) => ({
-          skuId: l.skuCode,
           sku: l.productName,
           qty: l.qty,
           mrp: l.originalPricePerUnit,
@@ -1315,11 +1349,12 @@ export function Orders() {
   ) => {
     const { sections, totals } = buildRetailerSections(list);
     const title = "Retailer-wise Order Summary";
-    const base = `orders_customer-level_${range.start}_to_${range.end}`;
+    const base = `orders_customer-level_${range.start}_to_${range.end}${deliverySuffix()}`;
+    const delivery = deliveryHeading(list);
     const money = (n: number) =>
       n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    const COLS = RETAILER_LINE_COLS.length; // 12
-    const QTY_COL = 9; // 1-based
+    const COLS = RETAILER_LINE_COLS.length; // 11
+    const QTY_COL = 8; // 1-based
     const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
 
     if (exportFormat === "xlsx") {
@@ -1330,11 +1365,14 @@ export function Orders() {
       const border = { top: thin, left: thin, bottom: thin, right: thin };
       const solid = (argb: string) => ({ type: "pattern" as const, pattern: "solid" as const, fgColor: { argb } });
       const navy = solid("FF1F3864");
-      [24, 21, 20, 13, 22, 18, 17, 34, 7, 11, 13, 14].forEach((w, i) => (ws.getColumn(i + 1).width = w));
+      [24, 21, 20, 13, 22, 18, 40, 7, 11, 13, 14].forEach((w, i) => (ws.getColumn(i + 1).width = w));
       ws.mergeCells(1, 1, 1, COLS);
       ws.getCell(1, 1).value = title;
       ws.getCell(1, 1).font = { bold: true, size: 14 };
-      let r = 3;
+      ws.mergeCells(2, 1, 2, COLS);
+      ws.getCell(2, 1).value = `Delivery Date: ${delivery}   |   Orders created ${shortDate(range.start)} to ${shortDate(range.end)}`;
+      ws.getCell(2, 1).font = { bold: true, size: 12, color: { argb: "FF1F3864" } };
+      let r = 4;
       type Val = string | number | { text: string; hyperlink: string };
       // One row of label / value pairs: [label col, value from, value to].
       const kv = (row: number, pairs: [number, number, number, string, Val, string?][]) => {
@@ -1414,7 +1452,6 @@ export function Orders() {
               o.delivery,
               o.company,
               o.retailerCompanyId,
-              l.skuId,
               l.sku,
               l.qty,
               l.mrp,
@@ -1469,7 +1506,20 @@ export function Orders() {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(15);
       doc.text(title, margin.left, 36);
-      let y = 50;
+      // Delivery Date heading, so the reader knows what the file covers.
+      doc.setFontSize(12.5);
+      doc.setTextColor(31, 56, 100);
+      doc.text(`Delivery Date: ${delivery}`, margin.left, 56);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(90);
+      doc.text(
+        `Orders created ${shortDate(range.start)} to ${shortDate(range.end)}  |  ${totals.retailers} retailers, ${totals.orders} orders  |  Amounts in Rs`,
+        margin.left,
+        71,
+      );
+      doc.setTextColor(0);
+      let y = 84;
       const lbl = (content: string) => ({
         content,
         styles: { fontStyle: "bold" as const, fillColor: labelFill, textColor: [68, 84, 106] as [number, number, number] },
@@ -1511,7 +1561,6 @@ export function Orders() {
                   rowSpan: o.lines.length,
                 }))
               : []),
-            l.skuId,
             l.sku,
             String(l.qty),
             money(l.mrp),
@@ -1528,7 +1577,7 @@ export function Orders() {
           head: [RETAILER_LINE_COLS.map((c) => c.replace("(₹)", "(Rs)"))],
           body,
           foot: [[
-            { content: `Retailer total - ${plural(s.orders.length, "order")}, ${plural(s.items, "item")}`, colSpan: 8 },
+            { content: `Retailer total - ${plural(s.orders.length, "order")}, ${plural(s.items, "item")}`, colSpan: 7 },
             String(s.qty),
             "",
             "",
@@ -1543,15 +1592,14 @@ export function Orders() {
             3: { cellWidth: 64 },
             4: { cellWidth: 118 },
             5: { cellWidth: 84 },
-            6: { cellWidth: 86 },
-            8: { halign: "center", cellWidth: 32 },
-            9: { halign: "right", cellWidth: 60 },
-            10: { halign: "right", cellWidth: 72 },
-            11: { halign: "right", cellWidth: 74 },
+            7: { halign: "center", cellWidth: 32 },
+            8: { halign: "right", cellWidth: 60 },
+            9: { halign: "right", cellWidth: 72 },
+            10: { halign: "right", cellWidth: 74 },
           },
           didParseCell: (data) => {
-            if (data.section === "foot" && data.column.index >= 8) {
-              data.cell.styles.halign = data.column.index === 8 ? "center" : "right";
+            if (data.section === "foot" && data.column.index >= 7) {
+              data.cell.styles.halign = data.column.index === 7 ? "center" : "right";
             }
           },
         });
@@ -1607,7 +1655,6 @@ export function Orders() {
             o.delivery,
             o.company,
             o.retailerCompanyId,
-            l.skuId,
             l.sku,
             l.qty,
             l.mrp,
@@ -1637,7 +1684,7 @@ export function Orders() {
       return;
     }
     const { headers, rows, moneyCols, records } = buildOrderLevelSheet(list);
-    const base = `orders_${level}-level_${range.start}_to_${range.end}`;
+    const base = `orders_${level}-level_${range.start}_to_${range.end}${deliverySuffix()}`;
     const what =
       level === "customer"
         ? `${records} customer order(s) (${list.length} company orders)`
@@ -1654,6 +1701,7 @@ export function Orders() {
         moneyCols,
         `${base}.pdf`,
         range,
+        deliveryHeading(list),
       )
         .then(done)
         .catch(() => toast.error("Could not create the PDF. Please try again."));
@@ -1694,14 +1742,22 @@ export function Orders() {
       return;
     }
 
-    // Filter orders by export date range
+    // Filter orders by export date range, then by the Delivery Date filter
     const ordersToExport = orders.filter((order) => {
       const orderDate = new Date(order.orderDate);
-      return orderDate >= start && orderDate <= end;
+      return (
+        orderDate >= start &&
+        orderDate <= end &&
+        (exportDeliveryDate === "all" || order.expectedDeliveryDate === exportDeliveryDate)
+      );
     });
 
     if (ordersToExport.length === 0) {
-      toast.error("No orders found in the selected date range");
+      toast.error(
+        exportDeliveryDate === "all"
+          ? "No orders found in the selected date range"
+          : "No orders found for the selected delivery date",
+      );
       return;
     }
 
@@ -1821,8 +1877,9 @@ export function Orders() {
         headers,
         pdfRows,
         [],
-        `orders_${range.start}_to_${range.end}.pdf`,
+        `orders_${range.start}_to_${range.end}${deliverySuffix()}.pdf`,
         range,
+        deliveryHeading(ordersToExport),
       )
         .then(() => {
           toast.success(
@@ -1846,7 +1903,7 @@ export function Orders() {
     link.setAttribute("href", url);
     link.setAttribute(
       "download",
-      `orders_${range.start}_to_${range.end}.${exportFormat}`,
+      `orders_${range.start}_to_${range.end}${deliverySuffix()}.${exportFormat}`,
     );
     link.style.visibility = "hidden";
     document.body.appendChild(link);
@@ -2740,6 +2797,7 @@ export function Orders() {
                       className="gap-2"
                       onClick={() => {
                         setExportLevel("customer");
+                        setExportDeliveryDate("all");
                         setIsExportDialogOpen(true);
                       }}
                     >
@@ -3874,6 +3932,7 @@ export function Orders() {
                   onChange={(e) => {
                     const newStart = e.target.value;
                     setExportStartDate(newStart);
+                    setExportDeliveryDate("all");
                     // Auto-fill End Date to Start + 30 so the
                     // seller lands on a valid one-month window
                     // out of the box. They can still pull End
@@ -3899,7 +3958,10 @@ export function Orders() {
                   value={exportEndDate}
                   min={exportStartDate || undefined}
                   max={exportEndMax}
-                  onChange={(e) => setExportEndDate(e.target.value)}
+                  onChange={(e) => {
+                    setExportEndDate(e.target.value);
+                    setExportDeliveryDate("all");
+                  }}
                 />
               </div>
               <p className="sm:col-span-2 text-[11px] text-gray-600">
@@ -3915,6 +3977,26 @@ export function Orders() {
                   before exporting.
                 </p>
               )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="exportDeliveryDate">Delivery Date</Label>
+              <Select value={exportDeliveryDate} onValueChange={setExportDeliveryDate}>
+                <SelectTrigger id="exportDeliveryDate" className="w-full">
+                  <SelectValue placeholder="All delivery dates" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All delivery dates</SelectItem>
+                  {exportDeliveryOptions.map(([d, n]) => (
+                    <SelectItem key={d} value={d}>
+                      {shortDate(d)} ({n} order{n === 1 ? "" : "s"})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-gray-600">
+                Only orders created in the date range above that are due on this delivery date are exported.
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -3936,7 +4018,7 @@ export function Orders() {
               </Select>
               <p className="text-[11px] text-gray-600">
                 {exportLevel === "customer"
-                  ? "One row per customer order — customer, delivery, companies, total value and status."
+                  ? "One section per retailer — their orders with status, dates, company and products."
                   : exportLevel === "order"
                     ? "One row per company order — company, Retailer Company ID, value and status."
                     : "One row per product line — the full export."}
