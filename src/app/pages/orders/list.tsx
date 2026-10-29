@@ -89,6 +89,7 @@ import {
   getOrderLines,
   getRetailerCompanyId,
   CUSTOMER_ORDER_STAGES,
+  getCustomerOrderStage,
   getMixedCustomerOrderStatus,
 } from "../../lib/orders-data";
 
@@ -301,6 +302,11 @@ export function Orders() {
   );
   const [exportEndDate, setExportEndDate] = useState(latestOrderIso);
   const [exportFormat, setExportFormat] = useState("csv");
+  // Export level: one row per customer order, per company order, or per
+  // product line (the original export). Set when the dialog opens.
+  const [exportLevel, setExportLevel] = useState<"customer" | "order" | "item">(
+    "item",
+  );
 
   /** Resolve the active export range. Returns null when either date
    *  input is empty — the Export button is also disabled in that
@@ -1085,6 +1091,217 @@ export function Orders() {
     ];
   };
 
+  // ---- Customer level / Order level exports ----
+  // Summary sheets with only what the seller needs to plan, deliver and
+  // reconcile — no product lines. Item level is the original export below.
+  const joinUnique = (values: (string | undefined)[]) =>
+    Array.from(new Set(values.filter((v): v is string => !!v))).join(", ");
+  const stageLabel = (o: Order) => {
+    const st = getCustomerOrderStage(o);
+    return st === "logistics" ? "With 3PL Partner" : CUSTOMER_ORDER_STAGES[st].label;
+  };
+  const customerOrderStatusText = (list: Order[]) => {
+    const mixed = getMixedCustomerOrderStatus(list);
+    if (!mixed) return stageLabel(list[0]);
+    return `${mixed.label} (${mixed.parts
+      .map((p) => `${p.count} ${CUSTOMER_ORDER_STAGES[p.stage].label}`)
+      .join(", ")})`;
+  };
+  const orderTypeLabel = (o: Order) =>
+    getOrderType(o) === "beat" ? "Beat" : "Non-Beat";
+
+  const buildLevelSheet = (level: "customer" | "order", list: Order[]) => {
+    if (level === "customer") {
+      const headers = [
+        "Order Date",
+        "Delivery Date",
+        "Business Name",
+        "Mobile",
+        "Delivery Address",
+        "Order Type",
+        "Beat Name",
+        "Company Orders",
+        "Companies",
+        "Items",
+        "Customer Order Value",
+        "Status",
+        "Payment Mode",
+      ];
+      const groups = groupOrdersByCheckout(list);
+      const rows = groups.map((g) => {
+        const first = g.orders[0];
+        return [
+          g.orders.map((o) => o.orderDate).sort()[0],
+          joinUnique(g.orders.map((o) => o.expectedDeliveryDate).sort()),
+          first.retailerName,
+          first.buyerContact ?? "",
+          first.buyerAddress ?? "",
+          joinUnique(g.orders.map(orderTypeLabel)),
+          joinUnique(g.orders.map((o) => o.beatName)),
+          g.orders.length,
+          joinUnique(g.orders.map((o) => o.company)),
+          g.orders.reduce((n, o) => n + getOrderLines(o).length, 0),
+          g.orders.reduce((n, o) => n + o.orderValue, 0),
+          customerOrderStatusText(g.orders),
+          joinUnique(g.orders.map((o) => o.paymentMode)),
+        ];
+      });
+      return { headers, rows, moneyCols: [10], records: groups.length };
+    }
+    const headers = [
+      "Order ID",
+      "Order Date",
+      "Delivery Date",
+      "Business Name",
+      "Mobile",
+      "Company",
+      "Retailer Company ID",
+      "Order Type",
+      "Beat Name",
+      "Items",
+      "Order Value",
+      "Status",
+      "Cancellation Reason",
+      "Payment Mode",
+    ];
+    const ordered =
+      orderView === "customer"
+        ? groupOrdersByCheckout(list).flatMap((g) => g.orders)
+        : list;
+    const rows = ordered.map((o) => [
+      o.id,
+      o.orderDate,
+      o.expectedDeliveryDate,
+      o.retailerName,
+      o.buyerContact ?? "",
+      getOrderOperationMode(o) === "wholesale" ? "Wholesaler" : o.company,
+      getRetailerCompanyId(o) ?? "",
+      orderTypeLabel(o),
+      o.beatName ?? "",
+      getOrderLines(o).length,
+      o.orderValue,
+      stageLabel(o),
+      o.status === "Cancelled" ? o.cancellationReason ?? "" : "",
+      o.paymentMode,
+    ]);
+    return { headers, rows, moneyCols: [10], records: rows.length };
+  };
+
+  // PDF — landscape table with a title line; A4, or A3 for the wide
+  // Item level sheet. Amounts are written as plain numbers: the built-in
+  // PDF fonts have no rupee sign.
+  const PDF_ONE_LINE = new Set([
+    "Order ID",
+    "Order Date",
+    "Delivery Date",
+    "Mobile",
+    "Retailer Company ID",
+    "Order Type",
+    "Company Orders",
+    "Items",
+    "Order Value",
+    "Customer Order Value",
+    "Payment Mode",
+  ]);
+  const downloadPdf = async (
+    title: string,
+    headers: string[],
+    rows: (string | number)[][],
+    moneyCols: number[],
+    fileName: string,
+    range: { start: string; end: string },
+  ) => {
+    const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+      import("jspdf"),
+      import("jspdf-autotable"),
+    ]);
+    const wide = headers.length > 20;
+    const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: wide ? "a3" : "a4" });
+    doc.setFontSize(13);
+    doc.text(title, 28, 32);
+    doc.setFontSize(8.5);
+    doc.setTextColor(90);
+    doc.text(
+      `${SELLER_INFO.name}  |  ${range.start} to ${range.end}  |  ${rows.length} row${rows.length === 1 ? "" : "s"}  |  Amounts in Rs`,
+      28,
+      47,
+    );
+    const money = (n: number) =>
+      n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    autoTable(doc, {
+      head: [headers],
+      body: rows.map((r) =>
+        r.map((v, i) =>
+          moneyCols.includes(i) && typeof v === "number" ? money(v) : String(v ?? ""),
+        ),
+      ),
+      startY: 58,
+      margin: { left: 20, right: 20 },
+      styles: {
+        fontSize: wide ? 6 : headers.length > 13 ? 6.5 : 7.5,
+        cellPadding: 2.5,
+        overflow: "linebreak",
+      },
+      headStyles: { fillColor: [124, 58, 237], textColor: 255, fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [248, 246, 252] },
+      // Short fields stay on one line so only long text (names,
+      // addresses, companies, status) wraps. The wide Item level sheet
+      // lets every column wrap to fit the page.
+      columnStyles: Object.fromEntries(
+        headers.map((h, i) => [
+          i,
+          {
+            ...(moneyCols.includes(i) ? { halign: "right" as const } : {}),
+            ...(!wide && PDF_ONE_LINE.has(h) ? { cellWidth: "wrap" as const } : {}),
+          },
+        ]),
+      ),
+    });
+    doc.save(fileName);
+  };
+
+  const exportLevelSheet = (
+    level: "customer" | "order",
+    list: Order[],
+    range: { start: string; end: string },
+  ) => {
+    const { headers, rows, moneyCols, records } = buildLevelSheet(level, list);
+    const base = `orders_${level}-level_${range.start}_to_${range.end}`;
+    const what =
+      level === "customer"
+        ? `${records} customer order(s) (${list.length} company orders)`
+        : `${records} order(s)`;
+    const done = () => {
+      toast.success(`Successfully exported ${what} from ${range.start} to ${range.end}`);
+      setIsExportDialogOpen(false);
+    };
+    if (exportFormat === "pdf") {
+      downloadPdf(
+        `Orders - ${level === "customer" ? "Customer" : "Order"} level`,
+        headers,
+        rows,
+        moneyCols,
+        `${base}.pdf`,
+        range,
+      )
+        .then(done)
+        .catch(() => toast.error("Could not create the PDF. Please try again."));
+      return;
+    }
+    // CSV, and Excel the same way as the original export.
+    const csv = [headers, ...rows].map((r) => r.map(escapeCsv).join(",")).join("\r\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `${base}.${exportFormat}`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    done();
+  };
+
   const handleExport = () => {
     const range = resolveExportRange();
     if (!range) {
@@ -1114,6 +1331,11 @@ export function Orders() {
 
     if (ordersToExport.length === 0) {
       toast.error("No orders found in the selected date range");
+      return;
+    }
+
+    if (exportLevel !== "item") {
+      exportLevelSheet(exportLevel, ordersToExport, range);
       return;
     }
 
@@ -1169,6 +1391,7 @@ export function Orders() {
     ];
 
     const csvRows = [headers.join(",")];
+    const pdfRows: (string | number)[][] = [];
 
     // Clubbed-order counts — how many exported orders share each
     // checkout. Counted within the export window so the sheet is
@@ -1237,8 +1460,28 @@ export function Orders() {
           finalOrderValue,
         ];
         csvRows.push(row.map(escapeCsv).join(","));
+        pdfRows.push(row);
       });
     });
+
+    if (exportFormat === "pdf") {
+      downloadPdf(
+        `Orders - Item level${customerWise ? " (Customer Wise)" : ""}`,
+        headers,
+        pdfRows,
+        [],
+        `orders_${range.start}_to_${range.end}.pdf`,
+        range,
+      )
+        .then(() => {
+          toast.success(
+            `Successfully exported ${ordersToExport.length} order(s) from ${range.start} to ${range.end}`,
+          );
+          setIsExportDialogOpen(false);
+        })
+        .catch(() => toast.error("Could not create the PDF. Please try again."));
+      return;
+    }
 
     const csvContent = csvRows.join("\r\n");
 
@@ -2144,7 +2387,10 @@ export function Orders() {
                     <Button
                       size="sm"
                       className="gap-2"
-                      onClick={() => setIsExportDialogOpen(true)}
+                      onClick={() => {
+                        setExportLevel(orderView === "customer" ? "customer" : "item");
+                        setIsExportDialogOpen(true);
+                      }}
                     >
                       <Download className="h-4 w-4" />
                       Export
@@ -3253,9 +3499,7 @@ export function Orders() {
               Export Orders
             </DialogTitle>
             <DialogDescription>
-              Select the date range and format to export orders.
-              {orderView === "customer" &&
-                " Exporting the Customer Wise View — rows are grouped by customer order."}
+              Select the date range, level and format to export orders.
             </DialogDescription>
           </DialogHeader>
 
@@ -3323,6 +3567,34 @@ export function Orders() {
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="exportLevel">
+                Level <span className="text-red-500">*</span>
+              </Label>
+              <Select
+                value={exportLevel}
+                onValueChange={(v) => setExportLevel(v as "customer" | "order" | "item")}
+              >
+                <SelectTrigger id="exportLevel" className="w-full">
+                  <SelectValue placeholder="Select level" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="customer">Customer level</SelectItem>
+                  <SelectItem value="order">Order level</SelectItem>
+                  <SelectItem value="item">Item level</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-gray-600">
+                {exportLevel === "customer"
+                  ? "One row per customer order — customer, delivery, companies, total value and status."
+                  : exportLevel === "order"
+                    ? "One row per company order — company, Retailer Company ID, value and status."
+                    : orderView === "customer"
+                      ? "One row per product line — the full export, grouped by customer order."
+                      : "One row per product line — the full export."}
+              </p>
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="exportFormat">
                 Format <span className="text-red-500">*</span>
               </Label>
@@ -3336,6 +3608,7 @@ export function Orders() {
                 <SelectContent>
                   <SelectItem value="csv">CSV</SelectItem>
                   <SelectItem value="xlsx">Excel (XLSX)</SelectItem>
+                  <SelectItem value="pdf">PDF</SelectItem>
                 </SelectContent>
               </Select>
             </div>
