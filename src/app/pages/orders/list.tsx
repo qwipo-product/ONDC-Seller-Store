@@ -1161,37 +1161,20 @@ export function Orders() {
   };
 
   // ---- Customer level: Retailer-wise Order Summary ----
-  // One block per retailer (customer order): its details, Order ID,
-  // dates, total value, items and status span every product line of the
-  // order — no split by company — then one row per product line and a
-  // TOTAL row. The same layout goes
-  // to Excel (merged cells, real workbook) and PDF; CSV gets the rows
-  // with the spanned values on the first line only.
-  const RETAILER_SUMMARY_COLS = [
-    "S.No",
-    "Order ID",
-    "Created Date",
-    "Delivery Date",
-    "Buyer Name",
-    "Buyer Mobile",
-    "Retailer Address",
-    "Area",
-    "Latitude",
-    "Longitude",
-    "GPS Location",
-    "Order Value (₹)",
-    "No. of Items",
-    "Status",
+  // Each retailer (customer order) is its own section: a heading block
+  // with the retailer's details, then its product lines — each with the
+  // company and the retailer's ID with that company — and a retailer
+  // total; a grand total closes the sheet. Same in Excel and PDF; CSV
+  // gets the same data as one flat row per product line.
+  const RETAILER_LINE_COLS = [
+    "Company",
+    "Retailer Company ID",
     "SKU Name",
     "QTY",
     "Unit MRP (₹)",
     "Unit Selling Price (₹)",
     "Line Subtotal (₹)",
   ];
-  // Columns that span every product line of the retailer's order.
-  const SPAN_RETAILER = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
-  const SUMMARY_MONEY = [11, 16, 17, 18];
-  const GPS_COL = 10;
 
   const shortDate = (iso: string) => {
     const d = new Date(`${iso}T00:00:00`);
@@ -1227,88 +1210,83 @@ export function Orders() {
           }
         : l;
     });
+  const round2 = (n: number) => Math.round(n * 100) / 100;
 
-  type SummaryRow = {
-    cells: (string | number)[];
-    block: number;
-    start: boolean;
-    span: number;
+  type RetailerSection = {
+    no: number;
+    name: string;
+    orderId: string;
+    mobile: string;
+    created: string;
+    delivery: string;
+    area: string;
+    address: string;
+    lat: number | "";
+    lng: number | "";
     url: string;
+    status: string;
+    value: number;
+    lines: {
+      company: string;
+      retailerCompanyId: string;
+      sku: string;
+      qty: number;
+      mrp: number;
+      price: number;
+      subtotal: number;
+    }[];
   };
 
-  const buildRetailerSummary = (list: Order[]) => {
-    const groups = groupOrdersByCheckout(list);
-    const rows: SummaryRow[] = [];
-    const totals = { value: 0, items: 0, qty: 0, subtotal: 0 };
-    groups.forEach((g, gi) => {
+  const buildRetailerSections = (list: Order[]) => {
+    const sections: RetailerSection[] = groupOrdersByCheckout(list).map((g, gi) => {
       const first = g.orders[0];
-      const lines = g.orders.flatMap(linesWithEdits);
-      const url = mapsUrl(first);
       // Earliest company order = when the customer placed the order.
       const placed = [...g.orders].sort((x, y) =>
         `${x.orderDate} ${x.orderTime ?? ""}`.localeCompare(`${y.orderDate} ${y.orderTime ?? ""}`),
       )[0];
-      const value = g.orders.reduce((n, o) => n + o.orderValue, 0);
       const mixed = getMixedCustomerOrderStatus(g.orders);
-      const status = mixed
-        ? `${mixed.label} (${mixed.parts
-            .map((p) => `${p.count} ${CUSTOMER_ORDER_STAGES[p.stage].label}`)
-            .join(", ")})`
-        : stageLabel(first);
-      totals.value += value;
-      totals.items += lines.length;
-      lines.forEach((l, li) => {
-        totals.qty += l.qty;
-        totals.subtotal += l.lineTotal;
-        rows.push({
-          cells: [
-            gi + 1,
-            g.checkoutId,
-            `${shortDate(placed.orderDate)}${placed.orderTime ? ` ${placed.orderTime}` : ""}`,
-            Array.from(new Set(g.orders.map((o) => o.expectedDeliveryDate)))
-              .sort()
-              .map(shortDate)
-              .join(", "),
-            first.retailerName,
-            mobileDigits(first.buyerContact),
-            first.buyerAddress ?? "",
-            areaOf(first.buyerAddress),
-            first.buyerLat ?? "",
-            first.buyerLng ?? "",
-            url,
-            value,
-            lines.length,
-            status,
-            l.productName,
-            l.qty,
-            l.originalPricePerUnit,
-            l.finalPricePerUnit,
-            l.lineTotal,
-          ],
-          block: gi,
-          start: li === 0,
-          span: lines.length,
-          url,
-        });
-      });
+      return {
+        no: gi + 1,
+        name: first.retailerName,
+        orderId: g.checkoutId,
+        mobile: mobileDigits(first.buyerContact),
+        created: `${shortDate(placed.orderDate)}${placed.orderTime ? ` ${placed.orderTime}` : ""}`,
+        delivery: Array.from(new Set(g.orders.map((o) => o.expectedDeliveryDate)))
+          .sort()
+          .map(shortDate)
+          .join(", "),
+        area: areaOf(first.buyerAddress),
+        address: first.buyerAddress ?? "",
+        lat: first.buyerLat ?? "",
+        lng: first.buyerLng ?? "",
+        url: mapsUrl(first),
+        status: mixed
+          ? `${mixed.label} (${mixed.parts
+              .map((p) => `${p.count} ${CUSTOMER_ORDER_STAGES[p.stage].label}`)
+              .join(", ")})`
+          : stageLabel(first),
+        value: round2(g.orders.reduce((n, o) => n + o.orderValue, 0)),
+        lines: g.orders.flatMap((o) => {
+          const rid = getRetailerCompanyId(o) ?? "Not available";
+          return linesWithEdits(o).map((l) => ({
+            company: l.company || o.company,
+            retailerCompanyId: rid,
+            sku: l.productName,
+            qty: l.qty,
+            mrp: l.originalPricePerUnit,
+            price: l.finalPricePerUnit,
+            subtotal: l.lineTotal,
+          }));
+        }),
+      };
     });
-    const round2 = (n: number) => Math.round(n * 100) / 100;
-    totals.value = round2(totals.value);
-    totals.subtotal = round2(totals.subtotal);
-    const totalCells = RETAILER_SUMMARY_COLS.map((_, i) =>
-      i === 4
-        ? "TOTAL"
-        : i === 11
-          ? totals.value
-          : i === 12
-            ? totals.items
-            : i === 15
-              ? totals.qty
-              : i === 18
-                ? totals.subtotal
-                : "",
-    );
-    return { groups, rows, totalCells };
+    const totals = {
+      retailers: sections.length,
+      items: sections.reduce((n, s) => n + s.lines.length, 0),
+      qty: sections.reduce((n, s) => n + s.lines.reduce((m, l) => m + l.qty, 0), 0),
+      value: round2(sections.reduce((n, s) => n + s.value, 0)),
+    };
+    return { sections, totals };
   };
 
   const saveBlob = (blob: Blob, fileName: string) => {
@@ -1326,75 +1304,112 @@ export function Orders() {
     list: Order[],
     range: { start: string; end: string },
   ) => {
-    const { groups, rows, totalCells } = buildRetailerSummary(list);
-    const title = `${SELLER_INFO.name} — Retailer-wise Order Summary`;
+    const { sections, totals } = buildRetailerSections(list);
+    const title = "Retailer-wise Order Summary";
     const base = `orders_customer-level_${range.start}_to_${range.end}`;
-    const isSpanned = (r: SummaryRow, i: number) =>
-      SPAN_RETAILER.includes(i) && !r.start;
+    const money = (n: number) =>
+      n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
     if (exportFormat === "xlsx") {
       const ExcelJS = (await import("exceljs")).default;
       const wb = new ExcelJS.Workbook();
-      const ws = wb.addWorksheet("Retailer Summary", {
-        views: [{ state: "frozen", ySplit: 3 }],
-      });
-      const n = RETAILER_SUMMARY_COLS.length;
+      const ws = wb.addWorksheet("Retailer Summary");
       const thin = { style: "thin" as const, color: { argb: "FFBFC5D2" } };
       const border = { top: thin, left: thin, bottom: thin, right: thin };
-      ws.mergeCells(1, 1, 1, n);
+      const navy = { type: "pattern" as const, pattern: "solid" as const, fgColor: { argb: "FF1F3864" } };
+      const label = { type: "pattern" as const, pattern: "solid" as const, fgColor: { argb: "FFEEF2F8" } };
+      const totalFill = { type: "pattern" as const, pattern: "solid" as const, fgColor: { argb: "FFDCE6F1" } };
+      [26, 20, 42, 8, 13, 16, 16].forEach((w, i) => (ws.getColumn(i + 1).width = w));
+      ws.mergeCells(1, 1, 1, 7);
       ws.getCell(1, 1).value = title;
-      ws.getCell(1, 1).font = { bold: true, size: 13 };
-      const head = ws.getRow(3);
-      head.values = RETAILER_SUMMARY_COLS;
-      head.height = 30;
-      head.eachCell((c) => {
-        c.font = { bold: true, color: { argb: "FFFFFFFF" } };
-        c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1F3864" } };
-        c.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
-        c.border = border;
-      });
-      rows.forEach((r, k) => {
-        const rowNo = 4 + k;
-        const row = ws.getRow(rowNo);
-        r.cells.forEach((v, i) => {
-          const c = row.getCell(i + 1);
-          if (!isSpanned(r, i)) {
-            c.value =
-              i === GPS_COL
-                ? r.url
-                  ? { text: "Open in Maps", hyperlink: r.url }
-                  : ""
-                : v;
-          }
-          c.border = border;
-          c.alignment = {
-            vertical: "middle",
-            wrapText: true,
-            horizontal: i === 0 || i === 12 || i === 15 ? "center" : typeof v === "number" ? "right" : "left",
-          };
-          if (SUMMARY_MONEY.includes(i)) c.numFmt = "#,##0.00";
-          if (i === 8 || i === 9) c.numFmt = "0.000000";
-          if (i === GPS_COL && r.url) c.font = { color: { argb: "FF1155CC" }, underline: true };
-          if (r.block % 2 === 1) {
-            c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF3F6FB" } };
-          }
-        });
-        if (r.start && r.span > 1) {
-          for (const i of SPAN_RETAILER) ws.mergeCells(rowNo, i + 1, rowNo + r.span - 1, i + 1);
+      ws.getCell(1, 1).font = { bold: true, size: 14 };
+      let r = 3;
+      const kv = (row: number, pairs: [number, number, string, string | { text: string; hyperlink: string }][]) => {
+        for (const [from, to, key, val] of pairs) {
+          const k = ws.getCell(row, from);
+          k.value = key;
+          k.font = { bold: true, color: { argb: "FF44546A" } };
+          k.fill = label;
+          k.border = border;
+          k.alignment = { vertical: "middle" };
+          if (to > from + 1) ws.mergeCells(row, from + 1, row, to);
+          const v = ws.getCell(row, from + 1);
+          v.value = val;
+          v.border = border;
+          v.alignment = { vertical: "middle", wrapText: true };
+          if (typeof val === "object") v.font = { color: { argb: "FF1155CC" }, underline: true };
         }
-      });
-      const total = ws.getRow(4 + rows.length);
-      total.values = totalCells;
-      total.eachCell({ includeEmpty: true }, (c, col) => {
-        c.font = { bold: true };
-        c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDCE6F1" } };
-        c.border = border;
-        if (SUMMARY_MONEY.includes(col - 1)) c.numFmt = "#,##0.00";
-        c.alignment = { vertical: "middle", horizontal: col - 1 === 4 ? "left" : "right" };
-      });
-      [6, 26, 20, 13, 28, 13, 40, 15, 11, 11, 13, 14, 9, 18, 40, 7, 11, 13, 14].forEach(
-        (w, i) => (ws.getColumn(i + 1).width = w),
-      );
+      };
+      for (const s of sections) {
+        // Retailer heading
+        ws.mergeCells(r, 1, r, 7);
+        const h = ws.getCell(r, 1);
+        h.value = `${s.no}. ${s.name}`;
+        h.font = { bold: true, size: 12, color: { argb: "FFFFFFFF" } };
+        h.fill = navy;
+        h.alignment = { vertical: "middle" };
+        ws.getRow(r).height = 20;
+        r++;
+        kv(r++, [[1, 3, "Order ID", s.orderId], [4, 5, "Mobile", s.mobile], [6, 7, "Area", s.area]]);
+        kv(r++, [[1, 3, "Created Date", s.created], [4, 5, "Delivery Date", s.delivery], [6, 7, "Status", s.status]]);
+        kv(r++, [
+          [1, 5, "Address", s.address],
+          [6, 7, "Location", s.url ? { text: "Open in Maps", hyperlink: s.url } : "—"],
+        ]);
+        if (s.lat !== "") {
+          kv(r++, [[1, 3, "Latitude", String(s.lat)], [4, 5, "Longitude", String(s.lng)], [6, 7, "Order Value (₹)", money(s.value)]]);
+        } else {
+          kv(r++, [[1, 7, "Order Value (₹)", money(s.value)]]);
+        }
+        // Product lines
+        const head = ws.getRow(r);
+        head.values = RETAILER_LINE_COLS;
+        head.eachCell((c) => {
+          c.font = { bold: true, color: { argb: "FFFFFFFF" } };
+          c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2F5597" } };
+          c.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+          c.border = border;
+        });
+        r++;
+        for (const l of s.lines) {
+          const row = ws.getRow(r++);
+          row.values = [l.company, l.retailerCompanyId, l.sku, l.qty, l.mrp, l.price, l.subtotal];
+          row.eachCell((c, col) => {
+            c.border = border;
+            c.alignment = { vertical: "middle", wrapText: true, horizontal: col === 4 ? "center" : col >= 5 ? "right" : "left" };
+            if (col >= 5) c.numFmt = "#,##0.00";
+          });
+        }
+        // Retailer total
+        ws.mergeCells(r, 1, r, 3);
+        const t = ws.getRow(r);
+        t.getCell(1).value = `Retailer total — ${s.lines.length} item${s.lines.length === 1 ? "" : "s"}`;
+        t.getCell(4).value = s.lines.reduce((n, l) => n + l.qty, 0);
+        t.getCell(7).value = s.value;
+        for (let c = 1; c <= 7; c++) {
+          const cell = t.getCell(c);
+          cell.font = { bold: true };
+          cell.fill = totalFill;
+          cell.border = border;
+          cell.alignment = { vertical: "middle", horizontal: c === 4 ? "center" : c >= 5 ? "right" : "left" };
+        }
+        t.getCell(7).numFmt = "#,##0.00";
+        r += 2;
+      }
+      // Grand total
+      ws.mergeCells(r, 1, r, 3);
+      const g = ws.getRow(r);
+      g.getCell(1).value = `GRAND TOTAL — ${totals.retailers} retailers, ${totals.items} items`;
+      g.getCell(4).value = totals.qty;
+      g.getCell(7).value = totals.value;
+      for (let c = 1; c <= 7; c++) {
+        const cell = g.getCell(c);
+        cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+        cell.fill = navy;
+        cell.border = border;
+        cell.alignment = { vertical: "middle", horizontal: c === 4 ? "center" : c >= 5 ? "right" : "left" };
+      }
+      g.getCell(7).numFmt = "#,##0.00";
       const buf = await wb.xlsx.writeBuffer();
       saveBlob(
         new Blob([buf], {
@@ -1407,100 +1422,140 @@ export function Orders() {
         import("jspdf"),
         import("jspdf-autotable"),
       ]);
-      const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a3" });
+      const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+      const pageH = doc.internal.pageSize.getHeight();
+      const margin = { left: 32, right: 32 };
+      const navy: [number, number, number] = [31, 56, 100];
+      const labelFill: [number, number, number] = [238, 242, 248];
+      const lastY = () =>
+        (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 40;
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(13);
-      // Built-in PDF fonts have no rupee sign or em dash.
-      doc.text(title.replace("—", "-"), 28, 34);
-      const money = (v: string | number) =>
-        typeof v === "number"
-          ? v.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-          : v;
-      const zebra: [number, number, number] = [243, 246, 251];
-      const body = rows.map((r) =>
-        r.cells.flatMap((v, i) => {
-          if (isSpanned(r, i)) return [];
-          const span = SPAN_RETAILER.includes(i) ? r.span : 1;
-          return [
-            {
-              content:
-                i === GPS_COL
-                  ? r.url
-                    ? "Open in Maps"
-                    : ""
-                  : SUMMARY_MONEY.includes(i)
-                    ? money(v)
-                    : i === 8 || i === 9
-                      ? typeof v === "number"
-                        ? v.toFixed(6)
-                        : v
-                      : String(v),
-              rowSpan: span,
-              url: i === GPS_COL ? r.url : undefined,
-              styles: {
-                ...(r.block % 2 === 1 ? { fillColor: zebra } : {}),
-                ...(i === GPS_COL && r.url ? { textColor: [17, 85, 204] as [number, number, number] } : {}),
-              },
-            },
-          ];
-        }),
-      );
-      body.push(
-        totalCells.map((v, i) => ({
-          content: SUMMARY_MONEY.includes(i) ? money(v) : String(v),
-          rowSpan: 1,
-          url: undefined,
-          styles: { fontStyle: "bold" as const, fillColor: [220, 230, 241] as [number, number, number] },
-        })),
-      );
+      doc.setFontSize(14);
+      doc.text(title, margin.left, 36);
+      let y = 50;
+      const lbl = (content: string) => ({
+        content,
+        styles: { fontStyle: "bold" as const, fillColor: labelFill, textColor: [68, 84, 106] as [number, number, number] },
+      });
+      for (const s of sections) {
+        // Keep the heading with at least a few lines on the same page.
+        if (y > pageH - 190) {
+          doc.addPage();
+          y = 40;
+        }
+        autoTable(doc, {
+          startY: y,
+          margin,
+          theme: "grid",
+          styles: { fontSize: 8, cellPadding: 3.5, lineColor: [191, 197, 210], lineWidth: 0.4, valign: "middle" },
+          head: [[{ content: `${s.no}. ${s.name}`, colSpan: 6, styles: { fillColor: navy, textColor: 255, fontSize: 10.5, fontStyle: "bold" } }]],
+          body: [
+            [lbl("Order ID"), s.orderId, lbl("Mobile"), s.mobile, lbl("Area"), s.area],
+            [lbl("Created Date"), s.created, lbl("Delivery Date"), s.delivery, lbl("Order Value (Rs)"), money(s.value)],
+            [lbl("Address"), { content: s.address, colSpan: 3 }, lbl("Location"), { content: s.url ? "Open in Maps" : "-", styles: s.url ? { textColor: [17, 85, 204] as [number, number, number] } : {} }],
+            [lbl("Status"), { content: s.status, colSpan: 5 }],
+          ],
+          columnStyles: { 0: { cellWidth: 72 }, 2: { cellWidth: 70 }, 4: { cellWidth: 78 } },
+          didDrawCell: (data) => {
+            if (data.section === "body" && data.row.index === 2 && data.column.index === 5 && s.url) {
+              doc.link(data.cell.x, data.cell.y, data.cell.width, data.cell.height, { url: s.url });
+            }
+          },
+        });
+        autoTable(doc, {
+          startY: lastY(),
+          margin,
+          theme: "grid",
+          styles: { fontSize: 7.5, cellPadding: 3, lineColor: [191, 197, 210], lineWidth: 0.4, valign: "middle" },
+          headStyles: { fillColor: [47, 85, 151], textColor: 255, fontStyle: "bold", halign: "center" },
+          head: [RETAILER_LINE_COLS.map((c) => c.replace("(₹)", "(Rs)"))],
+          body: s.lines.map((l) => [l.company, l.retailerCompanyId, l.sku, String(l.qty), money(l.mrp), money(l.price), money(l.subtotal)]),
+          foot: [[
+            { content: `Retailer total - ${s.lines.length} item${s.lines.length === 1 ? "" : "s"}`, colSpan: 3 },
+            String(s.lines.reduce((n, l) => n + l.qty, 0)),
+            "",
+            "",
+            money(s.value),
+          ]],
+          footStyles: { fillColor: [220, 230, 241], textColor: [20, 20, 20], fontStyle: "bold" },
+          columnStyles: {
+            0: { cellWidth: 92 },
+            1: { cellWidth: 74 },
+            3: { halign: "center", cellWidth: 30 },
+            4: { halign: "right", cellWidth: 52 },
+            5: { halign: "right", cellWidth: 60 },
+            6: { halign: "right", cellWidth: 62 },
+          },
+          didParseCell: (data) => {
+            if (data.section === "foot" && data.column.index >= 3) {
+              data.cell.styles.halign = data.column.index === 3 ? "center" : "right";
+            }
+          },
+        });
+        y = lastY() + 16;
+      }
+      if (y > pageH - 60) {
+        doc.addPage();
+        y = 40;
+      }
       autoTable(doc, {
-        head: [RETAILER_SUMMARY_COLS.map((h) => h.replace("(₹)", "(Rs)"))],
-        body,
-        startY: 46,
-        margin: { left: 20, right: 20 },
+        startY: y,
+        margin,
         theme: "grid",
-        styles: { fontSize: 7, cellPadding: 3, valign: "middle", lineColor: [191, 197, 210], lineWidth: 0.4 },
-        headStyles: { fillColor: [31, 56, 100], textColor: 255, fontStyle: "bold", halign: "center" },
-        // Fixed widths filling the A3 page (1150pt between margins), so
-        // an Order ID or mobile number never breaks across lines.
-        columnStyles: Object.fromEntries(
-          [26, 108, 60, 56, 90, 52, 124, 50, 44, 44, 52, 50, 36, 54, 140, 30, 40, 44, 50].map(
-            (w, i) => [
-              i,
-              {
-                cellWidth: w,
-                halign:
-                  i === 0 || i === 12 || i === 15
-                    ? ("center" as const)
-                    : [8, 9, 11, 16, 17, 18].includes(i)
-                      ? ("right" as const)
-                      : ("left" as const),
-              },
-            ],
-          ),
-        ),
-        didDrawCell: (data) => {
-          const raw = data.cell.raw as { url?: string } | undefined;
-          if (data.section === "body" && raw?.url) {
-            doc.link(data.cell.x, data.cell.y, data.cell.width, data.cell.height, { url: raw.url });
-          }
-        },
+        styles: { fontSize: 9, cellPadding: 4, fontStyle: "bold", fillColor: navy, textColor: 255, lineColor: [191, 197, 210], lineWidth: 0.4 },
+        body: [[
+          { content: `GRAND TOTAL - ${totals.retailers} retailers, ${totals.items} items`, colSpan: 3 },
+          { content: `QTY ${totals.qty}`, styles: { halign: "center" } },
+          { content: `Rs ${money(totals.value)}`, styles: { halign: "right" } },
+        ]],
       });
       doc.save(`${base}.pdf`);
     } else {
-      const csvCells = (r: SummaryRow) =>
-        r.cells.map((v, i) => (isSpanned(r, i) ? "" : v));
-      const csv = [
-        RETAILER_SUMMARY_COLS,
-        ...rows.map(csvCells),
-        totalCells,
-      ]
-        .map((r) => r.map(escapeCsv).join(","))
-        .join("\r\n");
+      const headers = [
+        "S.No",
+        "Order ID",
+        "Buyer Name",
+        "Buyer Mobile",
+        "Retailer Address",
+        "Area",
+        "Latitude",
+        "Longitude",
+        "GPS Location",
+        "Created Date",
+        "Delivery Date",
+        "Status",
+        "Order Value (₹)",
+        ...RETAILER_LINE_COLS,
+      ];
+      const rows = sections.flatMap((s) =>
+        s.lines.map((l) => [
+          s.no,
+          s.orderId,
+          s.name,
+          s.mobile,
+          s.address,
+          s.area,
+          s.lat,
+          s.lng,
+          s.url,
+          s.created,
+          s.delivery,
+          s.status,
+          s.value,
+          l.company,
+          l.retailerCompanyId,
+          l.sku,
+          l.qty,
+          l.mrp,
+          l.price,
+          l.subtotal,
+        ]),
+      );
+      const csv = [headers, ...rows].map((row) => row.map(escapeCsv).join(",")).join("\r\n");
       saveBlob(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" }), `${base}.csv`);
     }
     toast.success(
-      `Successfully exported ${groups.length} customer order(s) (${list.length} company orders) from ${range.start} to ${range.end}`,
+      `Successfully exported ${sections.length} customer order(s) (${list.length} company orders) from ${range.start} to ${range.end}`,
     );
     setIsExportDialogOpen(false);
   };
