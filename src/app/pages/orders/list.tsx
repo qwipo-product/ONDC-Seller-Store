@@ -1068,11 +1068,7 @@ export function Orders() {
       "Cancellation Reason",
       "Payment Mode",
     ];
-    const ordered =
-      orderView === "customer"
-        ? groupOrdersByCheckout(list).flatMap((g) => g.orders)
-        : list;
-    const rows = ordered.map((o) => [
+    const rows = list.map((o) => [
       o.id,
       o.orderDate,
       o.expectedDeliveryDate,
@@ -1607,15 +1603,10 @@ export function Orders() {
     // rejected: order IDs come from the buyer app, and a fabricated
     // number read like a real ID. "Operation Mode" follows Company.
     // Wholesale rows mask the company as "Wholesaler" — same as the
-    // list.
-    // Customer Wise View: the same export plus Customer Order Value
-    // beside Clubbed Orders and Retailer Company ID beside Company, rows
-    // grouped by customer order.
-    const customerWise = orderView === "customer";
+    // list. Same in both views.
     const headers = [
       "Order ID",
       "Clubbed Orders",
-      ...(customerWise ? ["Customer Order Value"] : []),
       "Order Status",
       "Order Date",
       "Order Type",
@@ -1632,7 +1623,6 @@ export function Orders() {
       "SKU code",
       "Product Name",
       "Company",
-      ...(customerWise ? ["Retailer Company ID"] : []),
       "Operation Mode",
       "Brand",
       "Category",
@@ -1657,17 +1647,7 @@ export function Orders() {
       clubSizes.set(k, (clubSizes.get(k) ?? 0) + 1);
     }
 
-    // Customer order totals within the export window.
-    const checkoutTotals = new Map<string, number>();
-    for (const o of ordersToExport) {
-      const k = getCustomerOrderId(o);
-      checkoutTotals.set(k, (checkoutTotals.get(k) ?? 0) + o.orderValue);
-    }
-    const exportRows = customerWise
-      ? groupOrdersByCheckout(ordersToExport).flatMap((g) => g.orders)
-      : ordersToExport;
-
-    exportRows.forEach((order) => {
+    ordersToExport.forEach((order) => {
       const lines =
         order.lineItems && order.lineItems.length > 0
           ? order.lineItems
@@ -1683,9 +1663,6 @@ export function Orders() {
         const row = [
           order.id,
           clubSize > 1 ? clubSize : "",
-          ...(customerWise
-            ? [checkoutTotals.get(getCustomerOrderId(order)) ?? order.orderValue]
-            : []),
           statusLabelFor(order),
           orderDateLabelFor(order),
           getOrderType(order) === "beat" ? "Beat" : "Non-Beat",
@@ -1702,7 +1679,6 @@ export function Orders() {
           item.skuCode,
           item.productName,
           isWholesale ? "Wholesaler" : item.company,
-          ...(customerWise ? [getRetailerCompanyId(order) ?? ""] : []),
           isWholesale ? "Wholesale" : "Distribution",
           item.brand,
           item.category,
@@ -1721,7 +1697,7 @@ export function Orders() {
 
     if (exportFormat === "pdf") {
       downloadPdf(
-        `Orders - Item level${customerWise ? " (Customer Wise)" : ""}`,
+        "Orders - Item level",
         headers,
         pdfRows,
         [],
@@ -2643,7 +2619,7 @@ export function Orders() {
                       size="sm"
                       className="gap-2"
                       onClick={() => {
-                        setExportLevel(orderView === "customer" ? "customer" : "item");
+                        setExportLevel("customer");
                         setIsExportDialogOpen(true);
                       }}
                     >
@@ -3843,9 +3819,7 @@ export function Orders() {
                   ? "One row per customer order — customer, delivery, companies, total value and status."
                   : exportLevel === "order"
                     ? "One row per company order — company, Retailer Company ID, value and status."
-                    : orderView === "customer"
-                      ? "One row per product line — the full export, grouped by customer order."
-                      : "One row per product line — the full export."}
+                    : "One row per product line — the full export."}
               </p>
             </div>
 
