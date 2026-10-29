@@ -1165,9 +1165,10 @@ export function Orders() {
   };
 
   // ---- Customer level: Retailer-wise Order Summary ----
-  // One block per customer order. The buyer's cells span every product
-  // line of the block, each company order's cells span its own lines,
-  // then one row per product line and a TOTAL row. The same layout goes
+  // One block per retailer (customer order): its details, Order ID,
+  // dates, total value, items and status span every product line of the
+  // order — no split by company — then one row per product line and a
+  // TOTAL row. The same layout goes
   // to Excel (merged cells, real workbook) and PDF; CSV gets the rows
   // with the spanned values on the first line only.
   const RETAILER_SUMMARY_COLS = [
@@ -1191,9 +1192,8 @@ export function Orders() {
     "Unit Selling Price (₹)",
     "Line Subtotal (₹)",
   ];
-  // Columns that span a whole customer order / one company order.
-  const SPAN_CUSTOMER = [0, 4, 5, 6, 7, 8, 9, 10];
-  const SPAN_ORDER = [1, 2, 3, 11, 12, 13];
+  // Columns that span every product line of the retailer's order.
+  const SPAN_RETAILER = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
   const SUMMARY_MONEY = [11, 16, 17, 18];
   const GPS_COL = 10;
 
@@ -1235,10 +1235,8 @@ export function Orders() {
   type SummaryRow = {
     cells: (string | number)[];
     block: number;
-    customerStart: boolean;
-    customerSpan: number;
-    orderStart: boolean;
-    orderSpan: number;
+    start: boolean;
+    span: number;
     url: string;
   };
 
@@ -1248,44 +1246,53 @@ export function Orders() {
     const totals = { value: 0, items: 0, qty: 0, subtotal: 0 };
     groups.forEach((g, gi) => {
       const first = g.orders[0];
-      const withLines = g.orders.map((o) => ({ o, lines: linesWithEdits(o) }));
-      const customerSpan = withLines.reduce((n, x) => n + x.lines.length, 0);
+      const lines = g.orders.flatMap(linesWithEdits);
       const url = mapsUrl(first);
-      withLines.forEach(({ o, lines }, oi) => {
-        totals.value += o.orderValue;
-        totals.items += lines.length;
-        lines.forEach((l, li) => {
-          totals.qty += l.qty;
-          totals.subtotal += l.lineTotal;
-          rows.push({
-            cells: [
-              gi + 1,
-              o.id,
-              `${shortDate(o.orderDate)}${o.orderTime ? ` ${o.orderTime}` : ""}`,
-              shortDate(o.expectedDeliveryDate),
-              first.retailerName,
-              mobileDigits(first.buyerContact),
-              first.buyerAddress ?? "",
-              areaOf(first.buyerAddress),
-              first.buyerLat ?? "",
-              first.buyerLng ?? "",
-              url,
-              o.orderValue,
-              lines.length,
-              stageLabel(o),
-              l.productName,
-              l.qty,
-              l.originalPricePerUnit,
-              l.finalPricePerUnit,
-              l.lineTotal,
-            ],
-            block: gi,
-            customerStart: oi === 0 && li === 0,
-            customerSpan,
-            orderStart: li === 0,
-            orderSpan: lines.length,
+      // Earliest company order = when the customer placed the order.
+      const placed = [...g.orders].sort((x, y) =>
+        `${x.orderDate} ${x.orderTime ?? ""}`.localeCompare(`${y.orderDate} ${y.orderTime ?? ""}`),
+      )[0];
+      const value = g.orders.reduce((n, o) => n + o.orderValue, 0);
+      const mixed = getMixedCustomerOrderStatus(g.orders);
+      const status = mixed
+        ? `${mixed.label} (${mixed.parts
+            .map((p) => `${p.count} ${CUSTOMER_ORDER_STAGES[p.stage].label}`)
+            .join(", ")})`
+        : stageLabel(first);
+      totals.value += value;
+      totals.items += lines.length;
+      lines.forEach((l, li) => {
+        totals.qty += l.qty;
+        totals.subtotal += l.lineTotal;
+        rows.push({
+          cells: [
+            gi + 1,
+            g.checkoutId,
+            `${shortDate(placed.orderDate)}${placed.orderTime ? ` ${placed.orderTime}` : ""}`,
+            Array.from(new Set(g.orders.map((o) => o.expectedDeliveryDate)))
+              .sort()
+              .map(shortDate)
+              .join(", "),
+            first.retailerName,
+            mobileDigits(first.buyerContact),
+            first.buyerAddress ?? "",
+            areaOf(first.buyerAddress),
+            first.buyerLat ?? "",
+            first.buyerLng ?? "",
             url,
-          });
+            value,
+            lines.length,
+            status,
+            l.productName,
+            l.qty,
+            l.originalPricePerUnit,
+            l.finalPricePerUnit,
+            l.lineTotal,
+          ],
+          block: gi,
+          start: li === 0,
+          span: lines.length,
+          url,
         });
       });
     });
@@ -1327,8 +1334,7 @@ export function Orders() {
     const title = `${SELLER_INFO.name} — Retailer-wise Order Summary`;
     const base = `orders_customer-level_${range.start}_to_${range.end}`;
     const isSpanned = (r: SummaryRow, i: number) =>
-      (SPAN_CUSTOMER.includes(i) && !r.customerStart) ||
-      (SPAN_ORDER.includes(i) && !r.orderStart);
+      SPAN_RETAILER.includes(i) && !r.start;
 
     if (exportFormat === "xlsx") {
       const ExcelJS = (await import("exceljs")).default;
@@ -1377,11 +1383,8 @@ export function Orders() {
             c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF3F6FB" } };
           }
         });
-        if (r.customerStart && r.customerSpan > 1) {
-          for (const i of SPAN_CUSTOMER) ws.mergeCells(rowNo, i + 1, rowNo + r.customerSpan - 1, i + 1);
-        }
-        if (r.orderStart && r.orderSpan > 1) {
-          for (const i of SPAN_ORDER) ws.mergeCells(rowNo, i + 1, rowNo + r.orderSpan - 1, i + 1);
+        if (r.start && r.span > 1) {
+          for (const i of SPAN_RETAILER) ws.mergeCells(rowNo, i + 1, rowNo + r.span - 1, i + 1);
         }
       });
       const total = ws.getRow(4 + rows.length);
@@ -1421,11 +1424,7 @@ export function Orders() {
       const body = rows.map((r) =>
         r.cells.flatMap((v, i) => {
           if (isSpanned(r, i)) return [];
-          const span = SPAN_CUSTOMER.includes(i)
-            ? r.customerSpan
-            : SPAN_ORDER.includes(i)
-              ? r.orderSpan
-              : 1;
+          const span = SPAN_RETAILER.includes(i) ? r.span : 1;
           return [
             {
               content:
