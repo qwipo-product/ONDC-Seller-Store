@@ -1143,22 +1143,23 @@ export function Orders() {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
     doc.setTextColor(55, 65, 81);
+    doc.text(`Seller: ${sellerName()}`, 28, 49);
     // Delivery date and the total order value side by side in the heading.
     const deliveryText = `Delivery Date: ${delivery}`;
-    doc.text(deliveryText, 28, 49);
+    doc.text(deliveryText, 28, 65);
     doc.setTextColor(30, 58, 138);
     doc.text(
       `Total Order Value: Rs ${totalValue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
       28 + doc.getTextWidth(deliveryText) + 24,
-      49,
+      65,
     );
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8.5);
     doc.setTextColor(90);
     doc.text(
-      `${SELLER_INFO.name}  |  Orders created ${range.start} to ${range.end}  |  ${rows.length} row${rows.length === 1 ? "" : "s"}  |  Amounts in Rs`,
+      `Orders created ${range.start} to ${range.end}  |  ${rows.length} row${rows.length === 1 ? "" : "s"}  |  Amounts in Rs`,
       28,
-      63,
+      79,
     );
     const money = (n: number) =>
       n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -1169,7 +1170,7 @@ export function Orders() {
           moneyCols.includes(i) && typeof v === "number" ? money(v) : String(v ?? ""),
         ),
       ),
-      startY: 72,
+      startY: 88,
       margin: { left: 20, right: 20 },
       styles: {
         fontSize: wide ? 6 : headers.length > 13 ? 6.5 : 7.5,
@@ -1244,6 +1245,8 @@ export function Orders() {
       ? shortDate(ds[0])
       : `All (${shortDate(ds[0])} to ${shortDate(ds[ds.length - 1])})`;
   };
+  // The logged-in seller, for the PDF heading.
+  const sellerName = () => user?.businessName || user?.name || SELLER_INFO.name;
   const deliverySuffix = () =>
     exportDeliveryDate === "all" ? "" : `_delivery_${exportDeliveryDate}`;
   const mobileDigits = (m?: string) => (m ?? "").replace(/\D/g, "").slice(-10);
@@ -1522,17 +1525,18 @@ export function Orders() {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(15);
       doc.text(title, margin.left, 36);
-      // Delivery Date heading, so the reader knows what the file covers.
+      // Seller, then delivery date and total order value, so the reader
+      // knows what the file covers.
       doc.setFontSize(12.5);
       doc.setTextColor(...ink);
-      // Delivery date and the total order value side by side in the heading.
+      doc.text(`Seller: ${sellerName()}`, margin.left, 56);
       const deliveryText = `Delivery Date: ${delivery}`;
-      doc.text(deliveryText, margin.left, 56);
+      doc.text(deliveryText, margin.left, 74);
       doc.setTextColor(30, 58, 138);
       doc.text(
         `Total Order Value: Rs ${money(totals.value)}`,
         margin.left + doc.getTextWidth(deliveryText) + 30,
-        56,
+        74,
       );
       // Grand total as plain text under the heading.
       doc.setFont("helvetica", "normal");
@@ -1541,17 +1545,17 @@ export function Orders() {
       doc.text(
         `${plural(totals.retailers, "retailer")}  |  ${plural(totals.orders, "order")}  |  ${plural(totals.items, "item")}  |  Total QTY ${totals.qty.toLocaleString("en-IN")}`,
         margin.left,
-        74,
+        92,
       );
       doc.setFontSize(9);
       doc.setTextColor(...muted);
       doc.text(
         `Orders created ${shortDate(range.start)} to ${shortDate(range.end)}  |  Amounts in Rs`,
         margin.left,
-        89,
+        107,
       );
       doc.setTextColor(0);
-      let y = 102;
+      let y = 120;
       const lbl = (content: string) => ({
         content,
         styles: { fontStyle: "bold" as const, fillColor: labelFill, textColor: muted },
