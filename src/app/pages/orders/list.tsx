@@ -1534,16 +1534,24 @@ export function Orders() {
         margin.left + doc.getTextWidth(deliveryText) + 30,
         56,
       );
+      // Grand total as plain text under the heading.
       doc.setFont("helvetica", "normal");
+      doc.setFontSize(10.5);
+      doc.setTextColor(...ink);
+      doc.text(
+        `${plural(totals.retailers, "retailer")}  |  ${plural(totals.orders, "order")}  |  ${plural(totals.items, "item")}  |  Total QTY ${totals.qty.toLocaleString("en-IN")}`,
+        margin.left,
+        74,
+      );
       doc.setFontSize(9);
       doc.setTextColor(...muted);
       doc.text(
-        `Orders created ${shortDate(range.start)} to ${shortDate(range.end)}  |  ${totals.retailers} retailers, ${totals.orders} orders  |  Amounts in Rs`,
+        `Orders created ${shortDate(range.start)} to ${shortDate(range.end)}  |  Amounts in Rs`,
         margin.left,
-        71,
+        89,
       );
       doc.setTextColor(0);
-      let y = 84;
+      let y = 102;
       const lbl = (content: string) => ({
         content,
         styles: { fontStyle: "bold" as const, fillColor: labelFill, textColor: muted },
@@ -1629,21 +1637,6 @@ export function Orders() {
         });
         y = lastY() + 18;
       }
-      if (y > pageH - 50) {
-        doc.addPage();
-        y = 36;
-      }
-      autoTable(doc, {
-        startY: y,
-        margin,
-        theme: "grid",
-        styles: { fontSize: 9.5, cellPadding: 5, fontStyle: "bold", fillColor: [191, 219, 254], textColor: [30, 58, 138], lineColor: [147, 197, 253], lineWidth: 0.6 },
-        body: [[
-          { content: `GRAND TOTAL - ${totals.retailers} retailers, ${totals.orders} orders, ${totals.items} items`, colSpan: 3 },
-          { content: `QTY ${totals.qty}`, styles: { halign: "center" } },
-          { content: `Rs ${money(totals.value)}`, styles: { halign: "right" } },
-        ]],
-      });
       doc.save(`${base}.pdf`);
     } else {
       // Same fields, flat: the retailer's details repeat on each line.
