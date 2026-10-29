@@ -30,6 +30,11 @@ export interface BogoScheme {
   mrp: number;
   sellingPrice: number;
   tiers: BogoTier[];
+  /** Set by the distributor. false/absent: the free units are given once when
+   *  a tier is reached (Buy 10 get 1: 20 units → 1 free). true: given for every
+   *  full set of the Buy quantity (20 units → 2 free). The protocol doesn't
+   *  define this, so the scheme states it explicitly. */
+  repeatOnMultiples?: boolean;
   startDate: string;
   endDate: string;
   status: "Active" | "Inactive" | "Scheduled" | "Expired";
@@ -78,36 +83,26 @@ export function tierFreeValue(tier: Partial<BogoTier>, sellingPrice: number): nu
   return +(tier.freeQty * sellingPrice).toFixed(2);
 }
 
-/**
- * Non-blocking sanity check: a tier giving away as many (or more) free units
- * than the buyer had to pay for is almost certainly a seller mistake, but it
- * isn't invalid — the scheme can still be saved. Surfaced as a caution, not
- * a validation error.
- */
-export function tierCaution(tier: Partial<BogoTier>): string | null {
-  if (
-    typeof tier.buyQty !== "number" ||
-    typeof tier.freeQty !== "number" ||
-    Number.isNaN(tier.buyQty) ||
-    Number.isNaN(tier.freeQty)
-  ) {
-    return null;
-  }
-  if (tier.freeQty >= tier.buyQty) {
-    return `Free quantity (${tier.freeQty}) is the same as or more than Buy quantity (${tier.buyQty}) — double check this is intended.`;
-  }
-  return null;
+/** Free units one tier gives for an order of `qty` units: once, or for every full set of Buy quantity. */
+export function tierFreeUnitsFor(tier: Partial<BogoTier>, qty: number, repeat: boolean): number {
+  if (typeof tier.buyQty !== "number" || typeof tier.freeQty !== "number" || tier.buyQty < 1) return 0;
+  if (qty < tier.buyQty) return 0;
+  return repeat ? Math.floor(qty / tier.buyQty) * tier.freeQty : tier.freeQty;
 }
 
-/** Free units a buyer gets when ordering `qty` units, given the tiers (highest qualifying tier wins). */
-export function freeUnitsFor(tiers: Partial<BogoTier>[], qty: number): number {
-  let best = 0;
+/**
+ * Free units a buyer gets when ordering `qty` units, given the tiers. Only the
+ * highest tier the order reaches applies. With `repeat` on, that tier is given
+ * for every full set of its Buy quantity (Buy 10 get 1: 20 units → 2 free).
+ */
+export function freeUnitsFor(tiers: Partial<BogoTier>[], qty: number, repeat = false): number {
+  let best: Partial<BogoTier> | null = null;
   for (const t of tiers) {
     if (typeof t.buyQty === "number" && typeof t.freeQty === "number" && qty >= t.buyQty) {
-      best = Math.max(best, t.freeQty);
+      if (!best || t.buyQty > best.buyQty!) best = t;
     }
   }
-  return best;
+  return best ? tierFreeUnitsFor(best, qty, repeat) : 0;
 }
 
 export function validateBogoTiers(tiers: Partial<BogoTier>[]): BogoError[] {

@@ -24,7 +24,7 @@ import { type CatalogSku, findSku } from "../lib/sku-catalog";
 import {
   type BogoScheme,
   type BogoTier,
-  tierCaution,
+  tierFreeUnitsFor,
   tierFreeValue,
   tierLabel,
   tierPackSizeCaution,
@@ -89,6 +89,9 @@ export function BogoEditorDialog({
   const [endDate, setEndDate] = useState("");
   const [active, setActive] = useState(true);
   const [tiers, setTiers] = useState<Partial<BogoTier>[]>([]);
+  // Whether free units repeat for every full set of the Buy quantity. The
+  // distributor must say so; the protocol leaves it undefined.
+  const [repeat, setRepeat] = useState(false);
   // Cross-SKU: the free item can be a different SKU from the one the buyer
   // pays for — protocol-legal (benefit.item_id is independent of the
   // qualifier's item), but off by default since same-SKU is the common case.
@@ -103,6 +106,7 @@ export function BogoEditorDialog({
       setEndDate(scheme.endDate);
       setActive(scheme.status === "Active" || scheme.status === "Scheduled");
       setTiers(scheme.tiers.map((t) => ({ ...t })));
+      setRepeat(!!scheme.repeatOnMultiples);
       const isCross = !!scheme.freeSkuCode && scheme.freeSkuCode !== scheme.skuCode;
       setCrossSku(isCross);
       setFreeSkuCode(isCross ? scheme.freeSkuCode! : "");
@@ -111,6 +115,7 @@ export function BogoEditorDialog({
       setEndDate(new Date(Date.now() + 30 * 86400 * 1000).toISOString().slice(0, 10));
       setActive(true);
       setTiers([newTier()]);
+      setRepeat(false);
       setCrossSku(false);
       setFreeSkuCode("");
     }
@@ -130,16 +135,16 @@ export function BogoEditorDialog({
     activeCaseBonusSkuCodes.includes(skuCode) ? "Case Bonus" : null,
   ].filter((x): x is string => x !== null);
 
-  // Two kinds of non-blocking caution, both rendered the same way: a
-  // Free≥Buy sanity check, and — since the protocol never defines what unit
-  // item_count uses — a check that Buy Quantity is a whole number of cases
-  // for this SKU, so "Buy 10" on a case-of-12 SKU doesn't silently mean
-  // something different to the seller than to the buyer app.
+  // Non-blocking caution: since the protocol never defines what unit
+  // item_count uses, check that Buy Quantity is a whole number of cases for
+  // this SKU, so "Buy 10" on a case-of-12 SKU doesn't silently mean
+  // something different to the seller than to the buyer app. Free quantity
+  // is never second-guessed: Buy 1 get 2 is a legitimate scheme.
   const cautions = useMemo(
     () =>
       tiers
         .map((t, i) => {
-          const messages = [tierCaution(t), tierPackSizeCaution(t.buyQty, sku?.caseSize ?? 1)].filter(
+          const messages = [tierPackSizeCaution(t.buyQty, sku?.caseSize ?? 1)].filter(
             (m): m is string => m !== null,
           );
           return { i, messages };
@@ -172,6 +177,7 @@ export function BogoEditorDialog({
       mrp: sku.mrp,
       sellingPrice: sku.sellingPrice,
       tiers: finalTiers,
+      repeatOnMultiples: repeat,
       startDate: today,
       endDate,
       status,
@@ -368,6 +374,11 @@ export function BogoEditorDialog({
                           {freeSku && freeValue > 0 && (
                             <p className="text-xs text-gray-500">≈ {inr(freeValue)} of free goods</p>
                           )}
+                          {typeof t.buyQty === "number" && t.buyQty >= 1 && typeof t.freeQty === "number" && (
+                            <p className="text-xs text-gray-500">
+                              Order {t.buyQty * 2} → {tierFreeUnitsFor(t, t.buyQty * 2, repeat)} free
+                            </p>
+                          )}
                         </td>
                         <td className="px-3 py-3 text-right">
                           <Button
@@ -386,6 +397,43 @@ export function BogoEditorDialog({
                   })}
                 </tbody>
               </table>
+            </div>
+          </div>
+
+          <div className="border border-gray-200 rounded-lg px-3 py-2.5 space-y-2">
+            <p className="text-sm font-semibold text-gray-900">When the buyer orders more than the Buy quantity</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {[
+                {
+                  value: false,
+                  title: "Give the free units once",
+                  example: "Buy 10, get 1 free: ordering 20 still gives 1 free.",
+                },
+                {
+                  value: true,
+                  title: "Repeat for every full set",
+                  example: "Buy 10, get 1 free: ordering 20 gives 2 free, 30 gives 3.",
+                },
+              ].map((o) => (
+                <label
+                  key={String(o.value)}
+                  className={`flex items-start gap-2 rounded-md border px-3 py-2 cursor-pointer text-xs ${
+                    repeat === o.value ? "border-blue-500 bg-blue-50/60" : "border-gray-200 hover:bg-gray-50"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="bogo-repeat"
+                    className="mt-0.5"
+                    checked={repeat === o.value}
+                    onChange={() => setRepeat(o.value)}
+                  />
+                  <span>
+                    <span className="block font-medium text-gray-900">{o.title}</span>
+                    <span className="block text-gray-600">{o.example}</span>
+                  </span>
+                </label>
+              ))}
             </div>
           </div>
 
@@ -499,6 +547,13 @@ export function BogoViewDialog({ scheme, onClose, onEdit }: ViewProps) {
                 </tbody>
               </table>
             </div>
+
+            <p className="text-xs text-gray-600">
+              <span className="font-medium text-gray-800">Larger orders:</span>{" "}
+              {scheme.repeatOnMultiples
+                ? "free units repeat for every full set of the Buy quantity."
+                : "free units are given once when a tier is reached."}
+            </p>
 
             <DialogFooter>
               <Button variant="outline" onClick={onClose}>
