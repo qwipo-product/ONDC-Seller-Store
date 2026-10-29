@@ -1161,14 +1161,17 @@ export function Orders() {
   };
 
   // ---- Customer level: Retailer-wise Order Summary ----
-  // Each retailer (customer order) is its own section: a heading block
-  // with the retailer's details, then its product lines — each with the
-  // company and the retailer's ID with that company — and a retailer
-  // total; a grand total closes the sheet. Same in Excel and PDF; CSV
-  // gets the same data as one flat row per product line.
+  // Each retailer (customer order) is its own section. The top table
+  // holds the retailer's static details (order, contact, location,
+  // totals); the product table below holds everything that varies per
+  // line — delivery date, company, Retailer Company ID, SKU — then a
+  // retailer total; a grand total closes the file. Same layout in Excel
+  // and PDF; CSV gets the same fields as one flat row per product line.
   const RETAILER_LINE_COLS = [
+    "Delivery Date",
     "Company",
     "Retailer Company ID",
+    "SKU ID",
     "SKU Name",
     "QTY",
     "Unit MRP (₹)",
@@ -1216,19 +1219,21 @@ export function Orders() {
     no: number;
     name: string;
     orderId: string;
-    mobile: string;
     created: string;
-    delivery: string;
+    status: string;
+    mobile: string;
     area: string;
     address: string;
-    lat: number | "";
-    lng: number | "";
+    latLng: string;
     url: string;
-    status: string;
+    items: number;
+    qty: number;
     value: number;
     lines: {
+      delivery: string;
       company: string;
       retailerCompanyId: string;
+      skuId: string;
       sku: string;
       qty: number;
       mrp: number;
@@ -1245,45 +1250,48 @@ export function Orders() {
         `${x.orderDate} ${x.orderTime ?? ""}`.localeCompare(`${y.orderDate} ${y.orderTime ?? ""}`),
       )[0];
       const mixed = getMixedCustomerOrderStatus(g.orders);
+      const lines = g.orders.flatMap((o) => {
+        const rid = getRetailerCompanyId(o) ?? "Not available";
+        return linesWithEdits(o).map((l) => ({
+          delivery: shortDate(o.expectedDeliveryDate),
+          company: l.company || o.company,
+          retailerCompanyId: rid,
+          skuId: l.skuCode,
+          sku: l.productName,
+          qty: l.qty,
+          mrp: l.originalPricePerUnit,
+          price: l.finalPricePerUnit,
+          subtotal: l.lineTotal,
+        }));
+      });
       return {
         no: gi + 1,
         name: first.retailerName,
         orderId: g.checkoutId,
-        mobile: mobileDigits(first.buyerContact),
         created: `${shortDate(placed.orderDate)}${placed.orderTime ? ` ${placed.orderTime}` : ""}`,
-        delivery: Array.from(new Set(g.orders.map((o) => o.expectedDeliveryDate)))
-          .sort()
-          .map(shortDate)
-          .join(", "),
-        area: areaOf(first.buyerAddress),
-        address: first.buyerAddress ?? "",
-        lat: first.buyerLat ?? "",
-        lng: first.buyerLng ?? "",
-        url: mapsUrl(first),
         status: mixed
           ? `${mixed.label} (${mixed.parts
               .map((p) => `${p.count} ${CUSTOMER_ORDER_STAGES[p.stage].label}`)
               .join(", ")})`
           : stageLabel(first),
+        mobile: mobileDigits(first.buyerContact),
+        area: areaOf(first.buyerAddress),
+        address: first.buyerAddress ?? "",
+        latLng:
+          typeof first.buyerLat === "number" && typeof first.buyerLng === "number"
+            ? `${first.buyerLat}, ${first.buyerLng}`
+            : "",
+        url: mapsUrl(first),
+        items: lines.length,
+        qty: lines.reduce((n, l) => n + l.qty, 0),
         value: round2(g.orders.reduce((n, o) => n + o.orderValue, 0)),
-        lines: g.orders.flatMap((o) => {
-          const rid = getRetailerCompanyId(o) ?? "Not available";
-          return linesWithEdits(o).map((l) => ({
-            company: l.company || o.company,
-            retailerCompanyId: rid,
-            sku: l.productName,
-            qty: l.qty,
-            mrp: l.originalPricePerUnit,
-            price: l.finalPricePerUnit,
-            subtotal: l.lineTotal,
-          }));
-        }),
+        lines,
       };
     });
     const totals = {
       retailers: sections.length,
-      items: sections.reduce((n, s) => n + s.lines.length, 0),
-      qty: sections.reduce((n, s) => n + s.lines.reduce((m, l) => m + l.qty, 0), 0),
+      items: sections.reduce((n, s) => n + s.items, 0),
+      qty: sections.reduce((n, s) => n + s.qty, 0),
       value: round2(sections.reduce((n, s) => n + s.value, 0)),
     };
     return { sections, totals };
@@ -1314,35 +1322,38 @@ export function Orders() {
       const ExcelJS = (await import("exceljs")).default;
       const wb = new ExcelJS.Workbook();
       const ws = wb.addWorksheet("Retailer Summary");
+      const COLS = RETAILER_LINE_COLS.length; // 9
       const thin = { style: "thin" as const, color: { argb: "FFBFC5D2" } };
       const border = { top: thin, left: thin, bottom: thin, right: thin };
-      const navy = { type: "pattern" as const, pattern: "solid" as const, fgColor: { argb: "FF1F3864" } };
-      const label = { type: "pattern" as const, pattern: "solid" as const, fgColor: { argb: "FFEEF2F8" } };
-      const totalFill = { type: "pattern" as const, pattern: "solid" as const, fgColor: { argb: "FFDCE6F1" } };
-      [26, 20, 42, 8, 13, 16, 16].forEach((w, i) => (ws.getColumn(i + 1).width = w));
-      ws.mergeCells(1, 1, 1, 7);
+      const solid = (argb: string) => ({ type: "pattern" as const, pattern: "solid" as const, fgColor: { argb } });
+      const navy = solid("FF1F3864");
+      [13, 24, 19, 17, 40, 8, 12, 14, 15].forEach((w, i) => (ws.getColumn(i + 1).width = w));
+      ws.mergeCells(1, 1, 1, COLS);
       ws.getCell(1, 1).value = title;
       ws.getCell(1, 1).font = { bold: true, size: 14 };
       let r = 3;
-      const kv = (row: number, pairs: [number, number, string, string | { text: string; hyperlink: string }][]) => {
-        for (const [from, to, key, val] of pairs) {
-          const k = ws.getCell(row, from);
+      type Val = string | number | { text: string; hyperlink: string };
+      // One row of three label / value pairs: [label col, value from, value to].
+      const kv = (row: number, pairs: [number, number, number, string, Val, string?][]) => {
+        for (const [keyCol, from, to, key, val, numFmt] of pairs) {
+          const k = ws.getCell(row, keyCol);
           k.value = key;
           k.font = { bold: true, color: { argb: "FF44546A" } };
-          k.fill = label;
+          k.fill = solid("FFEEF2F8");
           k.border = border;
           k.alignment = { vertical: "middle" };
-          if (to > from + 1) ws.mergeCells(row, from + 1, row, to);
-          const v = ws.getCell(row, from + 1);
+          if (to > from) ws.mergeCells(row, from, row, to);
+          const v = ws.getCell(row, from);
           v.value = val;
           v.border = border;
-          v.alignment = { vertical: "middle", wrapText: true };
+          v.alignment = { vertical: "middle", horizontal: "left", wrapText: true };
+          if (numFmt) v.numFmt = numFmt;
           if (typeof val === "object") v.font = { color: { argb: "FF1155CC" }, underline: true };
         }
       };
       for (const s of sections) {
-        // Retailer heading
-        ws.mergeCells(r, 1, r, 7);
+        // Top table — the retailer's static details.
+        ws.mergeCells(r, 1, r, COLS);
         const h = ws.getCell(r, 1);
         h.value = `${s.no}. ${s.name}`;
         h.font = { bold: true, size: 12, color: { argb: "FFFFFFFF" } };
@@ -1350,66 +1361,78 @@ export function Orders() {
         h.alignment = { vertical: "middle" };
         ws.getRow(r).height = 20;
         r++;
-        kv(r++, [[1, 3, "Order ID", s.orderId], [4, 5, "Mobile", s.mobile], [6, 7, "Area", s.area]]);
-        kv(r++, [[1, 3, "Created Date", s.created], [4, 5, "Delivery Date", s.delivery], [6, 7, "Status", s.status]]);
         kv(r++, [
-          [1, 5, "Address", s.address],
-          [6, 7, "Location", s.url ? { text: "Open in Maps", hyperlink: s.url } : "—"],
+          [1, 2, 3, "Order ID", s.orderId],
+          [4, 5, 5, "Created Date", s.created],
+          [6, 7, 9, "Status", s.status],
         ]);
-        if (s.lat !== "") {
-          kv(r++, [[1, 3, "Latitude", String(s.lat)], [4, 5, "Longitude", String(s.lng)], [6, 7, "Order Value (₹)", money(s.value)]]);
-        } else {
-          kv(r++, [[1, 7, "Order Value (₹)", money(s.value)]]);
-        }
-        // Product lines
+        kv(r++, [
+          [1, 2, 3, "Mobile", s.mobile],
+          [4, 5, 5, "Area", s.area],
+          [6, 7, 9, "Location", s.url ? { text: "Open in Maps", hyperlink: s.url } : "—"],
+        ]);
+        kv(r++, [
+          [1, 2, 5, "Address", s.address],
+          [6, 7, 9, "Latitude, Longitude", s.latLng || "—"],
+        ]);
+        kv(r++, [
+          [1, 2, 3, "No. of Items", s.items],
+          [4, 5, 5, "Total QTY", s.qty],
+          [6, 7, 9, "Order Value (₹)", s.value, "#,##0.00"],
+        ]);
+        // Product table — what varies per line.
         const head = ws.getRow(r);
         head.values = RETAILER_LINE_COLS;
         head.eachCell((c) => {
           c.font = { bold: true, color: { argb: "FFFFFFFF" } };
-          c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2F5597" } };
+          c.fill = solid("FF2F5597");
           c.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
           c.border = border;
         });
         r++;
         for (const l of s.lines) {
           const row = ws.getRow(r++);
-          row.values = [l.company, l.retailerCompanyId, l.sku, l.qty, l.mrp, l.price, l.subtotal];
+          row.values = [l.delivery, l.company, l.retailerCompanyId, l.skuId, l.sku, l.qty, l.mrp, l.price, l.subtotal];
           row.eachCell((c, col) => {
             c.border = border;
-            c.alignment = { vertical: "middle", wrapText: true, horizontal: col === 4 ? "center" : col >= 5 ? "right" : "left" };
-            if (col >= 5) c.numFmt = "#,##0.00";
+            c.alignment = {
+              vertical: "middle",
+              wrapText: true,
+              horizontal: col === 6 ? "center" : col >= 7 ? "right" : "left",
+            };
+            if (col >= 7) c.numFmt = "#,##0.00";
           });
         }
         // Retailer total
-        ws.mergeCells(r, 1, r, 3);
+        ws.mergeCells(r, 1, r, 5);
         const t = ws.getRow(r);
-        t.getCell(1).value = `Retailer total — ${s.lines.length} item${s.lines.length === 1 ? "" : "s"}`;
-        t.getCell(4).value = s.lines.reduce((n, l) => n + l.qty, 0);
-        t.getCell(7).value = s.value;
-        for (let c = 1; c <= 7; c++) {
+        t.getCell(1).value = `Retailer total — ${s.items} item${s.items === 1 ? "" : "s"}`;
+        t.getCell(6).value = s.qty;
+        t.getCell(9).value = s.value;
+        for (let c = 1; c <= COLS; c++) {
           const cell = t.getCell(c);
           cell.font = { bold: true };
-          cell.fill = totalFill;
+          cell.fill = solid("FFDCE6F1");
           cell.border = border;
-          cell.alignment = { vertical: "middle", horizontal: c === 4 ? "center" : c >= 5 ? "right" : "left" };
+          cell.alignment = { vertical: "middle", horizontal: c === 6 ? "center" : c >= 7 ? "right" : "left" };
         }
-        t.getCell(7).numFmt = "#,##0.00";
+        t.getCell(9).numFmt = "#,##0.00";
         r += 2;
       }
       // Grand total
-      ws.mergeCells(r, 1, r, 3);
+      ws.mergeCells(r, 1, r, 5);
       const g = ws.getRow(r);
       g.getCell(1).value = `GRAND TOTAL — ${totals.retailers} retailers, ${totals.items} items`;
-      g.getCell(4).value = totals.qty;
-      g.getCell(7).value = totals.value;
-      for (let c = 1; c <= 7; c++) {
+      g.getCell(6).value = totals.qty;
+      g.getCell(9).value = totals.value;
+      for (let c = 1; c <= COLS; c++) {
         const cell = g.getCell(c);
         cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
         cell.fill = navy;
         cell.border = border;
-        cell.alignment = { vertical: "middle", horizontal: c === 4 ? "center" : c >= 5 ? "right" : "left" };
+        cell.alignment = { vertical: "middle", horizontal: c === 6 ? "center" : c >= 7 ? "right" : "left" };
       }
-      g.getCell(7).numFmt = "#,##0.00";
+      g.getCell(9).numFmt = "#,##0.00";
       const buf = await wb.xlsx.writeBuffer();
       saveBlob(
         new Blob([buf], {
@@ -1422,27 +1445,32 @@ export function Orders() {
         import("jspdf"),
         import("jspdf-autotable"),
       ]);
-      const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+      const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
       const pageH = doc.internal.pageSize.getHeight();
-      const margin = { left: 32, right: 32 };
+      const margin = { left: 28, right: 28 };
       const navy: [number, number, number] = [31, 56, 100];
       const labelFill: [number, number, number] = [238, 242, 248];
+      const link: [number, number, number] = [17, 85, 204];
       const lastY = () =>
         (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 40;
       doc.setFont("helvetica", "bold");
       doc.setFontSize(14);
-      doc.text(title, margin.left, 36);
-      let y = 50;
+      doc.text(title, margin.left, 34);
+      let y = 46;
       const lbl = (content: string) => ({
         content,
         styles: { fontStyle: "bold" as const, fillColor: labelFill, textColor: [68, 84, 106] as [number, number, number] },
       });
       for (const s of sections) {
-        // Keep the heading with at least a few lines on the same page.
-        if (y > pageH - 190) {
+        // Start a retailer on a new page when the whole section won't fit
+        // (unless it is longer than a page anyway), and never leave a
+        // heading alone at the bottom of a page.
+        const needed = 100 + (s.lines.length + 2) * 15;
+        if ((y + needed > pageH - 30 && needed < pageH - 80) || y > pageH - 170) {
           doc.addPage();
-          y = 40;
+          y = 36;
         }
+        // Top table — the retailer's static details.
         autoTable(doc, {
           startY: y,
           margin,
@@ -1450,18 +1478,19 @@ export function Orders() {
           styles: { fontSize: 8, cellPadding: 3.5, lineColor: [191, 197, 210], lineWidth: 0.4, valign: "middle" },
           head: [[{ content: `${s.no}. ${s.name}`, colSpan: 6, styles: { fillColor: navy, textColor: 255, fontSize: 10.5, fontStyle: "bold" } }]],
           body: [
-            [lbl("Order ID"), s.orderId, lbl("Mobile"), s.mobile, lbl("Area"), s.area],
-            [lbl("Created Date"), s.created, lbl("Delivery Date"), s.delivery, lbl("Order Value (Rs)"), money(s.value)],
-            [lbl("Address"), { content: s.address, colSpan: 3 }, lbl("Location"), { content: s.url ? "Open in Maps" : "-", styles: s.url ? { textColor: [17, 85, 204] as [number, number, number] } : {} }],
-            [lbl("Status"), { content: s.status, colSpan: 5 }],
+            [lbl("Order ID"), s.orderId, lbl("Created Date"), s.created, lbl("Status"), s.status],
+            [lbl("Mobile"), s.mobile, lbl("Area"), s.area, lbl("Location"), { content: s.url ? "Open in Maps" : "-", styles: s.url ? { textColor: link } : {} }],
+            [lbl("Address"), { content: s.address, colSpan: 3 }, lbl("Latitude, Longitude"), s.latLng || "-"],
+            [lbl("No. of Items"), String(s.items), lbl("Total QTY"), String(s.qty), lbl("Order Value (Rs)"), money(s.value)],
           ],
-          columnStyles: { 0: { cellWidth: 72 }, 2: { cellWidth: 70 }, 4: { cellWidth: 78 } },
+          columnStyles: { 0: { cellWidth: 80 }, 2: { cellWidth: 80 }, 4: { cellWidth: 96 } },
           didDrawCell: (data) => {
-            if (data.section === "body" && data.row.index === 2 && data.column.index === 5 && s.url) {
+            if (data.section === "body" && data.row.index === 1 && data.column.index === 5 && s.url) {
               doc.link(data.cell.x, data.cell.y, data.cell.width, data.cell.height, { url: s.url });
             }
           },
         });
+        // Product table — what varies per line.
         autoTable(doc, {
           startY: lastY(),
           margin,
@@ -1469,34 +1498,47 @@ export function Orders() {
           styles: { fontSize: 7.5, cellPadding: 3, lineColor: [191, 197, 210], lineWidth: 0.4, valign: "middle" },
           headStyles: { fillColor: [47, 85, 151], textColor: 255, fontStyle: "bold", halign: "center" },
           head: [RETAILER_LINE_COLS.map((c) => c.replace("(₹)", "(Rs)"))],
-          body: s.lines.map((l) => [l.company, l.retailerCompanyId, l.sku, String(l.qty), money(l.mrp), money(l.price), money(l.subtotal)]),
+          body: s.lines.map((l) => [
+            l.delivery,
+            l.company,
+            l.retailerCompanyId,
+            l.skuId,
+            l.sku,
+            String(l.qty),
+            money(l.mrp),
+            money(l.price),
+            money(l.subtotal),
+          ]),
           foot: [[
-            { content: `Retailer total - ${s.lines.length} item${s.lines.length === 1 ? "" : "s"}`, colSpan: 3 },
-            String(s.lines.reduce((n, l) => n + l.qty, 0)),
+            { content: `Retailer total - ${s.items} item${s.items === 1 ? "" : "s"}`, colSpan: 5 },
+            String(s.qty),
             "",
             "",
             money(s.value),
           ]],
           footStyles: { fillColor: [220, 230, 241], textColor: [20, 20, 20], fontStyle: "bold" },
+          showFoot: "lastPage",
           columnStyles: {
-            0: { cellWidth: 92 },
-            1: { cellWidth: 74 },
-            3: { halign: "center", cellWidth: 30 },
-            4: { halign: "right", cellWidth: 52 },
-            5: { halign: "right", cellWidth: 60 },
-            6: { halign: "right", cellWidth: 62 },
+            0: { cellWidth: 62 },
+            1: { cellWidth: 110 },
+            2: { cellWidth: 84 },
+            3: { cellWidth: 84 },
+            5: { halign: "center", cellWidth: 34 },
+            6: { halign: "right", cellWidth: 58 },
+            7: { halign: "right", cellWidth: 70 },
+            8: { halign: "right", cellWidth: 70 },
           },
           didParseCell: (data) => {
-            if (data.section === "foot" && data.column.index >= 3) {
-              data.cell.styles.halign = data.column.index === 3 ? "center" : "right";
+            if (data.section === "foot" && data.column.index >= 5) {
+              data.cell.styles.halign = data.column.index === 5 ? "center" : "right";
             }
           },
         });
         y = lastY() + 16;
       }
-      if (y > pageH - 60) {
+      if (y > pageH - 50) {
         doc.addPage();
-        y = 40;
+        y = 36;
       }
       autoTable(doc, {
         startY: y,
@@ -1511,19 +1553,20 @@ export function Orders() {
       });
       doc.save(`${base}.pdf`);
     } else {
+      // Same fields, flat: the retailer's details repeat on each line.
       const headers = [
         "S.No",
         "Order ID",
+        "Created Date",
+        "Status",
         "Buyer Name",
         "Buyer Mobile",
-        "Retailer Address",
         "Area",
-        "Latitude",
-        "Longitude",
+        "Retailer Address",
+        "Latitude, Longitude",
         "GPS Location",
-        "Created Date",
-        "Delivery Date",
-        "Status",
+        "No. of Items",
+        "Total QTY",
         "Order Value (₹)",
         ...RETAILER_LINE_COLS,
       ];
@@ -1531,19 +1574,21 @@ export function Orders() {
         s.lines.map((l) => [
           s.no,
           s.orderId,
+          s.created,
+          s.status,
           s.name,
           s.mobile,
-          s.address,
           s.area,
-          s.lat,
-          s.lng,
+          s.address,
+          s.latLng,
           s.url,
-          s.created,
-          s.delivery,
-          s.status,
+          s.items,
+          s.qty,
           s.value,
+          l.delivery,
           l.company,
           l.retailerCompanyId,
+          l.skuId,
           l.sku,
           l.qty,
           l.mrp,
