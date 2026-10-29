@@ -1041,65 +1041,17 @@ export function Orders() {
   };
 
   // ---- Customer level / Order level exports ----
-  // Summary sheets with only what the seller needs to plan, deliver and
-  // reconcile — no product lines. Item level is the original export below.
-  const joinUnique = (values: (string | undefined)[]) =>
-    Array.from(new Set(values.filter((v): v is string => !!v))).join(", ");
+  // Order level: one row per company order with only what the seller
+  // needs. Customer level is the Retailer-wise Order Summary below; Item
+  // level is the original export.
   const stageLabel = (o: Order) => {
     const st = getCustomerOrderStage(o);
     return st === "logistics" ? "With 3PL Partner" : CUSTOMER_ORDER_STAGES[st].label;
   };
-  const customerOrderStatusText = (list: Order[]) => {
-    const mixed = getMixedCustomerOrderStatus(list);
-    if (!mixed) return stageLabel(list[0]);
-    return `${mixed.label} (${mixed.parts
-      .map((p) => `${p.count} ${CUSTOMER_ORDER_STAGES[p.stage].label}`)
-      .join(", ")})`;
-  };
   const orderTypeLabel = (o: Order) =>
     getOrderType(o) === "beat" ? "Beat" : "Non-Beat";
 
-  const buildLevelSheet = (level: "customer" | "order", list: Order[]) => {
-    if (level === "customer") {
-      const headers = [
-        "Order Date",
-        "Delivery Date",
-        "Business Name",
-        "Mobile",
-        "Delivery Address",
-        "Order Type",
-        "Beat Name",
-        "Company Orders",
-        "Order IDs",
-        "Companies",
-        "Items",
-        "Customer Order Value",
-        "Status",
-        "Payment Mode",
-      ];
-      const groups = groupOrdersByCheckout(list);
-      const rows = groups.map((g) => {
-        const first = g.orders[0];
-        return [
-          g.orders.map((o) => o.orderDate).sort()[0],
-          joinUnique(g.orders.map((o) => o.expectedDeliveryDate).sort()),
-          first.retailerName,
-          first.buyerContact ?? "",
-          first.buyerAddress ?? "",
-          joinUnique(g.orders.map(orderTypeLabel)),
-          joinUnique(g.orders.map((o) => o.beatName)),
-          g.orders.length,
-          // Each company order in this customer order, one per line.
-          g.orders.map((o) => `${o.id} (${o.company})`).join("\n"),
-          joinUnique(g.orders.map((o) => o.company)),
-          g.orders.reduce((n, o) => n + getOrderLines(o).length, 0),
-          g.orders.reduce((n, o) => n + o.orderValue, 0),
-          customerOrderStatusText(g.orders),
-          joinUnique(g.orders.map((o) => o.paymentMode)),
-        ];
-      });
-      return { headers, rows, moneyCols: [11], records: groups.length };
-    }
+  const buildOrderLevelSheet = (list: Order[]) => {
     const headers = [
       "Order ID",
       "Order Date",
@@ -1212,12 +1164,364 @@ export function Orders() {
     doc.save(fileName);
   };
 
+  // ---- Customer level: Retailer-wise Order Summary ----
+  // One block per customer order. The buyer's cells span every product
+  // line of the block, each company order's cells span its own lines,
+  // then one row per product line and a TOTAL row. The same layout goes
+  // to Excel (merged cells, real workbook) and PDF; CSV gets the rows
+  // with the spanned values on the first line only.
+  const RETAILER_SUMMARY_COLS = [
+    "S.No",
+    "Order ID",
+    "Created Date",
+    "Delivery Date",
+    "Buyer Name",
+    "Buyer Mobile",
+    "Retailer Address",
+    "Area",
+    "Latitude",
+    "Longitude",
+    "GPS Location",
+    "Order Value (₹)",
+    "No. of Items",
+    "Status",
+    "SKU Name",
+    "QTY",
+    "Unit MRP (₹)",
+    "Unit Selling Price (₹)",
+    "Line Subtotal (₹)",
+  ];
+  // Columns that span a whole customer order / one company order.
+  const SPAN_CUSTOMER = [0, 4, 5, 6, 7, 8, 9, 10];
+  const SPAN_ORDER = [1, 2, 3, 11, 12, 13];
+  const SUMMARY_MONEY = [11, 16, 17, 18];
+  const GPS_COL = 10;
+
+  const shortDate = (iso: string) => {
+    const d = new Date(`${iso}T00:00:00`);
+    if (Number.isNaN(d.getTime())) return iso;
+    const mon = d.toLocaleString("en-US", { month: "short" });
+    return `${String(d.getDate()).padStart(2, "0")}-${mon}-${d.getFullYear()}`;
+  };
+  // Locality from the address — the part before the city.
+  const areaOf = (address?: string) => {
+    const parts = (address ?? "").split(",").map((p) => p.trim()).filter(Boolean);
+    parts.pop(); // state + PIN
+    const last = parts[parts.length - 1] ?? "";
+    return /^(hyderabad|bengaluru|bangalore|mumbai|pune|chennai|new delhi|delhi)$/i.test(last)
+      ? parts[parts.length - 2] ?? last
+      : last;
+  };
+  const mobileDigits = (m?: string) => (m ?? "").replace(/\D/g, "").slice(-10);
+  const mapsUrl = (o: Order) =>
+    typeof o.buyerLat === "number" && typeof o.buyerLng === "number"
+      ? `https://www.google.com/maps?q=${o.buyerLat},${o.buyerLng}`
+      : "";
+  // Product lines with any seller quantity edits applied, so the lines
+  // add up to the order value.
+  const linesWithEdits = (o: Order): OrderLineItem[] =>
+    getOrderLines(o).map((l) => {
+      const mod = o.qtyModifications?.[l.skuCode];
+      return mod
+        ? {
+            ...l,
+            qty: mod.modifiedQty,
+            finalPricePerUnit: mod.pricePerUnit,
+            lineTotal: Math.round(mod.modifiedQty * mod.pricePerUnit * 100) / 100,
+          }
+        : l;
+    });
+
+  type SummaryRow = {
+    cells: (string | number)[];
+    block: number;
+    customerStart: boolean;
+    customerSpan: number;
+    orderStart: boolean;
+    orderSpan: number;
+    url: string;
+  };
+
+  const buildRetailerSummary = (list: Order[]) => {
+    const groups = groupOrdersByCheckout(list);
+    const rows: SummaryRow[] = [];
+    const totals = { value: 0, items: 0, qty: 0, subtotal: 0 };
+    groups.forEach((g, gi) => {
+      const first = g.orders[0];
+      const withLines = g.orders.map((o) => ({ o, lines: linesWithEdits(o) }));
+      const customerSpan = withLines.reduce((n, x) => n + x.lines.length, 0);
+      const url = mapsUrl(first);
+      withLines.forEach(({ o, lines }, oi) => {
+        totals.value += o.orderValue;
+        totals.items += lines.length;
+        lines.forEach((l, li) => {
+          totals.qty += l.qty;
+          totals.subtotal += l.lineTotal;
+          rows.push({
+            cells: [
+              gi + 1,
+              o.id,
+              `${shortDate(o.orderDate)}${o.orderTime ? ` ${o.orderTime}` : ""}`,
+              shortDate(o.expectedDeliveryDate),
+              first.retailerName,
+              mobileDigits(first.buyerContact),
+              first.buyerAddress ?? "",
+              areaOf(first.buyerAddress),
+              first.buyerLat ?? "",
+              first.buyerLng ?? "",
+              url,
+              o.orderValue,
+              lines.length,
+              stageLabel(o),
+              l.productName,
+              l.qty,
+              l.originalPricePerUnit,
+              l.finalPricePerUnit,
+              l.lineTotal,
+            ],
+            block: gi,
+            customerStart: oi === 0 && li === 0,
+            customerSpan,
+            orderStart: li === 0,
+            orderSpan: lines.length,
+            url,
+          });
+        });
+      });
+    });
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+    totals.value = round2(totals.value);
+    totals.subtotal = round2(totals.subtotal);
+    const totalCells = RETAILER_SUMMARY_COLS.map((_, i) =>
+      i === 4
+        ? "TOTAL"
+        : i === 11
+          ? totals.value
+          : i === 12
+            ? totals.items
+            : i === 15
+              ? totals.qty
+              : i === 18
+                ? totals.subtotal
+                : "",
+    );
+    return { groups, rows, totalCells };
+  };
+
+  const saveBlob = (blob: Blob, fileName: string) => {
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", fileName);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const exportRetailerSummary = async (
+    list: Order[],
+    range: { start: string; end: string },
+  ) => {
+    const { groups, rows, totalCells } = buildRetailerSummary(list);
+    const title = `${SELLER_INFO.name} — Retailer-wise Order Summary`;
+    const base = `orders_customer-level_${range.start}_to_${range.end}`;
+    const isSpanned = (r: SummaryRow, i: number) =>
+      (SPAN_CUSTOMER.includes(i) && !r.customerStart) ||
+      (SPAN_ORDER.includes(i) && !r.orderStart);
+
+    if (exportFormat === "xlsx") {
+      const ExcelJS = (await import("exceljs")).default;
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet("Retailer Summary", {
+        views: [{ state: "frozen", ySplit: 3 }],
+      });
+      const n = RETAILER_SUMMARY_COLS.length;
+      const thin = { style: "thin" as const, color: { argb: "FFBFC5D2" } };
+      const border = { top: thin, left: thin, bottom: thin, right: thin };
+      ws.mergeCells(1, 1, 1, n);
+      ws.getCell(1, 1).value = title;
+      ws.getCell(1, 1).font = { bold: true, size: 13 };
+      const head = ws.getRow(3);
+      head.values = RETAILER_SUMMARY_COLS;
+      head.height = 30;
+      head.eachCell((c) => {
+        c.font = { bold: true, color: { argb: "FFFFFFFF" } };
+        c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1F3864" } };
+        c.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+        c.border = border;
+      });
+      rows.forEach((r, k) => {
+        const rowNo = 4 + k;
+        const row = ws.getRow(rowNo);
+        r.cells.forEach((v, i) => {
+          const c = row.getCell(i + 1);
+          if (!isSpanned(r, i)) {
+            c.value =
+              i === GPS_COL
+                ? r.url
+                  ? { text: "Open in Maps", hyperlink: r.url }
+                  : ""
+                : v;
+          }
+          c.border = border;
+          c.alignment = {
+            vertical: "middle",
+            wrapText: true,
+            horizontal: i === 0 || i === 12 || i === 15 ? "center" : typeof v === "number" ? "right" : "left",
+          };
+          if (SUMMARY_MONEY.includes(i)) c.numFmt = "#,##0.00";
+          if (i === 8 || i === 9) c.numFmt = "0.000000";
+          if (i === GPS_COL && r.url) c.font = { color: { argb: "FF1155CC" }, underline: true };
+          if (r.block % 2 === 1) {
+            c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF3F6FB" } };
+          }
+        });
+        if (r.customerStart && r.customerSpan > 1) {
+          for (const i of SPAN_CUSTOMER) ws.mergeCells(rowNo, i + 1, rowNo + r.customerSpan - 1, i + 1);
+        }
+        if (r.orderStart && r.orderSpan > 1) {
+          for (const i of SPAN_ORDER) ws.mergeCells(rowNo, i + 1, rowNo + r.orderSpan - 1, i + 1);
+        }
+      });
+      const total = ws.getRow(4 + rows.length);
+      total.values = totalCells;
+      total.eachCell({ includeEmpty: true }, (c, col) => {
+        c.font = { bold: true };
+        c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDCE6F1" } };
+        c.border = border;
+        if (SUMMARY_MONEY.includes(col - 1)) c.numFmt = "#,##0.00";
+        c.alignment = { vertical: "middle", horizontal: col - 1 === 4 ? "left" : "right" };
+      });
+      [6, 26, 20, 13, 28, 13, 40, 15, 11, 11, 13, 14, 9, 18, 40, 7, 11, 13, 14].forEach(
+        (w, i) => (ws.getColumn(i + 1).width = w),
+      );
+      const buf = await wb.xlsx.writeBuffer();
+      saveBlob(
+        new Blob([buf], {
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        }),
+        `${base}.xlsx`,
+      );
+    } else if (exportFormat === "pdf") {
+      const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+        import("jspdf"),
+        import("jspdf-autotable"),
+      ]);
+      const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a3" });
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(13);
+      // Built-in PDF fonts have no rupee sign or em dash.
+      doc.text(title.replace("—", "-"), 28, 34);
+      const money = (v: string | number) =>
+        typeof v === "number"
+          ? v.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+          : v;
+      const zebra: [number, number, number] = [243, 246, 251];
+      const body = rows.map((r) =>
+        r.cells.flatMap((v, i) => {
+          if (isSpanned(r, i)) return [];
+          const span = SPAN_CUSTOMER.includes(i)
+            ? r.customerSpan
+            : SPAN_ORDER.includes(i)
+              ? r.orderSpan
+              : 1;
+          return [
+            {
+              content:
+                i === GPS_COL
+                  ? r.url
+                    ? "Open in Maps"
+                    : ""
+                  : SUMMARY_MONEY.includes(i)
+                    ? money(v)
+                    : i === 8 || i === 9
+                      ? typeof v === "number"
+                        ? v.toFixed(6)
+                        : v
+                      : String(v),
+              rowSpan: span,
+              url: i === GPS_COL ? r.url : undefined,
+              styles: {
+                ...(r.block % 2 === 1 ? { fillColor: zebra } : {}),
+                ...(i === GPS_COL && r.url ? { textColor: [17, 85, 204] as [number, number, number] } : {}),
+              },
+            },
+          ];
+        }),
+      );
+      body.push(
+        totalCells.map((v, i) => ({
+          content: SUMMARY_MONEY.includes(i) ? money(v) : String(v),
+          rowSpan: 1,
+          url: undefined,
+          styles: { fontStyle: "bold" as const, fillColor: [220, 230, 241] as [number, number, number] },
+        })),
+      );
+      autoTable(doc, {
+        head: [RETAILER_SUMMARY_COLS.map((h) => h.replace("(₹)", "(Rs)"))],
+        body,
+        startY: 46,
+        margin: { left: 20, right: 20 },
+        theme: "grid",
+        styles: { fontSize: 7, cellPadding: 3, valign: "middle", lineColor: [191, 197, 210], lineWidth: 0.4 },
+        headStyles: { fillColor: [31, 56, 100], textColor: 255, fontStyle: "bold", halign: "center" },
+        // Fixed widths filling the A3 page (1150pt between margins), so
+        // an Order ID or mobile number never breaks across lines.
+        columnStyles: Object.fromEntries(
+          [26, 108, 60, 56, 90, 52, 124, 50, 44, 44, 52, 50, 36, 54, 140, 30, 40, 44, 50].map(
+            (w, i) => [
+              i,
+              {
+                cellWidth: w,
+                halign:
+                  i === 0 || i === 12 || i === 15
+                    ? ("center" as const)
+                    : [8, 9, 11, 16, 17, 18].includes(i)
+                      ? ("right" as const)
+                      : ("left" as const),
+              },
+            ],
+          ),
+        ),
+        didDrawCell: (data) => {
+          const raw = data.cell.raw as { url?: string } | undefined;
+          if (data.section === "body" && raw?.url) {
+            doc.link(data.cell.x, data.cell.y, data.cell.width, data.cell.height, { url: raw.url });
+          }
+        },
+      });
+      doc.save(`${base}.pdf`);
+    } else {
+      const csvCells = (r: SummaryRow) =>
+        r.cells.map((v, i) => (isSpanned(r, i) ? "" : v));
+      const csv = [
+        RETAILER_SUMMARY_COLS,
+        ...rows.map(csvCells),
+        totalCells,
+      ]
+        .map((r) => r.map(escapeCsv).join(","))
+        .join("\r\n");
+      saveBlob(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" }), `${base}.csv`);
+    }
+    toast.success(
+      `Successfully exported ${groups.length} customer order(s) (${list.length} company orders) from ${range.start} to ${range.end}`,
+    );
+    setIsExportDialogOpen(false);
+  };
+
   const exportLevelSheet = (
     level: "customer" | "order",
     list: Order[],
     range: { start: string; end: string },
   ) => {
-    const { headers, rows, moneyCols, records } = buildLevelSheet(level, list);
+    if (level === "customer") {
+      exportRetailerSummary(list, range).catch(() =>
+        toast.error("Could not create the export. Please try again."),
+      );
+      return;
+    }
+    const { headers, rows, moneyCols, records } = buildOrderLevelSheet(list);
     const base = `orders_${level}-level_${range.start}_to_${range.end}`;
     const what =
       level === "customer"
