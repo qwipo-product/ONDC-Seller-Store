@@ -784,9 +784,8 @@ export function OrderDetail() {
             </Button>
             {/* Customer-order mode is a 2×2 grid so the partial status
                 breakdown (row 2) starts right under the status badge
-                (row 1, column 2). The breakdown takes the badge
-                column's width and wraps inside it, so the header stays
-                narrow enough for the buttons. */}
+                (row 1, column 2), on one line. On narrower screens the
+                buttons move to their own line, right-aligned. */}
             <div
               className={
                 isCustomerMode
@@ -848,7 +847,7 @@ export function OrderDetail() {
               {/* Partial status breakdown, side by side, starting under
                   the status badge. */}
               {isCustomerMode && (
-                <div className="w-0 min-w-full flex flex-wrap items-center gap-x-2 text-[11px] leading-4 text-gray-600">
+                <div className="flex items-center gap-x-2 whitespace-nowrap text-[11px] leading-4 text-gray-600">
                   {customerMixed?.parts.map((p) => (
                     <span key={p.stage} className="inline-flex items-center gap-1 whitespace-nowrap">
                       <span
