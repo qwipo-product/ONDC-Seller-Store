@@ -782,7 +782,18 @@ export function OrderDetail() {
               <ArrowLeft className="h-4 w-4" />
               Back
             </Button>
-            <div className="min-w-0">
+            {/* Customer-order mode is a 2×2 grid so the partial status
+                breakdown (row 2) starts right under the status badge
+                (row 1, column 2). The breakdown takes the badge
+                column's width and wraps inside it, so the header stays
+                narrow enough for the buttons. */}
+            <div
+              className={
+                isCustomerMode
+                  ? "min-w-0 grid grid-cols-[auto_minmax(150px,auto)] items-center gap-x-2 gap-y-0.5"
+                  : "min-w-0"
+              }
+            >
               <div className="flex items-center gap-2 flex-wrap">
                 {/* Customer-order mode leads with the customer — one
                     name across all its company orders. */}
@@ -798,21 +809,6 @@ export function OrderDetail() {
                       {checkoutOrders.length === 1 ? "" : "s"}
                     </Badge>
                     {getChannelBadge(orderData.channel)}
-                    {/* Customer order status last, after the marketplace —
-                        "Partially …" when the company orders are in
-                        different states (breakdown on the line below). */}
-                    {customerMixed ? (
-                      <Badge className={customerMixed.badge}>{customerMixed.label}</Badge>
-                    ) : checkoutOrders.length > 0 &&
-                      getCustomerOrderStage(checkoutOrders[0]) === "logistics" ? (
-                      // Every company order with the logistics partner
-                      // reads as such, like the rows.
-                      <Badge className={CUSTOMER_ORDER_STAGES.logistics.badge}>
-                        With 3PL Partner
-                      </Badge>
-                    ) : (
-                      getStatusBadge(orderData)
-                    )}
                   </>
                 ) : (
                   <>
@@ -821,6 +817,25 @@ export function OrderDetail() {
                   </>
                 )}
               </div>
+              {/* Customer order status last, after the marketplace —
+                  "Partially …" when the company orders are in
+                  different states. */}
+              {isCustomerMode && (
+                <div className="justify-self-start">
+                  {customerMixed ? (
+                    <Badge className={customerMixed.badge}>{customerMixed.label}</Badge>
+                  ) : checkoutOrders.length > 0 &&
+                    getCustomerOrderStage(checkoutOrders[0]) === "logistics" ? (
+                    // Every company order with the logistics partner
+                    // reads as such, like the rows.
+                    <Badge className={CUSTOMER_ORDER_STAGES.logistics.badge}>
+                      With 3PL Partner
+                    </Badge>
+                  ) : (
+                    getStatusBadge(orderData)
+                  )}
+                </div>
+              )}
               <div className="flex items-center gap-1 text-[11px] text-gray-500 mt-0.5">
                 <Calendar className="h-3 w-3" />
                 {orderData.orderTime}
@@ -829,23 +844,21 @@ export function OrderDetail() {
                 <span className="font-mono" title="Qwipo Customer ID">
                   {orderData.qwipoCustomerId ?? orderData.channelOrderId}
                 </span>
-                {/* Partial status breakdown, side by side. */}
-                {isCustomerMode && customerMixed && (
-                  <>
-                    <span className="mx-1">•</span>
-                    <span className="flex flex-wrap items-center gap-x-2 text-gray-600">
-                      {customerMixed.parts.map((p) => (
-                        <span key={p.stage} className="inline-flex items-center gap-1">
-                          <span
-                            className={`h-1.5 w-1.5 rounded-full ${CUSTOMER_ORDER_STAGES[p.stage].dot}`}
-                          />
-                          {p.count} {CUSTOMER_ORDER_STAGES[p.stage].label}
-                        </span>
-                      ))}
-                    </span>
-                  </>
-                )}
               </div>
+              {/* Partial status breakdown, side by side, starting under
+                  the status badge. */}
+              {isCustomerMode && (
+                <div className="w-0 min-w-full flex flex-wrap items-center gap-x-2 text-[11px] leading-4 text-gray-600">
+                  {customerMixed?.parts.map((p) => (
+                    <span key={p.stage} className="inline-flex items-center gap-1 whitespace-nowrap">
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full ${CUSTOMER_ORDER_STAGES[p.stage].dot}`}
+                      />
+                      {p.count} {CUSTOMER_ORDER_STAGES[p.stage].label}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
           {/* ml-auto keeps the buttons on the right even when the
