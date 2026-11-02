@@ -470,6 +470,8 @@ export function OrderDetail() {
   // Bulk actions in customer-order mode — the company orders the open
   // Confirm / Cancel popup acts on together (null = single order).
   const [bulkIds, setBulkIds] = useState<string[] | null>(null);
+  // "Partially …" status when the company orders differ; null otherwise.
+  const customerMixed = getMixedCustomerOrderStatus(checkoutOrders);
   const confirmableIds = checkoutOrders
     .filter((o) => o.status === "New")
     .map((o) => o.id);
@@ -795,45 +797,29 @@ export function OrderDetail() {
                       {checkoutOrders.length} company order
                       {checkoutOrders.length === 1 ? "" : "s"}
                     </Badge>
-                    {/* Customer order status — "Partially …" when the
-                        company orders are in different states. */}
-                    {(() => {
-                      const mixed = getMixedCustomerOrderStatus(checkoutOrders);
-                      if (!mixed) {
-                        // Every company order in one state. With the
-                        // logistics partner reads as such, like the rows.
-                        return checkoutOrders.length > 0 &&
-                          getCustomerOrderStage(checkoutOrders[0]) === "logistics" ? (
-                          <Badge className={CUSTOMER_ORDER_STAGES.logistics.badge}>
-                            With 3PL Partner
-                          </Badge>
-                        ) : (
-                          getStatusBadge(orderData)
-                        );
-                      }
-                      // Breakdown sits under the badge (as in the list)
-                      // so the header stays on one line with the buttons.
-                      return (
-                        <span className="inline-flex flex-col items-start gap-0.5">
-                          <Badge className={mixed.badge}>{mixed.label}</Badge>
-                          <span className="flex flex-col items-start text-[11px] leading-4 text-gray-600">
-                            {mixed.parts.map((p) => (
-                              <span key={p.stage} className="inline-flex items-center gap-1">
-                                <span
-                                  className={`h-1.5 w-1.5 rounded-full ${CUSTOMER_ORDER_STAGES[p.stage].dot}`}
-                                />
-                                {p.count} {CUSTOMER_ORDER_STAGES[p.stage].label}
-                              </span>
-                            ))}
-                          </span>
-                        </span>
-                      );
-                    })()}
+                    {getChannelBadge(orderData.channel)}
+                    {/* Customer order status last, after the marketplace —
+                        "Partially …" when the company orders are in
+                        different states (breakdown on the line below). */}
+                    {customerMixed ? (
+                      <Badge className={customerMixed.badge}>{customerMixed.label}</Badge>
+                    ) : checkoutOrders.length > 0 &&
+                      getCustomerOrderStage(checkoutOrders[0]) === "logistics" ? (
+                      // Every company order with the logistics partner
+                      // reads as such, like the rows.
+                      <Badge className={CUSTOMER_ORDER_STAGES.logistics.badge}>
+                        With 3PL Partner
+                      </Badge>
+                    ) : (
+                      getStatusBadge(orderData)
+                    )}
                   </>
                 ) : (
-                  getStatusBadge(orderData)
+                  <>
+                    {getStatusBadge(orderData)}
+                    {getChannelBadge(orderData.channel)}
+                  </>
                 )}
-                {getChannelBadge(orderData.channel)}
               </div>
               <div className="flex items-center gap-1 text-[11px] text-gray-500 mt-0.5">
                 <Calendar className="h-3 w-3" />
@@ -843,6 +829,22 @@ export function OrderDetail() {
                 <span className="font-mono" title="Qwipo Customer ID">
                   {orderData.qwipoCustomerId ?? orderData.channelOrderId}
                 </span>
+                {/* Partial status breakdown, side by side. */}
+                {isCustomerMode && customerMixed && (
+                  <>
+                    <span className="mx-1">•</span>
+                    <span className="flex flex-wrap items-center gap-x-2 text-gray-600">
+                      {customerMixed.parts.map((p) => (
+                        <span key={p.stage} className="inline-flex items-center gap-1">
+                          <span
+                            className={`h-1.5 w-1.5 rounded-full ${CUSTOMER_ORDER_STAGES[p.stage].dot}`}
+                          />
+                          {p.count} {CUSTOMER_ORDER_STAGES[p.stage].label}
+                        </span>
+                      ))}
+                    </span>
+                  </>
+                )}
               </div>
             </div>
           </div>
