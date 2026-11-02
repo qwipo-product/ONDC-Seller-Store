@@ -844,7 +844,9 @@ export function OrderDetail() {
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
+          {/* ml-auto keeps the buttons on the right even when the
+              header wraps them onto their own line. */}
+          <div className="flex items-center justify-end gap-2 flex-wrap ml-auto">
               {/* Status-aware CTAs.
                   New → Confirm Order + Cancel.
                   Confirmed → Mark as Delivered + Cancel.
