@@ -811,10 +811,12 @@ export function OrderDetail() {
                           getStatusBadge(orderData)
                         );
                       }
+                      // Breakdown sits under the badge (as in the list)
+                      // so the header stays on one line with the buttons.
                       return (
-                        <>
+                        <span className="inline-flex flex-col items-start gap-0.5">
                           <Badge className={mixed.badge}>{mixed.label}</Badge>
-                          <span className="flex flex-wrap items-center gap-x-2 text-[11px] text-gray-600">
+                          <span className="flex flex-col items-start text-[11px] leading-4 text-gray-600">
                             {mixed.parts.map((p) => (
                               <span key={p.stage} className="inline-flex items-center gap-1">
                                 <span
@@ -824,7 +826,7 @@ export function OrderDetail() {
                               </span>
                             ))}
                           </span>
-                        </>
+                        </span>
                       );
                     })()}
                   </>
