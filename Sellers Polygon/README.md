@@ -1,9 +1,9 @@
 # Sellers Polygon
 
 Production delivery-beat polygons for every **STD 040 (Hyderabad, Telangana)**
-seller on seller-portal.bms.qwipo.com, captured 2026-09-28 (topped up 2026-10-08, 2026-10-09).
+seller on seller-portal.bms.qwipo.com, captured 2026-09-28 (topped up 2026-10-08, 2026-10-09, 2026-11-04).
 
-- **78 sellers** (59 active), **171 companies**, **2592 beats**
+- **90 sellers** (71 active), **219 companies**, **3043 beats**
 - Layout: `<BUSINESS NAME>_<Mobile>/<Company>/<Beat>.geojson`
 - `sellers-manifest.json` — one row per seller (local id, status, counts)
 - `_captures/` — the raw API captures (full + top-ups) this tree was built from
@@ -12,7 +12,7 @@ The app's seed data (`src/app/lib/prod-replica-*-seed.ts`) is generated from
 the same captures — rebuild both together:
 
 ```bash
-node build-sellers-polygon.cjs "Sellers Polygon/_captures/sellers-040-capture-2026-09-28.json" "Sellers Polygon/_captures/sellers-040-topup-2026-10-08.json" "Sellers Polygon/_captures/sellers-040-topup-2026-10-09.json"
+node build-sellers-polygon.cjs "Sellers Polygon/_captures/sellers-040-capture-2026-09-28.json" "Sellers Polygon/_captures/sellers-040-topup-2026-10-08.json" "Sellers Polygon/_captures/sellers-040-topup-2026-10-09.json" "Sellers Polygon/_captures/sellers-040-topup-2026-11-04.json"
 ```
 
 | Business | Seller | Mobile | Status | Companies | Companies with beats | Beats |
@@ -22,45 +22,54 @@ node build-sellers-polygon.cjs "Sellers Polygon/_captures/sellers-040-capture-20
 | BALAJI TRADING | VANSH AGARWAL | 7702002017 | Active | 1 | 1 | 6 |
 | BANJARA MARKETING | JHARAPLA SAROJA | 9000266947 | Active | 1 | 1 | 5 |
 | BHARGAVI ENTERPRISES | GORLI BHARGAVI | 9177861989 | Active | 3 | 3 | 18 |
+| BHAVANI ENTERPRISES | ANSH GOYAL | 7680894203 | Active | 5 | 5 | 25 |
 | CHANDANA MARKETING | DAYAKAR REDDY GANTA | 9618939600 | Active | 2 | 2 | 30 |
 | CHASWI MARKETING SOLUTIONS | GAYATHRI VALLURI | 9989998536 | Inactive | 21 | 21 | 126 |
 | D J ENTERPRISES | VENU CHERUKUMALLI | 9440443944 | Active | 1 | 1 | 9 |
 | DAKSHAYA AGENCIES | POLINENI ADITHYA | 8121820276 | Active | 2 | 1 | 5 |
+| Datta Marketing | Nanda Kishore Gaddameedi | 7093336636 | Active | 1 | 1 | 13 |
 | Dev | Dev | 8919751137 | Active | 1 | 0 | 0 |
 | DEV AGENCIES | ASHOK PAREEK | 8500011128 | Active | 1 | 1 | 6 |
 | DHHANA LAXME ENTERPRISES | VENKATA SHIVAJI VANAMA | 9866781539 | Active | 13 | 13 | 39 |
 | DWARAKA SAI ENTERPRISES | SRIKANTH CHALLA | 9381822741 | Inactive | 5 | 5 | 40 |
-| GEO MARKETING | GEO MARKETING | 8309779660 | Active | 4 | 4 | 48 |
+| FLOGRE INTERNATIONAL | FLOGRE INTERNATIONAL | 6281692187 | Active | 10 | 10 | 50 |
+| GEO MARKETING | GEO MARKETING | 8309779660 | Active | 4 | 4 | 28 |
 | GR TRADING COMPANY | GR TRADING COMPANY | 9542067712 | Active | 4 | 4 | 19 |
 | HANUMAN ENTERPRISES | KURA SRINIVAS | 9704626876 | Inactive | 2 | 2 | 9 |
 | J S V MARKETING | AMARNATH PALLA | 9440665515 | Active | 7 | 7 | 38 |
 | JAGADISH AGENCIES | PADIDELA JAGDEESHWAR RAO | 9963120143 | Active | 1 | 1 | 46 |
 | JAI GANESH AGENCIES | POLAPAKA RUPESH KUMAR | 9985633229 | Active | 1 | 1 | 54 |
-| JAI SANTHOSHI MATHA ENTERPRISES | SIVVA MOUNIKA | 9885551440 | Active | 1 | 1 | 11 |
+| JAI SANTHOSHI MATHA ENTERPRISES | SIVVA MOUNIKA | 9885551440 | Active | 7 | 7 | 77 |
 | JYOTHI AGENCY | APURI JYOTHI | 9966982345 | Inactive | 1 | 1 | 6 |
 | KAMADHENU DISTRIBUTORS | NANGUNOORI SAIKIRAN | 9959164350 | Active | 3 | 3 | 3 |
 | KANTA MARKETING | KANTA MARKETING | 9030003800 | Active | 1 | 1 | 32 |
 | KARTHIKEYA ENTERPRISES | RAMULU KURAPATI | 7386747447 | Active | 2 | 2 | 12 |
 | LAKSHMI SAAI ENTERPRISES | PRAVEEN KUMAR VENNU | 8519877717 | Inactive | 3 | 3 | 22 |
 | LAKSHMI VENKATESWARA DISTRIBUTORS | Suresh Kacharagaddala | 9666165659 | Inactive | 9 | 9 | 54 |
+| LISHANTH MARKETING | SARANKUMAR MEESALA | 8639121667 | Active | 5 | 5 | 30 |
 | LOHIYA MARKETING AGENCY | LOHIYA MARKETING AGENCY | 9849199049 | Active | 1 | 1 | 7 |
-| MAHADEVA ENTERPRISES | DEVADASU DUDAM | 9390164462 | Active | 3 | 2 | 14 |
+| M S Z M MARKETING | HABEEB ULLA SHAREEF | 9177254509 | Active | 1 | 1 | 10 |
+| MAHADEVA ENTERPRISES | DEVADASU DUDAM | 9390164462 | Active | 3 | 3 | 21 |
 | MAS MARKETING | ABDUL HASEEB MOHAMMED | 9866198219 | Inactive | 1 | 1 | 24 |
+| MASHNER AGENCIES | HOLGE VIJAY KUMAR | 8374084284 | Active | 1 | 1 | 6 |
 | MH ENTERPRISES | MAGULURI HARSHITHA | 9052757799 | Active | 2 | 2 | 10 |
+| MS GOYAL TRADERS | BIKESH KUMAR GOYAL | 9703059513 | Active | 31 | 31 | 93 |
 | MS SRI BHAVANI TRADERS | BHARGAVI GANGA | 9700452335 | Active | 7 | 7 | 70 |
-| MS SRI RAGHAVENDRA AGENCIES | RAJI REDDY UMMAREDDY | 9849930095 | Inactive | 3 | 3 | 18 |
+| MS SRI RAGHAVENDRA AGENCIES | RAJI REDDY UMMAREDDY | 9849930095 | Active | 3 | 3 | 18 |
 | MS SUVARNA LAXMI MARKETING | NAGARANI THALLAPALLI | 9666663417 | Active | 2 | 1 | 6 |
 | NAGOBA AGENCIES | HOLGE AJA YKUMA | 8500075649 | Active | 3 | 3 | 18 |
 | NOOR ENTERPRISES | MOHMMED MUSTAFA | 7993124981 | Active | 1 | 1 | 11 |
 | PRAHAAS ENTERPRISES | BURRA MAHESH | 9581281172 | Active | 3 | 3 | 17 |
+| R one Enterprises | SONTE RAKESH | 9985933133 | Active | 3 | 3 | 36 |
 | RASVITHA TRADERS | MYDHILI KAIPU | 9247241176 | Active | 5 | 5 | 35 |
 | RM Traders | Chintha Raja Mouli | 9246172889 | Active | 3 | 2 | 18 |
 | RR MARKETERS | MARRI SAI KUMAR | 8143472056 | Active | 2 | 2 | 12 |
-| S R ENTERPRISES | Chintha Anusha | 8686673441 | Active | 5 | 5 | 30 |
+| S R ENTERPRISES | Chintha Anusha | 8686673441 | Active | 6 | 6 | 38 |
 | S S MARKETING | ILIAS PASHA | 9154193416 | Inactive | 5 | 5 | 60 |
-| S S MARKETING FERRERO | FARHEEN BEGUM | 7702986941 | Active | 1 | 1 | 19 |
+| S S MARKETING FERRERO | FARHEEN BEGUM | 7702986941 | Inactive | 1 | 1 | 19 |
 | S V AGENCIES | VENKATESHWARLU SANGEPU | 8019456496 | Active | 7 | 7 | 63 |
 | S V AGENCY | PADMA LOHIYA | 8712753971 | Active | 7 | 7 | 49 |
+| SAHASRA AGENCIES | SHIVAKESHAVULU GUDIPATI | 9618588589 | Active | 6 | 6 | 36 |
 | SAHASRA ENTERPRISES | DIVYA GOGINENI | 9948028989 | Active | 1 | 1 | 13 |
 | SAI LAHANVI MARKETING | SANDEEP BHEEMAGANI | 9553399530 | Active | 2 | 2 | 12 |
 | SAI SRIDEVI ENTERPRISES | SRIDEVI VUYYURU | 9246334410 | Active | 1 | 1 | 1 |
@@ -69,17 +78,20 @@ node build-sellers-polygon.cjs "Sellers Polygon/_captures/sellers-040-capture-20
 | SINDHU ENTERPRISES | KOPPULA SINDHUJA | 9063111199 | Active | 4 | 4 | 33 |
 | SKM ENTERPRISES | JALIGUM VIJAYA LAKSHMI | 9985229232 | Inactive | 13 | 13 | 113 |
 | SLN ENTERPRISES | MOUNIKA ALLENI | 9885327774 | Active | 6 | 6 | 36 |
-| SREE LAXMINARSIMHA ENTERPRISES | VEMULA VENKATESH | 9966888788 | Inactive | 5 | 5 | 20 |
-| SREE MATHA AGENCIES | SOLATI RAVINDER | 9849998573 | Active | 1 | 1 | 5 |
+| SREE LAXMINARSIMHA ENTERPRISES | VEMULA VENKATESH | 9966888788 | Active | 5 | 5 | 30 |
+| SREE MATHA AGENCIES | SOLATI RAVINDER | 9849998573 | Active | 2 | 2 | 10 |
 | Sri Balaji Enterprises | Ravinder Kattela | 9393484555 | Active | 1 | 1 | 6 |
 | SRI DATTA ENTERPRISES | KADAVERU PRAVALIKA | 8143875907 | Active | 1 | 1 | 6 |
-| SRI GANESH ENTERPRISES | Boyini Anusha | 9177772977 | Active | 3 | 3 | 42 |
+| SRI GANESH BALAJI LAKHDATAR OIL | ASHOK KUMAR AGARWAL | 9966116670 | Active | 12 | 12 | 36 |
+| SRI GANESH BALAJI LAKHDATAR OIL | ASHOK KUMAR AGARWAL | 0000000010 | Inactive | 2 | 1 | 2 |
+| SRI GANESH ENTERPRISES | Boyini Anusha | 9177772977 | Inactive | 4 | 4 | 56 |
 | SRI MANJUNATHA ENTERPRISES | SUNDER KUMAR | 9948938920 | Inactive | 4 | 4 | 28 |
-| SRI SAI ENTERPRISES | RUPESH LOHIA | 9849474643 | Active | 4 | 4 | 12 |
-| Sri Sairam Enterprises | NARAYANA SWAMY DABBARA | 9666687556 | Inactive | 4 | 4 | 25 |
+| SRI SAI BALAJI AGENCIES | YALALA NARESH | 8309137856 | Active | 4 | 4 | 20 |
+| SRI SAI ENTERPRISES | RUPESH LOHIA | 9849474643 | Active | 5 | 5 | 15 |
+| Sri Sairam Enterprises | NARAYANA SWAMY DABBARA | 9666687556 | Active | 4 | 4 | 25 |
 | SRI SARDA ENTERPRISES | SARANSH AGARWAL | 7032401515 | Active | 10 | 10 | 60 |
 | SRI SHIRIDI SAI ENTERPRISES | RAJU GATOJI | 9885026204 | Inactive | 2 | 2 | 12 |
-| SRI SRINIVASA ENTERPRISES | SRI SRINIVASA ENTERPRISES | 9849399770 | Active | 2 | 1 | 16 |
+| SRI SRINIVASA ENTERPRISES | SRI SRINIVASA ENTERPRISES | 9849399770 | Inactive | 2 | 1 | 16 |
 | SRI VEERABHADRA CO | SRI VEERABHADRA | 9346898595 | Active | 1 | 1 | 6 |
 | SRI VENKATESHWARA ENTERPRISES | BEJUGAM PANDURANGAM | 9246365245 | Active | 1 | 1 | 6 |
 | SRI VENKATESHWARA MARKETING | CHINDAM VENKATESH | 9959404640 | Active | 1 | 1 | 11 |
@@ -89,9 +101,9 @@ node build-sellers-polygon.cjs "Sellers Polygon/_captures/sellers-040-capture-20
 | SURYA KUMARI AGENCIES | PASULA VARUN RAJ | 9996636662 | Active | 2 | 2 | 12 |
 | SWATHI AGENCIES | DAYAKAR BASWA | 9701055624 | Active | 1 | 1 | 4 |
 | THANVIKA ENTERPRISES | SHANKPAL PRASHANTH KUMAR | 9553904974 | Inactive | 3 | 3 | 18 |
-| V V ENTERPRISES | VEERAMALLA PANDU RANGAIAH | 9866073750 | Active | 3 | 1 | 7 |
+| V V ENTERPRISES | VEERAMALLA PANDU RANGAIAH | 9866073750 | Active | 3 | 1 | 8 |
 | VENKATESHWARA AGENCIES | SACHIN AINAPUR | 9160336789 | Active | 4 | 4 | 24 |
 | VINODH ENTERPRISES | VINODH MUTTINENI | 9493018641 | Active | 3 | 3 | 18 |
 | VK ENTERPRISES | INAPURAM ASHOK KUMAR | 9885208146 | Active | 2 | 2 | 20 |
 | YLN AGENCIES | UNNIKRISHNA KASAM | 9030456547 | Active | 1 | 1 | 23 |
-| YLN TRADERS | YLN TRADERS | 9390969061 | Inactive | 1 | 1 | 34 |
+| YLN TRADERS | YLN TRADERS | 9390969061 | Active | 1 | 1 | 34 |

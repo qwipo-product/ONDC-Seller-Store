@@ -40,6 +40,16 @@ for (const c of caps) {
     .filter((b) => !phones.has(b.phone))
     .concat(c.captured.map((b) => ({ ...b, capturedAt: c.capturedAt })));
 }
+// Wholesaler beats are seller-wide on production (no sellerCompanyId, so the
+// capture has company: null): each applies to every company the seller maps as
+// Wholesaler. Local beats are keyed by company, so expand one per company.
+const fullByPhone = new Map(cap.sellers.map((f) => [f.listRow.mobile, f]));
+cap.captured = cap.captured.flatMap((b) => {
+  if (b.company) return [b];
+  const wholesale = fullByPhone.get(b.phone).companies.filter((sc) => sc.mode === 'WHOLESALER');
+  if (!wholesale.length) throw new Error(`seller-wide beat "${b.beat}" but no Wholesaler company for ${b.phone}`);
+  return wholesale.map((sc) => ({ ...b, company: sc.company.name }));
+});
 const capturedOn = cap.capturedAt.slice(0, 10);
 const topUps = caps.slice(1).map((c) => c.capturedAt.slice(0, 10));
 const asOf = capturedOn + (topUps.length ? ` (topped up ${topUps.join(', ')})` : '');

@@ -40,7 +40,7 @@ export const PROD_REPLICA_COMPANIES: {
       {
         "id": "br-prod-bed72c9e",
         "name": "Gowdurbar",
-        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/163bd994-5456-47e8-a675-48bba89b3803_20260922-222623.png"
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/c56fcaa3-3614-42e7-9282-f1f42fdfceb1_20261005-140237.jpg"
       }
     ]
   },
@@ -101,6 +101,100 @@ export const PROD_REPLICA_COMPANIES: {
         "id": "br-prod-cb96d9b6",
         "name": "Vanesa",
         "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/75b01545-c586-4481-976c-8193ea08a7b8_20260704-155855.png"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-bharatkumar-shantilal-and-co",
+    "name": "Bharatkumar Shantilal & Co",
+    "brands": [
+      {
+        "id": "br-prod-1ed33ef7",
+        "name": "Kajal Kolhapuri Jaggery",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/93eda0bb-2415-433a-ad0f-6f6f01309689_20261021-144124.jpg"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-krishnaiya-murmura",
+    "name": "Krishnaiya Murmura",
+    "brands": [
+      {
+        "id": "br-prod-e90f4956",
+        "name": "Krishnaiya Murmura",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/1fd7861a-dc18-48a1-bd4a-6cbbee564ac2_20261021-144556.jpg"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-laxmi-jaggery-industry",
+    "name": "Laxmi Jaggery Industry",
+    "brands": [
+      {
+        "id": "br-prod-e0b1fea6",
+        "name": "Laxmi Jaggery",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/600a84a5-299a-4d9b-a261-71ecac3b5926_20261021-143946.jpg"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-tata-consumer-products-limited",
+    "name": "Tata Consumer Products Limited",
+    "brands": [
+      {
+        "id": "br-prod-c8d6a2ae",
+        "name": "Tata",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/4da5e888-6670-4f1c-95fe-d3e6cf309e9a_20260601-003139.png"
+      },
+      {
+        "id": "br-prod-e03ceff6",
+        "name": "Chings Secret",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/cd823970-093f-4265-b1dd-e93b933c8cbb_20260918-155207.png"
+      },
+      {
+        "id": "br-prod-8f5f757d",
+        "name": "Organic India",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/9803a411-862e-4256-aedc-c3f1975a5f3e_20260818-135641.jpg"
+      },
+      {
+        "id": "br-prod-4bd4fc29",
+        "name": "Smith and Jones",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/e9055e7b-ba24-45aa-b5e5-e25dec81d567_20260918-155207.png"
+      },
+      {
+        "id": "br-prod-88e8c01a",
+        "name": "Soulfull",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/204f83fe-a418-4f0e-8ed0-371a4da2c36a_20260918-155207.png"
+      },
+      {
+        "id": "br-prod-daddc5b0",
+        "name": "Tata Agni",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/24627422-1b0f-4743-a5a2-312d1e0b915a_20260818-134531.jpg"
+      },
+      {
+        "id": "br-prod-039d3df1",
+        "name": "Tata Coffee",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/592e8eac-1425-4177-99a6-d8b96b1bd45c_20260918-155207.png"
+      },
+      {
+        "id": "br-prod-d5ae280d",
+        "name": "Tata Sampann",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/ae7c8d78-69d2-46fc-ae7e-aeef7506abfb_20260918-155207.png"
+      },
+      {
+        "id": "br-prod-0cb1ec01",
+        "name": "Tata Simply Better",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/02377fe9-c9c5-4811-abba-e6a922480e3e_20260918-155207.png"
+      },
+      {
+        "id": "br-prod-980c49da",
+        "name": "Tata Tea",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/da23f46a-e0b1-4cfb-b52c-e2d40e535164_20260918-153640.png"
+      },
+      {
+        "id": "br-prod-e725cf8a",
+        "name": "Tetley",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/54d09b55-a100-4388-afc7-7ab755d7ee5c_20260818-134531.png"
       }
     ]
   },
@@ -414,17 +508,22 @@ export const PROD_REPLICA_COMPANIES: {
       {
         "id": "br-prod-edc3d6ac",
         "name": "Aachi",
-        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/18892ab2-98c0-4283-aacb-960165d374f7_20260909-144150.jpg"
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/9153abfc-8f59-4cf7-a03c-1598772bc1c2_20261003-112140.jpg"
       },
       {
         "id": "br-prod-da6a08fc",
         "name": "Sabash",
-        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/a071ff01-939b-4774-9254-a0a89b767203_20260910-001704.png"
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/690f1b61-92c9-47f1-8b00-94d8c5c7a2e0_20261003-112028.jpg"
       },
       {
         "id": "br-prod-52ffb55b",
         "name": "Twinkle",
-        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/9cfebef3-e68b-4e22-aadb-794577efc3b6_20260910-001704.png"
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/a2baa4b9-0175-4d03-83af-7957b67e4e1a_20261003-112310.jpg"
+      },
+      {
+        "id": "br-prod-f92e1f4e",
+        "name": "Go Strong",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/0f84f49f-8bf4-4dc3-ae95-a896adc35baf_20261013-144431.jpg"
       }
     ]
   },
@@ -490,6 +589,122 @@ export const PROD_REPLICA_COMPANIES: {
     ]
   },
   {
+    "id": "co-prod-britannia-industries-ltd",
+    "name": "Britannia industries ltd",
+    "brands": [
+      {
+        "id": "br-prod-229e9ee3",
+        "name": "50-50",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/f07c26a7-0431-4cad-8296-a3735663882a_20261027-154537.jpg"
+      },
+      {
+        "id": "br-prod-f16df876",
+        "name": "Biscafe",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/c6a59400-96ce-4887-80dc-3a5caac57fd7_20261017-090443.png"
+      },
+      {
+        "id": "br-prod-7739a87c",
+        "name": "Bourbon",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/474aff48-2e92-4b74-aea1-703318ac1263_20261017-095850.png"
+      },
+      {
+        "id": "br-prod-ac5f3f03",
+        "name": "Britannia",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/dfbb0d41-9dd0-4870-9db2-2da76e0d0b7f_20260831-173329.jpg"
+      },
+      {
+        "id": "br-prod-3983d481",
+        "name": "Fudge It",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/752b5871-1e29-478f-9df6-a734be09525b_20261017-095850.png"
+      },
+      {
+        "id": "br-prod-5b59f43e",
+        "name": "Gobbles",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/b7db25ea-6f16-4032-bb97-90079d55a845_20261017-095850.png"
+      },
+      {
+        "id": "br-prod-0de721cc",
+        "name": "Good Day",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/68e083cf-9419-414c-95d8-4cdf19923c9f_20261017-090019.png"
+      },
+      {
+        "id": "br-prod-747e66dd",
+        "name": "Layerz",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/e5e08d1f-9ded-45ec-9061-af124a78ecc0_20261017-104656.png"
+      },
+      {
+        "id": "br-prod-ae396841",
+        "name": "Little Hearts",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/a893caeb-bef2-4279-9e6c-e9879e490a5a_20261017-095850.png"
+      },
+      {
+        "id": "br-prod-79cb9b0a",
+        "name": "Marie Gold",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/457cae00-a862-41f4-b61e-0ba073d58fba_20261017-095850.png"
+      },
+      {
+        "id": "br-prod-640a181d",
+        "name": "Milk Bikis",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/dec9152d-a82b-4954-88a6-a1d00cd2f6ad_20261017-095945.png"
+      },
+      {
+        "id": "br-prod-0019b009",
+        "name": "Muffills",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/68bc2aa9-b8b5-43af-b026-93916fcb6d8a_20261017-104656.png"
+      },
+      {
+        "id": "br-prod-12e0ef00",
+        "name": "Nice Time",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/940442af-5c51-41b0-90b3-7e0311a10b16_20261017-104012.png"
+      },
+      {
+        "id": "br-prod-d26e68ee",
+        "name": "NutriChoice",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/dc1f7544-1cfe-44ee-a8d4-9370be3bd9ac_20261017-104012.png"
+      },
+      {
+        "id": "br-prod-0c4bcd54",
+        "name": "Pure Magic",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/4993a034-5319-4104-9151-735bbb80ecee_20261017-104012.png"
+      },
+      {
+        "id": "br-prod-59ee149f",
+        "name": "Roll Yo",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/8533bee2-178f-45bc-9785-bee681cb3b83_20261017-104656.png"
+      },
+      {
+        "id": "br-prod-1d73e381",
+        "name": "The Laughing Cow",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/85a80db4-1e98-4c53-a43a-0e9041d1b922_20261017-104012.png"
+      },
+      {
+        "id": "br-prod-bc74a217",
+        "name": "Tiger",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/ffa24031-0d34-4477-affa-13724403d7bc_20261017-104012.png"
+      },
+      {
+        "id": "br-prod-2d9705f0",
+        "name": "Time Pass",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/d38f9c45-fef0-4143-bbc3-4116d98e0914_20261017-104012.png"
+      },
+      {
+        "id": "br-prod-ef6a9992",
+        "name": "Toastea",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/f0d15c94-e3c2-4b1d-92d8-466f3f757576_20261017-104012.png"
+      },
+      {
+        "id": "br-prod-19ffc3f4",
+        "name": "Treat",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/bcdc5ecf-e343-459d-9ffc-56b3d4f466fb_20261017-104012.png"
+      },
+      {
+        "id": "br-prod-71c09ad5",
+        "name": "Winkin' Cow",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/ec5ddce1-d18a-440b-b7ec-fce5a0a054eb_20261017-104012.png"
+      }
+    ]
+  },
+  {
     "id": "co-prod-grb-dairy-foods-pvt-ltd",
     "name": "GRB DAIRY FOODS PVT.LTD.",
     "brands": [
@@ -507,7 +722,7 @@ export const PROD_REPLICA_COMPANIES: {
       {
         "id": "br-prod-2fabc7a5",
         "name": "Colgate",
-        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/5f2c5bbc-186d-4767-8b32-b81749803460_20260714-165113.jpg"
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/d1d7412c-18fc-45d7-95df-f3e21c17a64e_20260930-223638.jpg"
       }
     ]
   },
@@ -687,6 +902,126 @@ export const PROD_REPLICA_COMPANIES: {
         "id": "br-prod-4b09893f",
         "name": "Ullas",
         "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/6681a640-c2e0-421d-ada3-133d4c5a62ed_20260731-193705.jpg"
+      },
+      {
+        "id": "br-prod-1fb770eb",
+        "name": "Nirantara Gold",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/8bf01869-6497-4114-960f-780b38c5f1e0_20261010-132209.png"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-balaji-urad-dall-industries-private-limi",
+    "name": "Balaji Urad Dall Industries Private Limited",
+    "brands": [
+      {
+        "id": "br-prod-49c2555a",
+        "name": "Balaji Urad",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/939d2269-2dc4-4502-82fd-b949c3fed86f_20261026-151913.jpg"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-flogre-international",
+    "name": "Flogre International",
+    "brands": [
+      {
+        "id": "br-prod-8c7e3292",
+        "name": "SRN Naturals",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/8b32c853-b105-4dbe-a08c-6acca4245f35_20261024-141807.png"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-life-agro",
+    "name": "Life Agro",
+    "brands": [
+      {
+        "id": "br-prod-4718f106",
+        "name": "Dhalia Silver Coin",
+        "imageUrl": null
+      }
+    ]
+  },
+  {
+    "id": "co-prod-nmk-industries-pvt-ltd",
+    "name": "NMK Industries Pvt Ltd",
+    "brands": [
+      {
+        "id": "br-prod-c2c2e670",
+        "name": "Ruby",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/b8bb667b-b65b-4298-9902-7b75ad5f7e22_20261024-162139.png"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-octagon-pulses-pvt-ltd",
+    "name": "Octagon Pulses Pvt Ltd",
+    "brands": [
+      {
+        "id": "br-prod-d11df228",
+        "name": "Platinum",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/c33922a9-d2df-4406-aa5d-00f6e566edb9_20261024-153539.jpg"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-reliance-consumer-products-limited-rcpl",
+    "name": "Reliance Consumer Products Limited (RCPL)",
+    "brands": [
+      {
+        "id": "br-prod-ba1a5a45",
+        "name": "Independence",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/798ad1d5-9d9d-4ea4-a469-a663f87ab8a9_20261001-115007.png"
+      },
+      {
+        "id": "br-prod-83cb6e93",
+        "name": "Reliance",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/91d05665-5b12-4a38-b319-ef7f410c9fab_20260611-174226.png"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-shivtara-grains-private-limited",
+    "name": "Shivtara Grains Private Limited",
+    "brands": [
+      {
+        "id": "br-prod-3ece945e",
+        "name": "Shivtara",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/a7347d0d-0d25-4ab0-9f9c-0595ea9bf211_20261024-194947.png"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-shreya-agro-industries",
+    "name": "Shreya Agro Industries",
+    "brands": [
+      {
+        "id": "br-prod-32d0d7c3",
+        "name": "Shreya Gold",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/bb858357-4e80-4127-973b-4b57c05e5e4a_20261026-153512.jpg"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-shrinath-industries",
+    "name": "Shrinath Industries",
+    "brands": [
+      {
+        "id": "br-prod-65fe9c41",
+        "name": "Kanakshri Gold",
+        "imageUrl": null
+      }
+    ]
+  },
+  {
+    "id": "co-prod-sree-sai-lakshmi-padmavathi-dall-mill",
+    "name": "Sree Sai Lakshmi Padmavathi Dall Mill",
+    "brands": [
+      {
+        "id": "br-prod-06c446d4",
+        "name": "Cow & Calf",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/ea74eaf3-a0da-4fdf-b27b-957dd5b1d74d_20261024-150447.jpg"
       }
     ]
   },
@@ -769,7 +1104,7 @@ export const PROD_REPLICA_COMPANIES: {
       {
         "id": "br-prod-005e4a14",
         "name": "Kirti",
-        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/dc380fa5-e4fa-4dd7-bc1d-d573163cb37e_20260726-003840.png"
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/391d6335-92b9-4e39-a0fb-f042cbd2eed7_20261005-162939.jpg"
       }
     ]
   },
@@ -906,6 +1241,55 @@ export const PROD_REPLICA_COMPANIES: {
     ]
   },
   {
+    "id": "co-prod-abr-cafe-and-bakers-private-limited",
+    "name": "ABR Cafe and Bakers Private Limited",
+    "brands": [
+      {
+        "id": "br-prod-ea41e735",
+        "name": "Cafe Niloufer",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/af56faf4-498a-482a-8a85-37470aba183f_20261011-122323.png"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-agro-tech-foods-limited",
+    "name": "Agro Tech Foods Limited",
+    "brands": [
+      {
+        "id": "br-prod-49d10e7f",
+        "name": "ACT II",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/9adcd263-8c2f-4853-8f89-4ae60543eb86_20261010-114642.png"
+      },
+      {
+        "id": "br-prod-e456dc3c",
+        "name": "Sundrop",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/2cd4e492-beee-4a27-bda7-bc7e9f44c46a_20261010-114642.png"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-krbl-limited",
+    "name": "KRBL Limited",
+    "brands": [
+      {
+        "id": "br-prod-edd0a5b9",
+        "name": "Zabreen",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/28e1e8ad-da9f-4260-92dc-a05b52e871af_20261023-180346.jpg"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-vibhava-industries-private-limited",
+    "name": "Vibhava Industries Private Limited",
+    "brands": [
+      {
+        "id": "br-prod-0ca14a28",
+        "name": "555 Monkey",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/69438145-9b94-41ba-84c2-2f5ce1d5994f_20261011-122405.png"
+      }
+    ]
+  },
+  {
     "id": "co-prod-radiant-indus-chem-pvt-ltd",
     "name": "Radiant Indus Chem Pvt Ltd",
     "brands": [
@@ -1032,6 +1416,28 @@ export const PROD_REPLICA_COMPANIES: {
     ]
   },
   {
+    "id": "co-prod-shree-renuka-sugars-limited",
+    "name": "Shree Renuka Sugars Limited",
+    "brands": [
+      {
+        "id": "br-prod-883d49b0",
+        "name": "Madhur",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/b9f9fc4d-dc17-4232-aab0-c5e564da328a_20260530-184032.png"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-v-v-v-and-sons-edible-oils-limited",
+    "name": "V.V.V. & Sons Edible Oils Limited",
+    "brands": [
+      {
+        "id": "br-prod-c096c6ce",
+        "name": "Idhayam",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/3cb7dd00-cf50-4afb-804c-35b36ac4ddd2_20261010-154705.jpg"
+      }
+    ]
+  },
+  {
     "id": "co-prod-elite-foods-pvt-ltd",
     "name": "Elite Foods PVT. LTD",
     "brands": [
@@ -1070,6 +1476,17 @@ export const PROD_REPLICA_COMPANIES: {
     ]
   },
   {
+    "id": "co-prod-xtra-soaps",
+    "name": "Xtra Soaps",
+    "brands": [
+      {
+        "id": "br-prod-a99107dd",
+        "name": "Xtra",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/6a3ee2ba-870f-42e9-9106-3c76b4be3dc2_20261026-150512.jpg"
+      }
+    ]
+  },
+  {
     "id": "co-prod-parle-agro-private-limited",
     "name": "Parle Agro Private Limited",
     "brands": [
@@ -1087,6 +1504,259 @@ export const PROD_REPLICA_COMPANIES: {
         "id": "br-prod-1b4cf44b",
         "name": "Smoodh",
         "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/2d8e4e72-db91-4dd8-8d0b-27f0703268c6_20260825-100647.png"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-agarwal-dall-mill",
+    "name": "Agarwal Dall Mill",
+    "brands": [
+      {
+        "id": "br-prod-2af5988c",
+        "name": "Badshah.",
+        "imageUrl": null
+      }
+    ]
+  },
+  {
+    "id": "co-prod-dhariwal-food",
+    "name": "Dhariwal Food",
+    "brands": [
+      {
+        "id": "br-prod-d16008fb",
+        "name": "RMD",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/4fc71c89-ede8-4a20-84ed-60b0e8a89449_20261024-153753.jpg"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-dhariwal-industries-private-limited",
+    "name": "Dhariwal Industries Private Limited",
+    "brands": [
+      {
+        "id": "br-prod-260a0a18",
+        "name": "Manikchand",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/77118a9a-1d11-4b24-b388-e2f6f2e9f233_20261026-160620.jpg"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-gajraj-agrotech",
+    "name": "Gajraj Agrotech",
+    "brands": [
+      {
+        "id": "br-prod-624ac821",
+        "name": "Gajraj Bansi",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/fba38e92-eccc-46cc-a347-3c768e054509_20261024-150908.jpg"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-gokul-krishi-udyog-pvt-ltd",
+    "name": "Gokul Krishi Udyog Pvt Ltd",
+    "brands": [
+      {
+        "id": "br-prod-79cc7cd7",
+        "name": "Gokul",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/e118ae0a-66b5-4399-998b-2d50a1740207_20260601-000213.png"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-goyal-traders",
+    "name": "Goyal Traders",
+    "brands": [
+      {
+        "id": "br-prod-bb6ca40a",
+        "name": "Goyal",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/97686985-3508-49c4-8a5e-525c9c3f621a_20261024-151845.jpg"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-kalantri-agro-industries",
+    "name": "Kalantri Agro Industries",
+    "brands": [
+      {
+        "id": "br-prod-2eae3026",
+        "name": "VIP Dal",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/62d2a8f1-7efc-4998-bb11-75609f64bbb3_20261026-155447.jpg"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-kamakshi-agro-industries",
+    "name": "Kamakshi Agro Industries",
+    "brands": [
+      {
+        "id": "br-prod-ea185dc4",
+        "name": "Vada King",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/faebdbd0-31e0-4c70-a1b8-8150f504f10b_20261026-154444.jpg"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-kubera-dall-mill",
+    "name": "Kubera Dall Mill",
+    "brands": [
+      {
+        "id": "br-prod-1c2cb7bc",
+        "name": "Rudra",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/f328b73a-2bd1-412c-8e8a-26fc5790e2f1_20261026-153711.jpg"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-life-agro-industries",
+    "name": "Life Agro Industries",
+    "brands": [
+      {
+        "id": "br-prod-61af4431",
+        "name": "Silver Coin.",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/7d2ac5f9-0a63-4beb-a060-723e23dbf618_20261027-154106.jpg"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-mahadeva-dall-industries-private-limited",
+    "name": "Mahadeva Dall Industries Private Limited",
+    "brands": [
+      {
+        "id": "br-prod-b451847d",
+        "name": "Double Horse",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/2aed2a8c-795d-4f51-b1e2-51c3af840972_20260618-105905.png"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-radhakrishna-rice-and-dall-mill",
+    "name": "Radhakrishna Rice & Dall Mill",
+    "brands": [
+      {
+        "id": "br-prod-4c7972b5",
+        "name": "Apple",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/73d6a41f-cf0e-4c38-94d2-9e5f4f7ef8ed_20261024-144429.png"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-raj-agro",
+    "name": "Raj Agro",
+    "brands": [
+      {
+        "id": "br-prod-6c97855f",
+        "name": "Double Diamond",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/04115af6-1d07-4ac1-ba35-62e88f71fb58_20261026-154926.jpg"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-roxy-roller-flour-mills-pvt-ltd",
+    "name": "Roxy Roller Flour Mills Pvt Ltd",
+    "brands": [
+      {
+        "id": "br-prod-84e98db7",
+        "name": "Roxy",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/05ea6f0e-93f6-4dbd-ad53-b2b08a78d4aa_20260601-001918.png"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-svr-agro-foods",
+    "name": "SVR Agro Foods",
+    "brands": [
+      {
+        "id": "br-prod-08085a46",
+        "name": "Nirma",
+        "imageUrl": null
+      }
+    ]
+  },
+  {
+    "id": "co-prod-shalimar-roller-flour-mill",
+    "name": "Shalimar Roller Flour Mill",
+    "brands": [
+      {
+        "id": "br-prod-add9c842",
+        "name": "Shalimar",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/534d2019-ccd1-47a7-a77e-9ad5ada6a5df_20261024-194754.png"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-shir-aaurthor-cotton-modern-rice-mill",
+    "name": "Shir Aaurthor Cotton Modern Rice Mill",
+    "brands": [
+      {
+        "id": "br-prod-f102eee7",
+        "name": "Nirrma",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/4fa1c15a-7922-4d6c-b5eb-d6b374ccd845_20261024-153151.jpg"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-supreme-industries",
+    "name": "Supreme Industries",
+    "brands": [
+      {
+        "id": "br-prod-15e2de8c",
+        "name": "KFC",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/9f53fed5-2258-4bbd-a09e-4159e82b8330_20261026-153125.jpg"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-suresh-dall-and-flour-mills",
+    "name": "Suresh Dall & Flour Mills",
+    "brands": [
+      {
+        "id": "br-prod-8551e093",
+        "name": "JB",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/3f154e4d-26ab-4ec1-ad2a-449bac3e55ff_20261024-152031.jpg"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-thumps-brand-pvt-ltd",
+    "name": "Thumps Brand Pvt Ltd",
+    "brands": [
+      {
+        "id": "br-prod-fdb8e847",
+        "name": "Thumps Brand",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/67d1bed7-b771-4c95-b2b6-769b0f77a5e3_20261026-155311.jpg"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-triple-horse-mills",
+    "name": "Triple Horse Mills",
+    "brands": [
+      {
+        "id": "br-prod-d33feb98",
+        "name": "Triple Horse",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/a7ed1ea5-78ec-40a9-b321-a36585c69e36_20261026-153904.jpg"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-vijayalakshmi-dall-mill",
+    "name": "Vijayalakshmi Dall Mill",
+    "brands": [
+      {
+        "id": "br-prod-18679e9c",
+        "name": "Vijayalakshmi",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/ff59742c-a1a1-4730-9f80-63fc23fadba9_20260601-003925.png"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-vishnu-dall-mill",
+    "name": "Vishnu Dall Mill",
+    "brands": [
+      {
+        "id": "br-prod-c90af50d",
+        "name": "Vishnu",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/ff489a31-c54e-49eb-ba23-368eca7968b1_20261026-154313.jpg"
       }
     ]
   },
@@ -1238,6 +1908,17 @@ export const PROD_REPLICA_COMPANIES: {
     ]
   },
   {
+    "id": "co-prod-dharwad-big-mishra-pedha-private-limited",
+    "name": "Dharwad Big Mishra Pedha Private Limited",
+    "brands": [
+      {
+        "id": "br-prod-94f4a03b",
+        "name": "Big Mishra",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/ff6c82c7-8cfe-47ad-b89d-56f9e0d330e3_20261027-153147.jpg"
+      }
+    ]
+  },
+  {
     "id": "co-prod-henna-industries-pvt-ltd",
     "name": "Henna Industries Pvt Ltd.",
     "brands": [
@@ -1326,6 +2007,11 @@ export const PROD_REPLICA_COMPANIES: {
         "id": "br-prod-b076e853",
         "name": "Tic Tac",
         "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/58bd3a99-be2e-4449-9946-962b942bf380_20260915-095447.png"
+      },
+      {
+        "id": "br-prod-0518729a",
+        "name": "Ferrero Rocher",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/31a4db5d-530e-47e5-82f7-3e648f7f10fe_20261028-161605.png"
       }
     ]
   },
@@ -1336,7 +2022,7 @@ export const PROD_REPLICA_COMPANIES: {
       {
         "id": "br-prod-ae6cbde9",
         "name": "Bajaj",
-        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/9d82c169-4dbb-4498-9833-3c3eb19a9205_20260905-100631.png"
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/cf0c308c-6896-47ee-95a3-6382fbdb6926_20261003-102814.png"
       },
       {
         "id": "br-prod-173ae181",
@@ -1379,63 +2065,72 @@ export const PROD_REPLICA_COMPANIES: {
     ]
   },
   {
-    "id": "co-prod-tata-consumer-products-limited",
-    "name": "Tata Consumer Products Limited",
+    "id": "co-prod-bhoomi-food-products",
+    "name": "Bhoomi Food Products",
     "brands": [
       {
-        "id": "br-prod-c8d6a2ae",
-        "name": "Tata",
-        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/4da5e888-6670-4f1c-95fe-d3e6cf309e9a_20260601-003139.png"
+        "id": "br-prod-4ea58231",
+        "name": "Bhoomi",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/13e0d166-36da-4e22-8178-e8626345b25f_20261010-192712.png"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-mysore-deep-perfumery-house",
+    "name": "Mysore Deep Perfumery House",
+    "brands": [
+      {
+        "id": "br-prod-2fb71108",
+        "name": "Manthan",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/13383254-15a4-4563-8b7a-a581e46fc271_20261010-194103.png"
       },
       {
-        "id": "br-prod-e03ceff6",
-        "name": "Chings Secret",
-        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/cd823970-093f-4265-b1dd-e93b933c8cbb_20260918-155207.png"
+        "id": "br-prod-2b217406",
+        "name": "Samarpan",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/40f38c58-2b82-4004-aeba-a0eca00a0789_20261010-194103.png"
       },
       {
-        "id": "br-prod-8f5f757d",
-        "name": "Organic India",
-        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/9803a411-862e-4256-aedc-c3f1975a5f3e_20260818-135641.jpg"
+        "id": "br-prod-c139afbf",
+        "name": "Zed Black",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/c4ad1f16-2ffd-473f-a33e-28c1a445dba5_20261010-193735.png"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-sarathi-international-inc",
+    "name": "Sarathi International Inc",
+    "brands": [
+      {
+        "id": "br-prod-64318371",
+        "name": "Tulasi.",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/bdbfc2ce-1918-4c89-8897-6db2a202620f_20261016-155950.jpg"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-shiv-industries",
+    "name": "Shiv Industries",
+    "brands": [
+      {
+        "id": "br-prod-9c295516",
+        "name": "Zebra",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/74e28eca-d106-4d48-8af3-4e26928e5e1c_20261010-194329.png"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-sri-raghavendra-incense",
+    "name": "Sri Raghavendra Incense",
+    "brands": [
+      {
+        "id": "br-prod-70fec188",
+        "name": "Divine Rudrakshaa",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/980c7da9-9428-42fc-98f0-67eb61f7a562_20261010-193505.png"
       },
       {
-        "id": "br-prod-4bd4fc29",
-        "name": "Smith and Jones",
-        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/e9055e7b-ba24-45aa-b5e5-e25dec81d567_20260918-155207.png"
-      },
-      {
-        "id": "br-prod-88e8c01a",
-        "name": "Soulfull",
-        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/204f83fe-a418-4f0e-8ed0-371a4da2c36a_20260918-155207.png"
-      },
-      {
-        "id": "br-prod-daddc5b0",
-        "name": "Tata Agni",
-        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/24627422-1b0f-4743-a5a2-312d1e0b915a_20260818-134531.jpg"
-      },
-      {
-        "id": "br-prod-039d3df1",
-        "name": "Tata Coffee",
-        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/592e8eac-1425-4177-99a6-d8b96b1bd45c_20260918-155207.png"
-      },
-      {
-        "id": "br-prod-d5ae280d",
-        "name": "Tata Sampann",
-        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/ae7c8d78-69d2-46fc-ae7e-aeef7506abfb_20260918-155207.png"
-      },
-      {
-        "id": "br-prod-0cb1ec01",
-        "name": "Tata Simply Better",
-        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/02377fe9-c9c5-4811-abba-e6a922480e3e_20260918-155207.png"
-      },
-      {
-        "id": "br-prod-980c49da",
-        "name": "Tata Tea",
-        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/da23f46a-e0b1-4cfb-b52c-e2d40e535164_20260918-153640.png"
-      },
-      {
-        "id": "br-prod-e725cf8a",
-        "name": "Tetley",
-        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/54d09b55-a100-4388-afc7-7ab755d7ee5c_20260818-134531.png"
+        "id": "br-prod-476a12a7",
+        "name": "Raghavendra",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/50c084e9-a9bc-40c6-8028-cee7729b4860_20261010-193505.png"
       }
     ]
   },
@@ -1480,17 +2175,6 @@ export const PROD_REPLICA_COMPANIES: {
         "id": "br-prod-2ac6d4db",
         "name": "Gajraj",
         "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/cb1fbeb8-5a67-4d2c-aec9-4b3014b57e29_20260601-000024.png"
-      }
-    ]
-  },
-  {
-    "id": "co-prod-gokul-krishi-udyog-pvt-ltd",
-    "name": "Gokul Krishi Udyog Pvt Ltd",
-    "brands": [
-      {
-        "id": "br-prod-79cc7cd7",
-        "name": "Gokul",
-        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/e118ae0a-66b5-4399-998b-2d50a1740207_20260601-000213.png"
       }
     ]
   },
@@ -1550,17 +2234,6 @@ export const PROD_REPLICA_COMPANIES: {
     ]
   },
   {
-    "id": "co-prod-mahadeva-dall-industries-private-limited",
-    "name": "Mahadeva Dall Industries Private Limited",
-    "brands": [
-      {
-        "id": "br-prod-b451847d",
-        "name": "Double Horse",
-        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/2aed2a8c-795d-4f51-b1e2-51c3af840972_20260618-105905.png"
-      }
-    ]
-  },
-  {
     "id": "co-prod-mahateja-ricemills-pvt-ltd",
     "name": "Mahateja Ricemills Pvt Ltd",
     "brands": [
@@ -1590,17 +2263,6 @@ export const PROD_REPLICA_COMPANIES: {
         "id": "br-prod-1a38ed9a",
         "name": "My Choice Rice",
         "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/0c46d12b-ae24-4618-b3f3-309d13080e79_20260601-001814.png"
-      }
-    ]
-  },
-  {
-    "id": "co-prod-roxy-roller-flour-mills-pvt-ltd",
-    "name": "Roxy Roller Flour Mills Pvt Ltd",
-    "brands": [
-      {
-        "id": "br-prod-84e98db7",
-        "name": "Roxy",
-        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/05ea6f0e-93f6-4dbd-ad53-b2b08a78d4aa_20260601-001918.png"
       }
     ]
   },
@@ -1639,17 +2301,6 @@ export const PROD_REPLICA_COMPANIES: {
         "id": "br-prod-77e413c1",
         "name": "Zuri Rice",
         "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/4a250914-d1af-43a7-8cca-adb4c1ac2d73_20260601-002138.png"
-      }
-    ]
-  },
-  {
-    "id": "co-prod-shree-renuka-sugars-limited",
-    "name": "Shree Renuka Sugars Limited",
-    "brands": [
-      {
-        "id": "br-prod-883d49b0",
-        "name": "Madhur",
-        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/b9f9fc4d-dc17-4232-aab0-c5e564da328a_20260530-184032.png"
       }
     ]
   },
@@ -1754,17 +2405,6 @@ export const PROD_REPLICA_COMPANIES: {
         "id": "br-prod-c33b8cf3",
         "name": "Naturralle Rice",
         "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/056965c2-5b54-41b8-b3e1-a437cd2ddae5_20260606-225803.jpg"
-      }
-    ]
-  },
-  {
-    "id": "co-prod-vijayalakshmi-dall-mill",
-    "name": "Vijayalakshmi Dall Mill",
-    "brands": [
-      {
-        "id": "br-prod-18679e9c",
-        "name": "Vijayalakshmi",
-        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/ff59742c-a1a1-4730-9f80-63fc23fadba9_20260601-003925.png"
       }
     ]
   },
@@ -2022,6 +2662,65 @@ export const PROD_REPLICA_COMPANIES: {
     ]
   },
   {
+    "id": "co-prod-m-s-maa-sarda-oil-depot",
+    "name": "M/s Maa Sarda Oil Depot",
+    "brands": [
+      {
+        "id": "br-prod-da351717",
+        "name": "Nice Gold",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/183c70ab-0219-480e-bd86-ad560e2d9452_20261025-075357.jpg"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-renukha-agro-oils",
+    "name": "Renukha Agro Oils",
+    "brands": [
+      {
+        "id": "br-prod-084ae598",
+        "name": "Deepshanti",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/ed9d8cad-6272-4b91-b17a-106c1f896aad_20261026-160158.jpg"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-sri-ganesh-balaji-lakhdaatr-oil",
+    "name": "Sri Ganesh Balaji Lakhdaatr Oil",
+    "brands": [
+      {
+        "id": "br-prod-4eba4249",
+        "name": "Deepking",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/c7281c9a-c97d-4a9f-90ee-2275085c4d6a_20260606-212311.png"
+      },
+      {
+        "id": "br-prod-f0587938",
+        "name": "Pancharatan",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/32911d84-a4b1-4f98-aadd-444687169d0a_20261026-153316.jpg"
+      },
+      {
+        "id": "br-prod-107d0e92",
+        "name": "Virat",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/cbfc9a36-8501-4408-90b8-c559208ce953_20261026-154144.jpg"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-anchor-consumer-product-pvt-ltd",
+    "name": "Anchor Consumer Product Pvt. Ltd.",
+    "brands": [
+      {
+        "id": "br-prod-73987179",
+        "name": "Anchor",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/31c51715-938e-41a4-b984-9ca056c9e75d_20260924-113917.png"
+      },
+      {
+        "id": "br-prod-1590ebe8",
+        "name": "Dyna",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/f8715c06-3f20-49e4-9778-817146a7e354_20261030-102935.png"
+      }
+    ]
+  },
+  {
     "id": "co-prod-vcare-pharcos",
     "name": "VCare Pharcos",
     "brands": [
@@ -2055,6 +2754,28 @@ export const PROD_REPLICA_COMPANIES: {
     ]
   },
   {
+    "id": "co-prod-mc-nroe-consumer-products-pvt-ltd",
+    "name": "Mc Nroe Consumer Products Pvt.Ltd",
+    "brands": [
+      {
+        "id": "br-prod-961ad19c",
+        "name": "Riya",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/289e3fdf-4077-4ca3-8383-9e9815fa860c_20261013-145727.jpg"
+      }
+    ]
+  },
+  {
+    "id": "co-prod-nivea-india-private-limited",
+    "name": "Nivea India Private Limited",
+    "brands": [
+      {
+        "id": "br-prod-037b5478",
+        "name": "Nivea",
+        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/cfcfacb1-1b2d-4927-b412-72511fc3b30f_20261013-145012.jpg"
+      }
+    ]
+  },
+  {
     "id": "co-prod-sri-sarwo-natraj-agro-india-private-limi",
     "name": "Sri Sarwo Natraj Agro India Private Limited",
     "brands": [
@@ -2078,17 +2799,6 @@ export const PROD_REPLICA_COMPANIES: {
         "id": "br-prod-a6be62e0",
         "name": "Cycle",
         "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/77a8fd37-7d34-4fe6-b2e6-cd47a46d8901_20260530-182127.png"
-      }
-    ]
-  },
-  {
-    "id": "co-prod-sri-ganesh-balaji-lakhdaatr-oil",
-    "name": "Sri Ganesh Balaji Lakhdaatr Oil",
-    "brands": [
-      {
-        "id": "br-prod-4eba4249",
-        "name": "Deepking",
-        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/c7281c9a-c97d-4a9f-90ee-2275085c4d6a_20260606-212311.png"
       }
     ]
   },
@@ -2292,17 +3002,6 @@ export const PROD_REPLICA_COMPANIES: {
     ]
   },
   {
-    "id": "co-prod-reliance-consumer-products-limited-rcpl",
-    "name": "Reliance Consumer Products Limited (RCPL)",
-    "brands": [
-      {
-        "id": "br-prod-83cb6e93",
-        "name": "Reliance",
-        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/91d05665-5b12-4a38-b319-ef7f410c9fab_20260611-174226.png"
-      }
-    ]
-  },
-  {
     "id": "co-prod-rudra-industries",
     "name": "Rudra Industries",
     "brands": [
@@ -2370,17 +3069,6 @@ export const PROD_REPLICA_COMPANIES: {
         "id": "br-prod-edefdb86",
         "name": "Wipro",
         "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/146baabb-5d41-4dd6-9e7e-4c5674d9a3d7_20260704-154957.png"
-      }
-    ]
-  },
-  {
-    "id": "co-prod-anchor-consumer-product-pvt-ltd",
-    "name": "Anchor Consumer Product Pvt. Ltd.",
-    "brands": [
-      {
-        "id": "br-prod-73987179",
-        "name": "Anchor",
-        "imageUrl": "https://eb2b-docs.blr1.digitaloceanspaces.com/seller_portal/brands/31c51715-938e-41a4-b984-9ca056c9e75d_20260924-113917.png"
       }
     ]
   },
