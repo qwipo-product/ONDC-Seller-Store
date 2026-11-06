@@ -15,6 +15,7 @@
 //   boundary, so this adds the customers those same beats reach
 //   OUTSIDE the zone; every count is split inside / outside.
 
+import { useSyncExternalStore } from "react";
 import kphbZone from "./kphb-dark-store-zone.json";
 import alwalZone from "./alwal-dark-store-zone.json";
 import {
@@ -27,6 +28,7 @@ import {
 } from "./customer-database";
 import {
   getServiceabilityBeats,
+  getServiceabilityBeatsVersion,
   haversineKm,
   polygonContainsPoint,
   polygonOuterRings,
@@ -36,28 +38,71 @@ import {
 } from "./serviceability-data";
 import { DELIVERY_DAY_OPTIONS, type DeliveryDay } from "./customers-data";
 import { getSellers, type Seller } from "./mock-store";
+import { isEmptyMode } from "./data-mode";
 
 // ---- Store registry ----
+//
+// The dark stores of the Digidukaan Darkstore Connector (Admin →
+// Connectors → Digidukaan Darkstore Connector → Manage). Qwipo's
+// last-mile (cross) dark stores collect the orders of the sellers
+// connected to them and deliver to the retailer on the seller's behalf.
+//
+// A store's SERVICE AREA is an uploaded GeoJSON polygon, not a pincode
+// list, and the
+// polygon is also how sellers connect: every active seller whose
+// delivery-beat polygons reach into it is a connected account
+// (getConnectedSellerIds) — there is no hand-kept seller list. A
+// retailer is routed to the ACTIVE store whose polygon contains their
+// lat/long (findStoreForPoint), and orders to its connected sellers go
+// through that store. Polygons may overlap — the seed KPHB and Alwal
+// circles already do — so a retailer inside two goes to the nearer
+// store.
+//
+// Persisted to localStorage like the rest of the mock store. KPHB and
+// Alwal are the seed; in a real install this would live behind an API.
 
-export interface DarkStore {
-  /** URL slug — /admin/dark-store/:id */
+/** The persisted record — the Add / Update Dark Store form. */
+export interface DarkStoreConfig {
+  /** URL slug — /admin/dark-stores/:id */
   id: string;
-  /** "KPHB Dark Store" */
+  /** Dark Store Name — "Manvik Stores". */
   name: string;
-  /** "KPHB" — prefix for the sidebar item and file names. */
-  shortName: string;
-  locality: string;
-  centre: { lat: number; lng: number };
-  /** Mean centre → boundary distance, for display. */
-  radiusKm: number;
-  /** GeoJSON (FeatureCollection / Feature / Polygon). */
+  /** Area Name — "KPHB". Sidebar dashboard + report file names. */
+  areaName: string;
+  gstNumber: string;
+  mobile: string;
+  email: string;
+  /** The store's own address. */
+  address: string;
+  /** The store's own address PIN — NOT its service area. */
+  pincode: string;
+  city: string;
+  state: string;
+  latitude: number | null;
+  longitude: number | null;
+  /** "std:040" */
+  ondcCityCode: string;
+  /** Inactive stores keep their setup but receive no orders. */
+  isActive: boolean;
+  /** Service area — the uploaded GeoJSON polygon. */
   zone: unknown;
+  /** Name of the uploaded polygon file. */
+  zoneFileName?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** A store with its polygon measured, for display and analysis. */
+export interface DarkStore extends DarkStoreConfig {
+  /** The store's lat/long, else the centre of its polygon. */
+  centre: { lat: number; lng: number };
+  areaKm2: number;
 }
 
 /**
- * Centre of a circle zone. geojson.io stamps `@circle.center` ([lng,
- * lat]) on circles it draws; any other polygon falls back to the mean
- * of its outer-ring vertices.
+ * Centre of a polygon: `@circle.center` ([lng, lat]) when geojson.io
+ * drew it as a circle (the seed zones), else the mean of its outer-ring
+ * vertices.
  */
 function zoneCentre(zone: unknown): { lat: number; lng: number } {
   const props = (zone as { features?: { properties?: Record<string, unknown> }[] })
@@ -65,40 +110,282 @@ function zoneCentre(zone: unknown): { lat: number; lng: number } {
   const circle = props?.["@circle"] as { center?: [number, number] } | undefined;
   if (circle?.center) return { lat: circle.center[1], lng: circle.center[0] };
   const pts = polygonOuterRings(zone).flat();
+  if (pts.length === 0) return { lat: 0, lng: 0 };
   const sum = pts.reduce((acc, [x, y]) => [acc[0] + x, acc[1] + y], [0, 0]);
   return { lat: sum[1] / pts.length, lng: sum[0] / pts.length };
 }
 
-function makeDarkStore(
-  meta: Omit<DarkStore, "centre" | "radiusKm">,
-): DarkStore {
-  const centre = zoneCentre(meta.zone);
-  const ring = polygonOuterRings(meta.zone)[0] ?? [];
-  const radiusKm =
-    ring.reduce((sum, [x, y]) => sum + haversineKm(centre.lat, centre.lng, y, x), 0) /
-    Math.max(1, ring.length);
-  return { ...meta, centre, radiusKm };
+/**
+ * Zone area in km² — the outer rings projected onto a local flat plane
+ * (accurate to well under 1% at city scale) and summed with the
+ * shoelace formula.
+ */
+export function zoneAreaKm2(zone: unknown): number {
+  let total = 0;
+  for (const ring of polygonOuterRings(zone)) {
+    if (ring.length < 3) continue;
+    const lat0 = (ring.reduce((s, [, y]) => s + y, 0) / ring.length) * (Math.PI / 180);
+    const kx = 111.32 * Math.cos(lat0);
+    const ky = 110.574;
+    let twice = 0;
+    for (let i = 0; i < ring.length; i++) {
+      const [x1, y1] = ring[i];
+      const [x2, y2] = ring[(i + 1) % ring.length];
+      twice += x1 * kx * (y2 * ky) - x2 * kx * (y1 * ky);
+    }
+    total += Math.abs(twice) / 2;
+  }
+  return total;
 }
 
-export const DARK_STORES: DarkStore[] = [
-  makeDarkStore({
+function measureStore(config: DarkStoreConfig): DarkStore {
+  const located = config.latitude != null && config.longitude != null;
+  return {
+    ...config,
+    centre: located
+      ? { lat: config.latitude!, lng: config.longitude! }
+      : zoneCentre(config.zone),
+    areaKm2: zoneAreaKm2(config.zone),
+  };
+}
+
+/** "72.1 km²" — the polygon's size, for tables and headers. */
+export function storeZoneLabel(store: Pick<DarkStore, "areaKm2">) {
+  return `${store.areaKm2.toFixed(1)} km²`;
+}
+
+/** Field formats the Add / Update Dark Store form enforces. */
+export const STORE_FORMATS = {
+  mobile: /^[6-9]\d{9}$/,
+  email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+  pincode: /^\d{6}$/,
+  ondcCityCode: /^std:\d{2,5}$/,
+};
+
+/**
+ * Logistics account — the store's ONDC logistics roles (LBNP + LSP) can
+ * be provisioned once every detail the network needs is on file. Seed
+ * stores show "Provisioning incomplete" until they're updated.
+ */
+export function isLogisticsProvisioned(s: DarkStoreConfig): boolean {
+  return (
+    STORE_FORMATS.mobile.test(s.mobile) &&
+    STORE_FORMATS.email.test(s.email.trim()) &&
+    s.address.trim() !== "" &&
+    STORE_FORMATS.pincode.test(s.pincode) &&
+    s.city.trim() !== "" &&
+    s.state.trim() !== "" &&
+    s.latitude != null &&
+    s.longitude != null &&
+    STORE_FORMATS.ondcCityCode.test(s.ondcCityCode)
+  );
+}
+
+const SEED_TIMESTAMP = "2026-07-24T00:00:00.000Z";
+
+// The seed polygons' centres stand in for the store location; contact
+// details are left blank for the admin to fill in.
+function seedStore(
+  meta: Pick<DarkStoreConfig, "id" | "name" | "areaName" | "city" | "pincode" | "zone" | "zoneFileName">,
+): DarkStoreConfig {
+  const centre = zoneCentre(meta.zone);
+  return {
+    ...meta,
+    gstNumber: "",
+    mobile: "",
+    email: "",
+    address: "",
+    state: "Telangana",
+    latitude: Number(centre.lat.toFixed(6)),
+    longitude: Number(centre.lng.toFixed(6)),
+    ondcCityCode: "std:040",
+    isActive: true,
+    createdAt: SEED_TIMESTAMP,
+    updatedAt: SEED_TIMESTAMP,
+  };
+}
+
+const SEED_STORES: DarkStoreConfig[] = [
+  seedStore({
     id: "kphb",
     name: "KPHB Dark Store",
-    shortName: "KPHB",
-    locality: "Kukatpally, Hyderabad",
+    areaName: "KPHB",
+    city: "Hyderabad",
+    pincode: "500072",
     zone: kphbZone,
+    zoneFileName: "kphb-dark-store-zone.geojson",
   }),
-  makeDarkStore({
+  seedStore({
     id: "alwal",
     name: "Alwal Dark Store",
-    shortName: "Alwal",
-    locality: "Alwal, Secunderabad",
+    areaName: "Alwal",
+    city: "Secunderabad",
+    pincode: "500010",
     zone: alwalZone,
+    zoneFileName: "alwal-dark-store-zone.geojson",
   }),
 ];
 
+// v2: the connector form's fields (v1 was an earlier internal shape).
+const STORES_KEY = "qwipo.mock.dark-stores.v2";
+
+function readConfigs(): DarkStoreConfig[] {
+  try {
+    const raw = localStorage.getItem(STORES_KEY);
+    if (raw === null) return SEED_STORES;
+    const parsed = JSON.parse(raw) as (DarkStoreConfig & {
+      sellerIds?: unknown;
+      zoneSource?: unknown;
+    })[];
+    if (!Array.isArray(parsed)) return SEED_STORES;
+    // Drop fields earlier builds saved: the hand-picked seller list
+    // (connected sellers now come from the polygon) and the map-editor
+    // mode (polygons are uploaded now).
+    return parsed.map(({ sellerIds: _s, zoneSource: _z, ...config }) => config);
+  } catch {
+    return SEED_STORES;
+  }
+}
+
+// Measured stores, rebuilt only on write — so getDarkStore() returns the
+// same object between writes and pages can key effects on it.
+let _stores: DarkStore[] = readConfigs().map(measureStore);
+const _storeListeners = new Set<() => void>();
+
+function commit(next: DarkStoreConfig[]) {
+  // Strip the measured fields so only the config is persisted.
+  const configs = next.map((s) => {
+    const { centre: _c, areaKm2: _a, ...config } = s as DarkStore;
+    return config as DarkStoreConfig;
+  });
+  try {
+    localStorage.setItem(STORES_KEY, JSON.stringify(configs));
+  } catch {
+    throw new Error(
+      "Couldn't save — the browser's storage is full. Try a simpler polygon file.",
+    );
+  }
+  _stores = configs.map(measureStore);
+  for (const cb of _storeListeners) cb();
+}
+
+/** Every store, active or not. Empty in the inception-day demo mode. */
+export function getDarkStores(): DarkStore[] {
+  return isEmptyMode() ? EMPTY_STORES : _stores;
+}
+const EMPTY_STORES: DarkStore[] = [];
+
 export function getDarkStore(id: string): DarkStore | undefined {
-  return DARK_STORES.find((s) => s.id === id);
+  return getDarkStores().find((s) => s.id === id);
+}
+
+export function subscribeToDarkStores(cb: () => void): () => void {
+  _storeListeners.add(cb);
+  return () => {
+    _storeListeners.delete(cb);
+  };
+}
+
+/** Live store list for components — re-renders on every save. */
+export function useDarkStores(): DarkStore[] {
+  return useSyncExternalStore(subscribeToDarkStores, getDarkStores);
+}
+
+/**
+ * The active store that fulfils orders from a retailer at this point —
+ * undefined when no zone covers it. Inside overlapping zones the store
+ * whose centre is nearest wins.
+ */
+export function findStoreForPoint(lat: number, lng: number): DarkStore | undefined {
+  let best: DarkStore | undefined;
+  let bestKm = Infinity;
+  for (const s of getDarkStores()) {
+    if (!s.isActive || !polygonContainsPoint(s.zone, lat, lng)) continue;
+    const km = haversineKm(lat, lng, s.centre.lat, s.centre.lng);
+    if (km < bestKm) {
+      best = s;
+      bestKm = km;
+    }
+  }
+  return best;
+}
+
+/** URL-safe id from the area name, unique among existing stores. */
+function makeStoreId(areaName: string): string {
+  const base =
+    areaName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "store";
+  const taken = new Set(_stores.map((s) => s.id));
+  if (!taken.has(base) && base !== "new") return base;
+  let n = 2;
+  while (taken.has(`${base}-${n}`)) n++;
+  return `${base}-${n}`;
+}
+
+export type DarkStoreInput = Omit<DarkStoreConfig, "id" | "createdAt" | "updatedAt">;
+
+/**
+ * Create (no id) or update a store. Throws with a user-facing message
+ * when the zone is empty or the browser can't store it.
+ */
+export function saveDarkStore(input: DarkStoreInput, id?: string): DarkStore {
+  if (polygonOuterRings(input.zone).length === 0) {
+    throw new Error("Set the service area on the map before saving.");
+  }
+  const now = new Date().toISOString();
+  const existing = id ? _stores.find((s) => s.id === id) : undefined;
+  const record: DarkStoreConfig = existing
+    ? { ...input, id: existing.id, createdAt: existing.createdAt, updatedAt: now }
+    : { ...input, id: makeStoreId(input.areaName), createdAt: now, updatedAt: now };
+  commit(existing ? _stores.map((s) => (s.id === id ? record : s)) : [..._stores, record]);
+  return _stores.find((s) => s.id === record.id)!;
+}
+
+/** The form values of a saved store. */
+export function toDarkStoreInput(store: DarkStore): DarkStoreInput {
+  const { centre: _c, areaKm2: _a, id: _id, createdAt: _cr, updatedAt: _u, ...input } =
+    store;
+  return input;
+}
+
+// Per store, keyed on its zone object and the beat-store version so an
+// edited polygon or beat recomputes; the store pages call this on
+// every render.
+const _connectedCache = new Map<string, { zone: unknown; beatsVersion: number; ids: string[] }>();
+
+/**
+ * Connected accounts — the active sellers whose delivery-beat polygons
+ * reach into the store's polygon, sorted by business name.
+ */
+export function getConnectedSellerIds(store: Pick<DarkStore, "id" | "zone">): string[] {
+  const beatsVersion = getServiceabilityBeatsVersion();
+  const hit = _connectedCache.get(store.id);
+  if (hit && hit.zone === store.zone && hit.beatsVersion === beatsVersion) return hit.ids;
+  const sellers = getSellers().filter((s) => s.isActive !== false);
+  const active = new Set(sellers.map((s) => s.id));
+  const found = new Set<string>();
+  for (const b of getServiceabilityBeats()) {
+    if (
+      b.sellerId &&
+      active.has(b.sellerId) &&
+      !found.has(b.sellerId) &&
+      b.polygonData != null &&
+      polygonsOverlap(b.polygonData, store.zone)
+    ) {
+      found.add(b.sellerId);
+    }
+  }
+  const name = new Map(sellers.map((s) => [s.id, s.businessName || s.name]));
+  const ids = [...found].sort((a, b) => (name.get(a) ?? "").localeCompare(name.get(b) ?? ""));
+  _connectedCache.set(store.id, { zone: store.zone, beatsVersion, ids });
+  return ids;
+}
+
+/** Stores a seller is connected to through its delivery beats. */
+export function getSellerDarkStores(sellerId: string): DarkStore[] {
+  return getDarkStores().filter((s) => getConnectedSellerIds(s).includes(sellerId));
 }
 
 // ---- Analysis ----
@@ -269,8 +556,10 @@ const sellerDisplayName = (s: Seller | undefined, beat: ServiceabilityBeat) =>
   s?.businessName || s?.name || beat.sellerName || "Unknown seller";
 
 /**
- * True when part of the beat lies outside the zone. Zones are circles
- * (convex), so a beat whose every vertex is inside is wholly inside.
+ * True when part of the beat lies outside the zone, judged by its
+ * vertices. Exact for convex zones (circles); with a concave drawn
+ * zone a beat can bulge out between two inside vertices and still
+ * count as inside — close enough for a dashboard count.
  */
 function beatExtendsOutside(beat: ServiceabilityBeat, zone: unknown): boolean {
   return polygonOuterRings(beat.polygonData).some((ring) =>
@@ -726,9 +1015,11 @@ export async function downloadAnalyticsXlsx(
   const overview: Cell[][] = [
     ["Dark Store", store.name],
     ["Coverage view", SCOPE_LABEL[scope]],
-    ["Locality", store.locality],
-    ["Zone centre (lat, long)", `${store.centre.lat.toFixed(6)}, ${store.centre.lng.toFixed(6)}`],
-    ["Zone radius (km)", Number(store.radiusKm.toFixed(2))],
+    ["Area", [store.areaName, store.city].filter(Boolean).join(", ")],
+    ["Store location (lat, long)", `${store.centre.lat.toFixed(6)}, ${store.centre.lng.toFixed(6)}`],
+    ["Service area", `Polygon · ${storeZoneLabel(store)}`],
+    ["Service area (km²)", Number(store.areaKm2.toFixed(2))],
+    ["Connected seller accounts", getConnectedSellerIds(store).length],
     ["Customers in zone (all statuses)", a.totalInZone],
     ...(full ? [["Customers in coverage (all statuses)", a.totalInScope]] : []),
     [full ? "Active customers in coverage" : "Active customers in zone", a.customers.length],

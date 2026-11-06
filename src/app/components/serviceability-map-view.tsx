@@ -374,7 +374,13 @@ function FitBounds({
 
 // ─── Inline preview (Add/Edit dialogs) ────────────────────────────
 
-export function PolygonPreviewMap({ data }: { data: unknown }) {
+export function PolygonPreviewMap({
+  data,
+  caption = "Map preview of the attached polygon — verify the area covers the intended beat before saving.",
+}: {
+  data: unknown;
+  caption?: string;
+}) {
   const bounds = useMemo(() => getGeoJsonBounds(data), [data]);
   const dataKey = useMemo(() => getPolygonId({ polygonData: data }), [data]);
 
@@ -412,10 +418,7 @@ export function PolygonPreviewMap({ data }: { data: unknown }) {
           />
         </MapContainer>
       </div>
-      <p className="text-[10px] text-gray-500">
-        Map preview of the attached polygon — verify the area covers the
-        intended beat before saving.
-      </p>
+      <p className="text-[10px] text-gray-500">{caption}</p>
     </div>
   );
 }

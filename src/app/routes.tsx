@@ -66,6 +66,8 @@ import { AdminCustomers } from "./pages/admin/customers";
 import { AdminCustomerDetail } from "./pages/admin/customer-detail";
 import { AdminServiceabilityReport } from "./pages/admin/serviceability-report";
 import { AdminDarkStoreDashboard } from "./pages/admin/dark-store-dashboard";
+import { AdminDarkStores } from "./pages/admin/dark-stores";
+import { AdminDarkstoreConnector } from "./pages/admin/darkstore-connector";
 import { AdminCompanies } from "./pages/admin/companies";
 import { AdminCategories } from "./pages/admin/categories";
 import { ErrorScreensDemo } from "./pages/demos/error-screens";
@@ -155,10 +157,16 @@ export const router = createBrowserRouter([
       { path: "customers/:customerId", Component: AdminCustomerDetail },
       // Generate Report — customer × beat serviceability export
       { path: "reports", Component: AdminServiceabilityReport },
-      // Dark Store — zone coverage dashboard per store
+      // Dark Stores — every store in one list, then one plain page per
+      // store (stores are added / edited in the Digidukaan Darkstore
+      // Connector below). dark-store/:storeId is the old address.
+      { path: "dark-stores", Component: AdminDarkStores },
+      { path: "dark-stores/:storeId", Component: AdminDarkStoreDashboard },
       { path: "dark-store/:storeId", Component: AdminDarkStoreDashboard },
       // Admin Connectors
       { path: "connectors", Component: AdminConnectors },
+      // Digidukaan Darkstore Connector — dark stores + polygon service areas
+      { path: "connectors/darkstore", Component: AdminDarkstoreConnector },
       { path: "connectors/:connectorId", Component: ConnectorDetail },
       // Admin Companies & Brands
       { path: "companies", Component: AdminCompanies },

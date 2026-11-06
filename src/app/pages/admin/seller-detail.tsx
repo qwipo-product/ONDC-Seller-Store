@@ -44,7 +44,9 @@ import {
   Truck,
   Receipt,
   RefreshCw,
+  Warehouse,
 } from "lucide-react";
+import { getConnectedSellerIds, useDarkStores } from "../../lib/dark-store-data";
 import { toast } from "sonner";
 import {
   getSellerById,
@@ -108,6 +110,11 @@ export function AdminSellerDetail() {
   // wizard lands back on the Charges & Fees tab.
   const [activeTab, setActiveTab] = useState(
     () => searchParams.get("tab") ?? "profile",
+  );
+  // Dark stores this seller is a connected account of — its delivery
+  // beats reach into their polygon (Digidukaan Darkstore Connector).
+  const sellerDarkStores = useDarkStores().filter((s) =>
+    sellerId ? getConnectedSellerIds(s).includes(sellerId) : false,
   );
 
   // Profile is read-only post-creation (no edit affordance in Phase 1).
@@ -624,7 +631,7 @@ export function AdminSellerDetail() {
                 </Button>
               </div>
 
-              {!ondcConnected && !logisticsEnabled ? (
+              {!ondcConnected && !logisticsEnabled && sellerDarkStores.length === 0 ? (
                 <div className="text-center py-12 border-2 border-dashed rounded-lg">
                   <Plug className="h-10 w-10 mx-auto text-gray-300 mb-2" />
                   <p className="font-medium text-gray-600">
@@ -667,6 +674,23 @@ export function AdminSellerDetail() {
                         <Badge className="bg-green-50 text-green-700 border-green-200 gap-1">
                           <CheckCircle2 className="h-3 w-3" />
                           Connected
+                        </Badge>
+                      }
+                    />
+                  )}
+                  {sellerDarkStores.length > 0 && (
+                    <ConnectorCard
+                      icon={<Warehouse className="h-5 w-5" />}
+                      iconBg="bg-emerald-100 text-emerald-600"
+                      name="Digidukaan Darkstore"
+                      subtitle="Dark store"
+                      description={`Orders from retailers inside the polygon of ${sellerDarkStores
+                        .map((s) => `${s.name} (${s.areaName})`)
+                        .join(", ")} are delivered by the dark store. Manage in Connectors → Digidukaan Darkstore Connector.`}
+                      badge={
+                        <Badge className="bg-green-50 text-green-700 border-green-200 gap-1">
+                          <CheckCircle2 className="h-3 w-3" />
+                          {sellerDarkStores.length} store{sellerDarkStores.length === 1 ? "" : "s"}
                         </Badge>
                       }
                     />

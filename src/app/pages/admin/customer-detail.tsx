@@ -24,6 +24,7 @@ import {
   CheckCircle2,
   XCircle,
   Hash,
+  Warehouse,
 } from "lucide-react";
 import { MapContainer, TileLayer, GeoJSON, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
@@ -43,6 +44,11 @@ import {
   type ServiceabilityBeat,
 } from "../../lib/serviceability-data";
 import { getSellerById } from "../../lib/mock-store";
+import {
+  findStoreForPoint,
+  getConnectedSellerIds,
+  useDarkStores,
+} from "../../lib/dark-store-data";
 
 // Same palette family as the Serviceability map view so beats keep a
 // consistent visual language across admin surfaces.
@@ -125,6 +131,13 @@ export function AdminCustomerDetail() {
     [customer],
   );
   const companies = useMemo(() => groupByCompany(matchedBeats), [matchedBeats]);
+  // Which Dark Store / CDS this retailer's orders route to (by zone).
+  const stores = useDarkStores();
+  const fulfilmentStore = useMemo(
+    () => (customer ? findStoreForPoint(customer.lat, customer.lng) : undefined),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [customer, stores],
+  );
 
   if (!customer) {
     return (
@@ -234,6 +247,38 @@ export function AdminCustomerDetail() {
             <XCircle className="h-4 w-4 mr-1.5" />
             Not serviceable
           </Badge>
+        )}
+      </div>
+
+      {/* Order routing — the active store whose zone holds this retailer */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm">
+        <Warehouse className="h-4 w-4 text-violet-600 shrink-0" />
+        {fulfilmentStore ? (
+          <>
+            <span className="text-gray-700">
+              Inside the polygon of{" "}
+              <button
+                type="button"
+                className="font-medium text-violet-700 hover:underline"
+                onClick={() => navigate(`/admin/dark-stores/${fulfilmentStore.id}`)}
+              >
+                {fulfilmentStore.name}
+              </button>{" "}
+              ({fulfilmentStore.areaName})
+            </span>
+            <span className="text-gray-500">
+              {(() => {
+                const n = getConnectedSellerIds(fulfilmentStore).length;
+                return n
+                  ? `Orders to its ${n} connected seller account${n === 1 ? "" : "s"} (sellers with delivery beats in the polygon) are delivered by the dark store.`
+                  : "No seller's delivery beats reach into its polygon, so sellers deliver directly.";
+              })()}
+            </span>
+          </>
+        ) : (
+          <span className="text-gray-600">
+            Outside every active dark store polygon — sellers deliver directly.
+          </span>
         )}
       </div>
 

@@ -9,12 +9,14 @@ import {
   ChevronRight,
   Settings,
   Plug,
+  Warehouse,
 } from "lucide-react";
+import { useDarkStores } from "../../lib/dark-store-data";
 
 interface ConnectorInfo {
   id: string;
   name: string;
-  type: "DMS" | "Marketplace";
+  type: "DMS" | "Marketplace" | "Dark store";
   description: string;
   icon: React.ReactNode;
   iconBg: string;
@@ -23,8 +25,8 @@ interface ConnectorInfo {
   syncFrequency: string;
 }
 
-// Phase 1 ships ONDC only. Bizom (DMS) and other DMS connectors are deferred
-// to Phase 2 — keep this list ONDC-only for now.
+// Phase 1 ships ONDC and the Digidukaan Darkstore Connector. Bizom (DMS)
+// and other DMS connectors are deferred to Phase 2.
 const connectors: ConnectorInfo[] = [
   {
     id: "ondc",
@@ -38,16 +40,36 @@ const connectors: ConnectorInfo[] = [
     lastSync: "1 minute ago",
     syncFrequency: "Real-time",
   },
+  {
+    // Detail page: pages/admin/darkstore-connector.tsx
+    id: "darkstore",
+    name: "Digidukaan Darkstore Connector",
+    type: "Dark store",
+    description:
+      "Qwipo last-mile dark stores deliver on the seller's behalf. Orders route by the customer's location inside each store's polygon.",
+    icon: <Warehouse className="h-6 w-6" />,
+    iconBg: "bg-emerald-100 text-emerald-600",
+    status: "active",
+    lastSync: "N/A",
+    syncFrequency: "Real-time",
+  },
 ];
 
 export function AdminConnectors() {
   const navigate = useNavigate();
+
+  const stores = useDarkStores();
 
   const typeBadge = (type: ConnectorInfo["type"]) =>
     type === "DMS" ? (
       <Badge className="bg-blue-50 text-blue-700 border-blue-200 gap-1 text-xs">
         <Database className="h-3 w-3" />
         DMS
+      </Badge>
+    ) : type === "Dark store" ? (
+      <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1 text-xs">
+        <Warehouse className="h-3 w-3" />
+        Dark store
       </Badge>
     ) : (
       <Badge className="bg-orange-50 text-orange-700 border-orange-200 gap-1 text-xs">
@@ -118,9 +140,13 @@ export function AdminConnectors() {
                 {/* Stats */}
                 <div className="grid grid-cols-2 gap-3 mb-4">
                   <div className="bg-gray-50 rounded-lg px-3 py-2">
-                    <p className="text-xs text-gray-500">Last Sync</p>
+                    <p className="text-xs text-gray-500">
+                      {c.id === "darkstore" ? "Dark Stores" : "Last Sync"}
+                    </p>
                     <p className="text-sm font-medium text-gray-900">
-                      {c.lastSync}
+                      {c.id === "darkstore"
+                        ? `${stores.filter((s) => s.isActive).length} active`
+                        : c.lastSync}
                     </p>
                   </div>
                   <div className="bg-gray-50 rounded-lg px-3 py-2">
