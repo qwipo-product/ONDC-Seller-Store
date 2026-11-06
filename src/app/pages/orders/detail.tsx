@@ -40,6 +40,11 @@ import {
   Lock,
 } from "lucide-react";
 import { toast } from "sonner";
+import { Warehouse } from "lucide-react";
+import { useAuth } from "../../lib/auth-context";
+import { isCdsEnabled } from "../../lib/cds/store";
+import { useCdsOrderIds, useCdsOrderMap } from "../../components/cds/cds-order-sync";
+import { sellerOrderStage } from "../../lib/cds/calc";
 // Shared orders store — the detail page now looks up the right
 // order by URL :orderId rather than rendering a single hard-coded
 // mock for every route. Status writes (confirm / cancel / mark as
@@ -47,6 +52,8 @@ import { toast } from "sonner";
 // page's subscribe callback sees the change.
 import {
   getOrderById,
+  getOrders,
+  getAttentionOrders,
   updateOrderStatus,
   subscribeToOrders,
   synthesizeProducts,
@@ -391,6 +398,17 @@ const RICH_PRODUCTS_FOR_SEED_ORDER: OrderProduct[] = [
 export function OrderDetail() {
   const { orderId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  // Same rule as the Orders list: while older New orders are pending, a
+  // newer New order can be viewed and edited but not confirmed yet.
+  const attention = getAttentionOrders(getOrders());
+  const confirmLocked =
+    attention.length > 0 && !attention.some((a) => a.order.id === orderId) && getOrderById(orderId ?? "")?.status === "New";
+  const cdsOrderIds = useCdsOrderIds();
+  // Connector sellers manage confirmed orders from the CDS tab.
+  const inCds = !!orderId && isCdsEnabled(user?.id) && user?.dataMode !== "empty" && cdsOrderIds.has(orderId);
+  const cdsOrderMap = useCdsOrderMap();
+  const cdsOrder = inCds && orderId ? cdsOrderMap.get(orderId) : undefined;
   // Resolve the order from the shared store by URL :orderId. If
   // the ID isn't in the store (e.g. the seller hand-typed a URL
   // for a non-existent order), fall back to the rich mock so the
@@ -621,6 +639,11 @@ export function OrderDetail() {
                   Order #{orderData.orderId}
                 </h1>
                 {getStatusBadge(orderData)}
+                {cdsOrder && orderData.status === "Confirmed" && (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-teal-200 bg-teal-50 px-2 py-0.5 text-[11px] font-medium text-teal-700">
+                    <Warehouse className="h-3 w-3" /> CDS · {sellerOrderStage(cdsOrder.status).label}
+                  </span>
+                )}
                 {getChannelBadge(orderData.channel)}
               </div>
               <div className="flex items-center gap-1 text-[11px] text-gray-500 mt-0.5">
@@ -652,13 +675,25 @@ export function OrderDetail() {
                     size="sm"
                     className="bg-green-600 hover:bg-green-700 h-8"
                     onClick={handleConfirmOrder}
+                    disabled={confirmLocked}
+                    title={confirmLocked ? "Update your older pending orders first, then confirm this one" : undefined}
                   >
                     <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
                     Confirm Order
                   </Button>
                 </>
               )}
-              {orderData.status === "Confirmed" && (
+              {orderData.status === "Confirmed" && inCds && (
+                <Button
+                  size="sm"
+                  className="bg-teal-600 hover:bg-teal-700 h-8 gap-1.5"
+                  onClick={() => navigate("/orders?tab=cds")}
+                >
+                  <Warehouse className="h-3.5 w-3.5" />
+                  Manage in CDS tab
+                </Button>
+              )}
+              {orderData.status === "Confirmed" && !inCds && (
                 <>
                   <Button
                     variant="outline"
@@ -814,8 +849,9 @@ export function OrderDetail() {
                   collected from retailer" is emphasised; the seller fees feed
                   downstream enhancements. */}
               {(() => {
-                const orderValue =
-                  orderData.originalOrderValue ?? orderData.orderValue;
+                // Fees and the amount to collect follow the FINAL order value
+                // (after seller edits / short pickup), not the value as placed.
+                const orderValue = orderData.orderValue;
                 // Example setup: a small % of GMV split retailer / seller.
                 //   Commercial fee: 0.5% total → retailer 0.2% + seller 0.3%
                 //   Logistics fee:  0.3% total → retailer 0.1% + seller 0.2%
@@ -843,7 +879,13 @@ export function OrderDetail() {
                 );
                 return (
                   <>
-                    <Row label="Order Value" value={orderValue} />
+                    {isModified && orderData.originalOrderValue !== undefined && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-500">Original Order Value</span>
+                        <span className="text-gray-400 line-through">{money(orderData.originalOrderValue)}</span>
+                      </div>
+                    )}
+                    <Row label={isModified ? "Final Order Value" : "Order Value"} value={orderValue} />
                     <Row label="Retailer Logistics Fees" value={retailerLogistics} />
                     <Row label="Retailer Commercial Fees" value={retailerCommercial} />
                     <div className="flex justify-between text-xs rounded bg-blue-50/70 px-1.5 py-1 -mx-0.5">
@@ -867,17 +909,6 @@ export function OrderDetail() {
                   </>
                 );
               })()}
-              {isModified && (
-                <div className="flex justify-between text-xs">
-                  <span className="text-gray-500">Final Value</span>
-                  <span className="text-green-700 font-semibold">
-                    ₹
-                    {orderData.orderValue.toLocaleString("en-IN", {
-                      minimumFractionDigits: orderData.orderValue % 1 ? 2 : 0,
-                    })}
-                  </span>
-                </div>
-              )}
 
               {/* Cancellation details — rendered inline as Order Meta
                   rows (same shape as Payment / Channel Order ID /

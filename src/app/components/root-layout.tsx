@@ -25,6 +25,10 @@ import {
   Inbox,
   Building2,
 } from "lucide-react";
+import { isCdsEnabled } from "../lib/cds/store";
+import { CdsOrderSync } from "./cds/cds-order-sync";
+import { CDS_LOCATIONS } from "../lib/cds/master-data";
+import { SELLER_CDS_ID } from "../lib/cds/order-bridge";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Input } from "./ui/input";
@@ -73,6 +77,20 @@ type SellerNavItem = {
   icon: typeof LayoutDashboard;
   subItems?: { href: string; name: string }[];
   badge?: number;
+  /** Small uppercase heading rendered above the item (e.g. "Operations"). */
+  sectionLabel?: string;
+};
+
+// Cross Dock Store (CDS) — shown for sellers whose CDS connector is
+// enabled from the Admin portal. Sits right after Support; these
+// sellers don't get the external Logistics item (CDS handles it).
+const cdsNavigation: SellerNavItem = {
+  name: "Cross Dock Store (CDS)",
+  icon: Warehouse,
+  subItems: [
+    { name: "CDS Orders", href: "/orders?tab=cds" },
+    { name: "CDS Payments", href: "/cds/payments" },
+  ],
 };
 
 // The Logistics nav entry now sits in the base seller navigation
@@ -158,6 +176,7 @@ const getSellerPageTitle = (pathname: string): string => {
   if (pathname.startsWith("/offers-demo")) return "Offers & Schemes 2";
   if (pathname.startsWith("/offers")) return "Offers & Schemes";
   if (pathname.startsWith("/orders")) return "Orders Management";
+  if (pathname.startsWith("/cds")) return "Cross Dock Store (CDS)";
   if (pathname.startsWith("/connectors")) return "Connectors";
   if (pathname.startsWith("/kyc")) return "KYC Information";
   if (pathname.startsWith("/settings")) return "Settings";
@@ -235,7 +254,9 @@ export function RootLayout() {
               sellerErrorScreensNav,
               sellerLoadingScreensNav,
             ]
-          : sellerNavigation;
+          : isCdsEnabled(user?.id)
+            ? [...sellerNavigation.filter((i) => i.name !== "Logistics"), cdsNavigation]
+            : sellerNavigation;
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [expandedMenu, setExpandedMenu] = useState<string | null>(
     isAdmin ? "User Management" : isCatalogPortal ? null : "Products",
@@ -248,8 +269,12 @@ export function RootLayout() {
   };
 
   const isActive = (href: string) => {
+    // Links that carry a query (e.g. /orders?tab=cds) match on path + query.
+    if (href.includes("?")) return location.pathname + location.search === href;
+    // The CDS tab is highlighted under the CDS group, not under Orders.
+    if (href === "/orders" && location.search.includes("tab=cds")) return false;
     // Exact match for home routes so subpages don't keep them highlighted
-    if (href === "/" || href === "/admin" || href === "/catalog-portal") {
+    if (href === "/" || href === "/admin" || href === "/catalog-portal" || href === "/cds") {
       return location.pathname === href;
     }
     // For sub-routes, require either exact match or a "/" boundary
@@ -262,11 +287,7 @@ export function RootLayout() {
 
   const isParentActive = (subItems?: { href: string }[]) => {
     if (!subItems) return false;
-    return subItems.some(
-      (item) =>
-        location.pathname === item.href ||
-        location.pathname.startsWith(item.href + "/"),
-    );
+    return subItems.some((item) => isActive(item.href));
   };
 
   // Auto-expand the parent menu whose sub-item is currently active, so
@@ -279,7 +300,7 @@ export function RootLayout() {
       setExpandedMenu(activeParent.name);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.pathname, navigation]);
+  }, [location.pathname, location.search, navigation]);
 
   const toggleMenu = (name: string) => {
     setExpandedMenu(expandedMenu === name ? null : name);
@@ -348,8 +369,16 @@ export function RootLayout() {
         if (hasSubItems) {
           return (
             <div key={item.name}>
+              {"sectionLabel" in item && item.sectionLabel && !collapsed && (
+                <div className="mt-3 mb-1 border-t border-gray-200 px-3 pt-3 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                  {item.sectionLabel}
+                </div>
+              )}
               <button
-                onClick={() => !collapsed && toggleMenu(item.name)}
+                onClick={() => {
+                  const first = "subItems" in item ? item.subItems?.[0]?.href : undefined;
+                  if (collapsed) { if (first) navigate(first); } else toggleMenu(item.name);
+                }}
                 title={collapsed ? item.name : undefined}
                 className={`flex w-full items-center ${
                   collapsed ? "justify-center" : "justify-between"
@@ -359,9 +388,9 @@ export function RootLayout() {
                     : "text-gray-700 hover:text-gray-900"
                 }`}
               >
-                <div className={`flex items-center ${collapsed ? "" : "gap-3"}`}>
+                <div className={`flex min-w-0 items-center ${collapsed ? "" : "gap-3"}`}>
                   <Icon className="h-5 w-5 flex-shrink-0" />
-                  {!collapsed && <span className="text-sm">{item.name}</span>}
+                  {!collapsed && <span className="text-sm text-left leading-snug">{item.name}</span>}
                 </div>
                 {!collapsed &&
                   (isExpanded ? (
@@ -519,6 +548,23 @@ export function RootLayout() {
                 logged-in role (admin + seller). */}
             <ThemeToggle />
 
+            {/* CDS connector badge — tells the seller at a glance that
+                their orders run through the Cross Dock Store. */}
+            {user?.role === "seller" && !isEmptyMode && isCdsEnabled(user?.id) && (
+              <button
+                type="button"
+                onClick={() => navigate("/orders?tab=cds")}
+                title={"CDS connector enabled · " + (CDS_LOCATIONS.find((l) => l.id === SELLER_CDS_ID)?.name ?? "")}
+                className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-teal-200 bg-teal-50 px-2.5 py-1 text-xs font-semibold text-teal-700 hover:bg-teal-100"
+              >
+                <Warehouse className="h-3.5 w-3.5" />
+                CDS
+                <span className="hidden md:inline font-medium text-teal-600">
+                  · {CDS_LOCATIONS.find((l) => l.id === SELLER_CDS_ID)?.name}
+                </span>
+              </button>
+            )}
+
             {/* User Menu */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -581,6 +627,7 @@ export function RootLayout() {
               route change so the user gets visual feedback that the
               navigation registered. */}
           <RouteProgress />
+          {user?.role === "seller" && !isEmptyMode && isCdsEnabled(user?.id) && <CdsOrderSync />}
           <Outlet />
         </main>
       </div>
@@ -679,9 +726,9 @@ export function RootLayout() {
                               : "text-gray-700 hover:text-gray-900"
                           }`}
                         >
-                          <div className="flex items-center gap-3">
+                          <div className="flex min-w-0 items-center gap-3">
                             <Icon className="h-5 w-5 flex-shrink-0" />
-                            <span className="text-sm">{item.name}</span>
+                            <span className="text-sm text-left leading-snug">{item.name}</span>
                           </div>
                           {isExpanded ? (
                             <ChevronDown className="h-4 w-4 flex-shrink-0" />

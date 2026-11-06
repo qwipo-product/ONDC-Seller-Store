@@ -69,6 +69,7 @@ import { AdminDarkStoreDashboard } from "./pages/admin/dark-store-dashboard";
 import { AdminCompanies } from "./pages/admin/companies";
 import { AdminCategories } from "./pages/admin/categories";
 import { ErrorScreensDemo } from "./pages/demos/error-screens";
+import { CdsPayments } from "./pages/cds/payments";
 import { LoadingScreensDemo } from "./pages/demos/loading-screens";
 
 function CatalogAdminIndex() {
@@ -208,6 +209,11 @@ export const router = createBrowserRouter([
       { path: "inventory", Component: Inventory },
       { path: "orders", Component: Orders },
       { path: "orders/:orderId", Component: OrderDetail },
+      // Cross Dock Store (CDS) — operational module, gated by the
+      // Darkstore Connector (see lib/cds/store.ts isCdsEnabled).
+      // CDS orders live on the Orders page (CDS tab).
+      { path: "cds", element: <Navigate to="/orders?tab=cds" replace /> },
+      { path: "cds/payments", Component: CdsPayments },
       // The Customers module ships the auto-register-on-first-order
       // flow (originally prototyped as "Customers 2" in the
       // empty-mode demo). It became the production model after PM

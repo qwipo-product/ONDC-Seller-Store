@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { Card, CardContent } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
@@ -28,6 +28,8 @@ import {
   Search,
   CheckCircle2,
   XCircle,
+  Warehouse,
+  RotateCcw,
   Truck,
   Package,
   ShoppingCart,
@@ -38,6 +40,7 @@ import {
   X,
   Filter,
   Eye,
+  Pencil,
   Download,
   Zap,
   Route,
@@ -55,6 +58,15 @@ import { CopyOnHover } from "../../components/copy-on-hover";
 import { ListPagination } from "../../components/ui/list-pagination";
 import { OrdersMapDialog } from "../../components/orders-map-dialog";
 import { useAuth } from "../../lib/auth-context";
+import { isCdsEnabled } from "../../lib/cds/store";
+import { CdsOrdersTab } from "../../components/cds/cds-orders-tab";
+import { CdsReturnsTab, useCdsReturnCount } from "../../components/cds/cds-returns-tab";
+import { useCdsOrderIds, useCdsOrderMap } from "../../components/cds/cds-order-sync";
+import type { CdsOrderStatus } from "../../lib/cds/types";
+import { sellerOrderStage } from "../../lib/cds/calc";
+
+// Short CDS stage shown under "Confirmed" — same labels as the CDS tab.
+const cdsStageLabel = (s: CdsOrderStatus) => sellerOrderStage(s).label;
 import {
   getLogisticsSettings,
   subscribeToLogisticsSettings,
@@ -108,11 +120,21 @@ type TabType =
   | "confirmed"
   | "logistics"
   | "delivered"
-  | "cancelled";
+  | "cancelled"
+  // Cross Dock Store orders — only when the Darkstore Connector is on.
+  | "cds"
+  | "returns";
 
 export function Orders() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const cdsEnabled = isCdsEnabled(user?.id) && user?.dataMode !== "empty";
+  // Connector sellers: confirmed orders are also in the CDS (see
+  // CdsOrderSync) — they stay on Confirmed and show their CDS stage.
+  const cdsOrderIds = useCdsOrderIds();
+  const cdsOrderMap = useCdsOrderMap();
+  const cdsReturnCount = useCdsReturnCount();
+  const location = useLocation();
 
   // Read logistics enabled flag for the current seller, and keep it
   // live across tab — the admin can toggle it without a page reload.
@@ -133,6 +155,8 @@ export function Orders() {
     isEmptyMode() ? [] : getOrders(),
   );
   useEffect(() => {
+    // Pick up writes that landed before we subscribed (e.g. the CDS sync).
+    if (!isEmptyMode()) setOrdersState([...getOrders()]);
     return subscribeToOrders(() => setOrdersState([...getOrders()]));
   }, []);
   // Local setter that also writes through to the store so detail-page
@@ -144,7 +168,9 @@ export function Orders() {
       typeof updater === "function" ? updater(getOrders()) : updater;
     setOrdersStore(next);
   };
-  const [activeTab, setActiveTab] = useState<TabType>("all");
+  const [activeTab, setActiveTab] = useState<TabType>(() =>
+    (["cds", "returns"] as const).find((x) => x === new URLSearchParams(window.location.search).get("tab")) ?? "all",
+  );
   // Sub-tab inside Confirmed: split deliveries by when they're due.
   // "all" matches both buckets — the default so existing flows keep
   // Confirmed-tab navigation. The earlier "Urgent / Tomorrow /
@@ -310,12 +336,13 @@ export function Orders() {
       delivered: orders.filter((o) => o.status === "Delivered").length,
       cancelled: orders.filter((o) => o.status === "Cancelled").length,
     };
-  }, [orders]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orders, cdsOrderIds]);
 
   // Get orders for active tab
   const getTabOrders = (tab: TabType): Order[] => {
     const statusMap: Record<
-      Exclude<TabType, "all" | "logistics">,
+      Exclude<TabType, "all" | "logistics" | "cds" | "returns">,
       Order["status"]
     > = {
       new: "New",
@@ -324,6 +351,7 @@ export function Orders() {
       cancelled: "Cancelled",
     };
 
+    if (tab === "cds" || tab === "returns") return [];
     return orders.filter((order) => {
       // "all" bypasses the status filter; "logistics" is keyed off the
       // hand-off flag rather than a status, since those rows are still
@@ -425,6 +453,7 @@ export function Orders() {
     () => getTabOrders(activeTab),
     [
       activeTab,
+      cdsOrderIds,
       confirmedDeliveryDay,
       confirmedBeatMode,
       orders,
@@ -742,15 +771,31 @@ export function Orders() {
   // the admin turns it off mid-session, fall back to All rather than
   // leaving the seller on a tab whose trigger has disappeared.
   useEffect(() => {
-    if (!logisticsEnabled && activeTab === "logistics") {
+    if ((!logisticsEnabled || cdsEnabled) && activeTab === "logistics") {
       setActiveTab("all");
       setSelectedOrders([]);
     }
-  }, [logisticsEnabled, activeTab]);
+  }, [logisticsEnabled, cdsEnabled, activeTab]);
+
+  useEffect(() => {
+    const want = new URLSearchParams(location.search).get("tab");
+    if ((want === "cds" || want === "returns") && cdsEnabled) {
+      setActiveTab(want);
+      setSelectedOrders([]);
+    } else if (!want) {
+      // Sidebar "Orders" (plain /orders) leaves the CDS / Returns tab.
+      setActiveTab((cur) => (cur === "cds" || cur === "returns" ? "all" : cur));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search]);
 
   // Clear selection when changing tabs
   const handleTabChange = (tab: string) => {
     setActiveTab(tab as TabType);
+    // Keep the URL in step with the CDS / Returns tabs so the sidebar
+    // highlights the right item and links back here work.
+    const want = tab === "cds" || tab === "returns" ? "?tab=" + tab : "";
+    if (location.search !== want) navigate("/orders" + want, { replace: true });
     setSelectedOrders([]);
     setCurrentPage(1); // Reset to first page
     // Reset the Delivery Day + Beat/Non-Beat sub-navigation whenever
@@ -1122,8 +1167,8 @@ export function Orders() {
           clubSize > 1 ? clubSize : "",
           statusLabelFor(order),
           orderDateLabelFor(order),
-          getOrderType(order) === "beat" ? "Beat" : "Non-Beat",
-          order.beatName ?? "",
+          cdsEnabled ? "CDS Store Delivery" : getOrderType(order) === "beat" ? "Beat" : "Non-Beat",
+          cdsEnabled ? "" : order.beatName ?? "",
           order.expectedDeliveryDate,
           order.retailerName,
           order.buyerContact ?? "",
@@ -1196,12 +1241,21 @@ export function Orders() {
             New
           </Badge>
         );
-      case "Confirmed":
+      case "Confirmed": {
+        const c = cdsEnabled ? cdsOrderMap.get(order.id) : undefined;
         return (
-          <Badge className="bg-green-50 text-green-700 border-green-200">
-            Confirmed
-          </Badge>
+          <span className="inline-flex flex-col items-start gap-0.5">
+            <Badge className="bg-green-50 text-green-700 border-green-200">
+              Confirmed
+            </Badge>
+            {c && (
+              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-teal-700">
+                <Warehouse className="h-3 w-3" /> CDS · {cdsStageLabel(c.status)}
+              </span>
+            )}
+          </span>
         );
+      }
       case "Delivered":
         return (
           <Badge className="bg-emerald-100 text-emerald-700 border-emerald-300">
@@ -1233,7 +1287,6 @@ export function Orders() {
   // surfaces Beat Name + Beat Delivery Day as first-class columns
   // instead of the old past/today/tomorrow/future bucket chip.)
 
-  const maskedText = "••••••••";
 
   // "Wed, 13 May": weekday + date, rendered in UTC so it matches the
   // ISO string whatever the viewer's timezone is.
@@ -1329,9 +1382,11 @@ export function Orders() {
               <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
                 Order Type
               </th>
-              <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
-                Beat Name
-              </th>
+              {!cdsEnabled && (
+                <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
+                  Beat Name
+                </th>
+              )}
               <th className="text-right px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
                 Order Value
               </th>
@@ -1360,7 +1415,9 @@ export function Orders() {
                 {isActionable && (
                   <td className="px-3 py-2.5">
                     {isMaskedOrder(order) ? (
-                      <Lock className="h-3.5 w-3.5 text-gray-400" />
+                      <span title="Confirm your older pending orders first">
+                        <Lock className="h-3.5 w-3.5 text-gray-400" />
+                      </span>
                     ) : (
                       <Checkbox
                         checked={selectedOrders.includes(order.id)}
@@ -1413,17 +1470,12 @@ export function Orders() {
                 <td className="px-3 py-2.5">
                   <p
                     className="text-sm font-medium text-gray-900 truncate max-w-[160px]"
-                    title={isMaskedOrder(order) ? undefined : order.company}
+                    title={order.company}
                   >
-                    {isMaskedOrder(order) ? maskedText : order.company}
+                    {order.company}
                   </p>
                 </td>
                 <td className="px-3 py-2.5">
-                  {isMaskedOrder(order) ? (
-                    <p className="text-sm text-gray-400 select-none">
-                      {maskedText}
-                    </p>
-                  ) : (
                   <CopyOnHover value={order.retailerName} label="Business name">
                     <p
                       className="text-sm font-medium text-gray-900 truncate max-w-[160px]"
@@ -1432,14 +1484,9 @@ export function Orders() {
                       {order.retailerName}
                     </p>
                   </CopyOnHover>
-                  )}
                 </td>
                 <td className="px-3 py-2.5 whitespace-nowrap">
-                  {isMaskedOrder(order) ? (
-                    <p className="text-xs text-gray-400 select-none">
-                      {maskedText}
-                    </p>
-                  ) : order.buyerContact ? (
+                  {order.buyerContact ? (
                     <CopyOnHover value={order.buyerContact} label="Mobile number">
                       <p className="text-xs text-gray-700 font-mono">
                         {order.buyerContact}
@@ -1457,7 +1504,12 @@ export function Orders() {
                     off-schedule) so the row and the filter speak
                     the same visual language. */}
                 <td className="px-3 py-2.5 whitespace-nowrap">
-                  {getOrderType(order) === "beat" ? (
+                  {cdsEnabled ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-teal-200 bg-teal-50 text-[11px] font-medium text-teal-700">
+                      <Warehouse className="h-3 w-3" />
+                      CDS Store Delivery
+                    </span>
+                  ) : getOrderType(order) === "beat" ? (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-emerald-200 bg-emerald-50 text-[11px] font-medium text-emerald-700">
                       <Route className="h-3 w-3" />
                       Beat
@@ -1472,6 +1524,7 @@ export function Orders() {
                 {/* Beat Name — surfaces the configured serviceability
                     beat that owns this delivery. Falls back to "—"
                     for orphan / ad-hoc orders. */}
+                {!cdsEnabled && (
                 <td
                   className="px-3 py-2.5 whitespace-nowrap"
                   title={order.beatName ?? "No beat assigned"}
@@ -1484,13 +1537,12 @@ export function Orders() {
                     <span className="text-xs text-gray-400">—</span>
                   )}
                 </td>
+                )}
                 <td className="px-3 py-2.5 whitespace-nowrap text-right">
                   <p
-                    className={`text-sm font-semibold tabular-nums ${isMaskedOrder(order) ? "text-gray-400 select-none" : "text-gray-900"}`}
+                    className="text-sm font-semibold tabular-nums text-gray-900"
                   >
-                    {isMaskedOrder(order)
-                      ? "₹ ••••"
-                      : `₹${order.orderValue.toFixed(2)}`}
+                    {`₹${order.orderValue.toFixed(2)}`}
                   </p>
                 </td>
                 <td className="px-3 py-2.5 whitespace-nowrap">
@@ -1517,24 +1569,31 @@ export function Orders() {
                 )}
                 <td className="px-3 py-2.5 whitespace-nowrap">
                   <div className="flex items-center justify-center gap-2">
-                    {isMaskedOrder(order) ? (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled
-                        title="Locked. Update your previous orders to view this order"
-                      >
-                        <Lock className="h-4 w-4" />
-                      </Button>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => navigate(`/orders/${order.id}`)}
-                        title="View Details"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
+                    {/* View + Edit on every order. Locked (newer) New orders can
+                        still be opened and edited; only confirming waits until
+                        the older pending orders are updated. */}
+                    {(
+                      <>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => navigate(`/orders/${order.id}`)}
+                          title="View Details"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        {/* Edit quantities before confirming (New orders only). */}
+                        {order.status === "New" && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => navigate(`/orders/${order.id}#edit`)}
+                            title="Edit quantities before confirming"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </>
                     )}
                   </div>
                 </td>
@@ -1604,6 +1663,12 @@ export function Orders() {
         <span className="text-xs font-medium text-gray-600 uppercase tracking-wide mr-1">
           Order type:
         </span>
+        {cdsEnabled ? (
+          <span className="text-xs px-3 py-1.5 rounded-full border gap-1.5 inline-flex items-center bg-teal-600 text-white border-teal-600">
+            <Warehouse className="h-3 w-3" />
+            CDS Store Delivery ({counts.beat + counts.nonBeat})
+          </span>
+        ) : (<>
         <button
           onClick={() => handleConfirmedBeatModeChange("all")}
           className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
@@ -1636,6 +1701,7 @@ export function Orders() {
           <Zap className="h-3 w-3" />
           Non-beat orders ({counts.nonBeat})
         </button>
+        </>)}
       </div>
     </div>
   );
@@ -1680,10 +1746,19 @@ export function Orders() {
                       <CheckCircle2 className="h-4 w-4 mr-2" />
                       <span className="font-medium">Confirmed ({summary.confirmed})</span>
                     </TabsTrigger>
+                    {cdsEnabled && (
+                      <TabsTrigger
+                        value="cds"
+                        className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2 transition-all whitespace-nowrap"
+                      >
+                        <Warehouse className="h-4 w-4 mr-2" />
+                        <span className="font-medium">Cross Dock Store (CDS)</span>
+                      </TabsTrigger>
+                    )}
                     {/* Only meaningful once the seller can actually
                         hand orders off, so it's gated on the same flag
                         as the Request 3PL Logistics action. */}
-                    {logisticsEnabled && (
+                    {logisticsEnabled && !cdsEnabled && (
                       <TabsTrigger
                         value="logistics"
                         className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2 transition-all whitespace-nowrap"
@@ -1706,10 +1781,19 @@ export function Orders() {
                       <XCircle className="h-4 w-4 mr-2" />
                       <span className="font-medium">Cancelled ({summary.cancelled})</span>
                     </TabsTrigger>
+                    {cdsEnabled && (
+                      <TabsTrigger
+                        value="returns"
+                        className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2 transition-all whitespace-nowrap"
+                      >
+                        <RotateCcw className="h-4 w-4 mr-2" />
+                        <span className="font-medium">Returns ({cdsReturnCount})</span>
+                      </TabsTrigger>
+                    )}
                   </TabsList>
 
                   {/* Action Buttons */}
-                  {!isEmpty && (
+                  {!isEmpty && activeTab !== "cds" && activeTab !== "returns" && (
                   <div className="flex gap-2 flex-shrink-0">
                     {/* Filters Button */}
                     <Button
@@ -1745,7 +1829,7 @@ export function Orders() {
                   so they react to every active filter. Lets the
                   seller eyeball the business shape of the slice
                   they're looking at without exporting a report. */}
-              {!isEmpty && (
+              {!isEmpty && activeTab !== "cds" && activeTab !== "returns" && (
                 <div className="px-6 py-2.5 border-b border-gray-100 bg-gradient-to-r from-purple-50/40 via-white to-emerald-50/40 flex-shrink-0 flex flex-wrap items-center gap-x-6 gap-y-2">
                   <div className="flex items-baseline gap-1.5">
                     <span className="text-[10px] uppercase tracking-wider font-semibold text-gray-500">
@@ -1921,9 +2005,8 @@ export function Orders() {
                 <div className="px-6 py-2 border-b bg-red-50/60 flex items-center justify-between gap-3 flex-shrink-0">
                   <p className="text-xs text-red-800 flex items-center gap-2">
                     <Lock className="h-3.5 w-3.5" />
-                    {maskedCount} new order{maskedCount === 1 ? "" : "s"}{" "}
-                    locked. Update {attentionItems.length} previous order
-                    {attentionItems.length === 1 ? "" : "s"} to unlock.
+                    {maskedCount} new order{maskedCount === 1 ? "" : "s"} can be viewed and edited, but confirmed only after you update{" "}
+                    {attentionItems.length} previous order{attentionItems.length === 1 ? "" : "s"}.
                   </p>
                   <Button
                     size="sm"
@@ -1996,6 +2079,16 @@ export function Orders() {
                             <MapPin className="h-4 w-4" />
                             View on Map
                           </Button>
+                          {cdsEnabled ? (
+                            <Button
+                              size="sm"
+                              className="bg-teal-600 hover:bg-teal-700 text-white gap-2"
+                              onClick={() => handleTabChange("cds")}
+                            >
+                              <Warehouse className="h-4 w-4" />
+                              Manage in CDS tab
+                            </Button>
+                          ) : (<>
                           {logisticsEnabled && (
                             <Button
                               size="sm"
@@ -2023,9 +2116,21 @@ export function Orders() {
                             <XCircle className="h-4 w-4" />
                             Cancel
                           </Button>
+                          </>)}
                         </div>
                       )}
                     </div>
+                    {cdsEnabled && (
+                      <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-800">
+                        <span className="flex items-center gap-2">
+                          <Warehouse className="h-4 w-4 shrink-0" />
+                          Your confirmed orders go to the Cross Dock Store (CDS). Edit quantities, cancel and request logistics from the CDS tab.
+                        </span>
+                        <Button size="sm" variant="outline" className="h-7 shrink-0 border-teal-300 bg-white text-teal-700 hover:bg-teal-100" onClick={() => handleTabChange("cds")}>
+                          Open CDS tab
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </>
               )}
@@ -2184,6 +2289,17 @@ export function Orders() {
               {/* Table */}
               {renderOrderTable(paginatedOrders)}
             </TabsContent>
+
+            {cdsEnabled && (
+              <TabsContent value="cds" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
+                <CdsOrdersTab />
+              </TabsContent>
+            )}
+            {cdsEnabled && (
+              <TabsContent value="returns" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
+                <CdsReturnsTab />
+              </TabsContent>
+            )}
           </Tabs>
         </Card>
         </div>
@@ -2413,6 +2529,12 @@ export function Orders() {
                   <span className="text-[10px] text-gray-500">{o.id}</span>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
+                  {cdsEnabled ? (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap border border-teal-200 bg-teal-50 text-teal-700">
+                      <Warehouse className="h-3 w-3" />
+                      CDS Store Delivery
+                    </span>
+                  ) : (
                   <span
                     className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap border ${
                       getOrderType(o) === "beat"
@@ -2427,6 +2549,7 @@ export function Orders() {
                     )}
                     {getOrderType(o) === "beat" ? "Beat" : "Non-Beat"}
                   </span>
+                  )}
                   <span className="text-[10px] text-gray-600 whitespace-nowrap">
                     ₹{o.orderValue.toLocaleString()}
                   </span>
