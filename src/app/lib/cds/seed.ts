@@ -24,8 +24,6 @@ import {
   lbnpCompleteDropStop,
   lbnpCompletePickupStop,
   moveOrderToCds,
-  autoSettlePickups,
-  sellerSettlePickup,
   markReturnedToSeller,
   packShipment,
   processReturnRefund,
@@ -48,10 +46,10 @@ import {
 } from "./engine";
 import { CDS_INTENSITY, CDS_LOCATIONS, OPERATOR_SELLER_ID, PRODUCTS, SELLERS, buildRetailers } from "./master-data";
 import { seedOrders } from "../orders-data";
-import { SELLER_CDS_ID, alignToCdsDay, toImported } from "./order-bridge";
+import { SELLER_CDS_ID, alignToCdsDay, plusDays, toImported } from "./order-bridge";
 import type { CdsOrder, CdsState, CdsTrip, PaymentType, Shipment } from "./types";
 
-export const CDS_DATA_VERSION = 22;
+export const CDS_DATA_VERSION = 36;
 const PAST_DAYS = 4;
 
 function mulberry32(seed: number) {
@@ -524,7 +522,7 @@ function sellerStory() {
   const cds = SELLER_CDS_ID;
   const sid = OPERATOR_SELLER_ID;
   // trim: the seller reduced a line on the New tab before confirming.
-  const imp = (id: string, off: number, h = 8, m = 10, trim = 0) => {
+  const imp = (id: string, off: number, h = 8, m = 10, trim = 0, route: "cds" | "3pl" = "cds") => {
     const src = seedOrders.find((o) => o.id === id);
     if (!src) return undefined;
     const input = toImported(src);
@@ -532,7 +530,7 @@ function sellerStory() {
       const l = input.lines.find((x) => x.confirmedQty >= 4) ?? input.lines[0];
       l.confirmedQty -= Math.max(1, Math.floor(l.confirmedQty * trim));
     }
-    return moveOrderToCds(sid, cds, input, at(off, h, m));
+    return moveOrderToCds(sid, cds, input, at(off, h, m), route);
   };
   const confirmed = seedOrders.filter((o) => o.status === "Confirmed").map((o) => o.id);
   const delivered = seedOrders.filter((o) => o.status === "Delivered");
@@ -546,8 +544,6 @@ function sellerStory() {
     const c = imp(o.id, off, 6, 30, i === 1 ? 0.25 : 0);
     if (!c) continue;
     runPickup([c.id], off, 0, "received");
-    // The seller marked this pickup settled; the rest are auto-settled by the system.
-    if (i === 0) sellerSettlePickup(c.id, at(off, 9, 30));
     const sh = ctx.s.shipments.find((x) => x.id === c.shipmentId);
     if (!sh) continue;
     sortAndPack([sh], off, 12, 0);
@@ -565,14 +561,15 @@ function sellerStory() {
     processReturnRefund(id, at(-1, 11, 0));
     closeReturn(id, at(-1, 11, 5));
   }
-  // Confirmed today, in stage order:
+  // Confirmed today — confirming routes an order automatically (these are
+  // all inside the CDS area). In stage order:
   //   [0..1] ready for logistics (one edited before confirming),
   //   [2]    cancelled by the retailer before pickup,
   //   [3..4] pickup requested, [5] partial pickup, [6] out for delivery.
   const c = confirmed.map((id, i) => imp(id, 0, 8, 5 + i, i === 0 ? 0.2 : 0)).filter((x): x is CdsOrder => !!x);
   const multi = (o: CdsOrder) => o.lines.find((l) => l.confirmedQty >= 2) ?? o.lines[0];
   if (c[2]) cancelOrder(c[2].id, "Retailer", "Ordered by mistake", at(0, 9, 40));
-  if (c[3] && c[4]) requestPickupTrip([c[3].id, c[4].id], { at: at(0, 10, 0), slot: "Midday · 11:00 – 13:00" });
+  if (c[3] && c[4]) requestPickupTrip([c[3].id, c[4].id], { at: at(0, 10, 0), slot: "Assigned by LBNP" });
   if (c[5]) {
     const t1 = requestPickupTrip([c[5].id], { at: at(0, 7, 30) });
     lbnpAssignRider(t1, at(0, 7, 50));
@@ -586,12 +583,83 @@ function sellerStory() {
       if (sh.status === "Packed") deliverShipments(cds, [sh], 0, 12, 0, { pendingLast: 1 });
     }
   }
+
+  // 3PL Logistics — retailers outside the CDS area. Picked up from the
+  // seller and delivered straight to the retailer (no CDS stop).
+  const p3 = (id: string, off: number) => imp(id, off, 8, 20, 0, "3pl");
+  // Ready for logistics
+  p3("QWI-ONDC-260517-R8T3LM", 0);
+  p3("QWI-ONDC-260514-T1R7NH", 0);
+  // Pickup requested
+  const pr = [p3("QWI-ONDC-260516-H5V9PK", 0), p3("QWI-ONDC-260515-Q2X6BN", 0)].filter((x): x is CdsOrder => !!x);
+  if (pr.length) requestPickupTrip(pr.map((o) => o.id), { at: at(0, 10, 30), slot: "Assigned by LBNP" });
+  // Picked up (OTP) and out for delivery with the 3PL rider
+  const ofd = p3("QWI-ONDC-260517-D3F8KT", 0);
+  if (ofd) {
+    const t = requestPickupTrip([ofd.id], { at: at(0, 7, 40), slot: "Assigned by LBNP" });
+    lbnpAssignRider(t, at(0, 8, 0));
+    lbnpCompletePickupStop(t, trip(t).stops[0].id, { at: at(0, 9, 0) });
+  }
+  // Delivered by 3PL — on each order's delivery day (order date + 1).
+  for (const id of ["QWI-ONDC-260513-W7C1DZ", "QWI-ONDC-260516-M9B2VC", "QWI-ONDC-260515-P6L4XE"]) {
+    const src = seedOrders.find((x) => x.id === id);
+    if (!src) continue;
+    const dDay = alignToCdsDay(plusDays(src.orderDate, 1));
+    const off = Math.min(-1, Math.round((new Date(localDate(dDay) + "T12:00:00").getTime() - new Date(localDate(new Date()) + "T12:00:00").getTime()) / 86400000));
+    const o = p3(id, off);
+    if (!o) continue;
+    const t = requestPickupTrip([o.id], { at: at(off, 8, 0), slot: "Assigned by LBNP" });
+    lbnpAssignRider(t, at(off, 8, 20));
+    lbnpCompletePickupStop(t, trip(t).stops[0].id, { at: at(off, 9, 30) });
+    const sh = ctx.s.shipments.find((x) => x.id === o.shipmentId);
+    const dt = sh?.deliveryTripId ? trip(sh.deliveryTripId) : undefined;
+    if (dt) lbnpCompleteDropStop(dt.id, dt.stops[0].id, { delivered: true }, at(off, 11, 0));
+  }
+
+  // ---- Extra cases so every filter has an example in demos ----
+  // (logistics for anything still waiting is requested at the end)
+
+  // 3PL cancelled by the retailer before pickup (Ghatkesar).
+  const cx3 = p3("QWI-ONDC-260511-V2N9JD", 0);
+  if (cx3) cancelOrder(cx3.id, "Retailer", "Shop closed for renovation", at(0, 9, 15));
+
+  // 3PL delivered, then a retailer return that is on its way back (Patancheru).
+  const r3 = p3("QWI-ONDC-260512-K8W5QZ", -2);
+  if (r3) {
+    const t3 = requestPickupTrip([r3.id], { at: at(-2, 8, 0), slot: "Assigned by LBNP" });
+    lbnpAssignRider(t3, at(-2, 8, 20));
+    lbnpCompletePickupStop(t3, trip(t3).stops[0].id, { at: at(-2, 9, 30) });
+    const sh = ctx.s.shipments.find((x) => x.id === r3.shipmentId);
+    const dt = sh?.deliveryTripId ? trip(sh.deliveryTripId) : undefined;
+    if (dt) lbnpCompleteDropStop(dt.id, dt.stops[0].id, { delivered: true }, at(-2, 11, 30));
+    if (r3.status === "Delivered") {
+      const rid = createRetailerReturn(r3.id, [{ sku: r3.lines[0].sku, qty: 1 }], "Damaged pack received", at(-1, 11, 0));
+      scheduleReturnToSeller(rid, at(-1, 16, 0));
+    }
+  }
+
+  // CDS delivered today, QR payment failed — shows under "Needs attention" (Banjara Hills).
+  const qr = imp("QWI-ONDC-260519-X7B2QC", 0, 6, 40);
+  if (qr) {
+    runPickup([qr.id], 0, 2, "received");
+    const sh = ctx.s.shipments.find((x) => x.id === qr.shipmentId);
+    if (sh) {
+      sortAndPack([sh], 0, 11, 20);
+      if (sh.status === "Packed") deliverShipments(cds, [sh], 0, 12, 10, { failRate: 0, qrFailRate: 1 });
+    }
+  }
+
+  // Confirming requests logistics straight away — nothing waits at "Ready".
+  for (const route of ["cds", "3pl"] as const) {
+    const ids = ctx.s.orders.filter((o) => o.sellerId === sid && o.status === "Confirmed" && (o.route ?? "cds") === route).map((o) => o.id);
+    if (ids.length) requestPickupTrip(ids, { at: at(0, 8, 30), slot: "Assigned by LBNP" });
+  }
 }
 
 
 function sellerLateReturns() {
   // Returns raised after these orders were paid out (run after finalise).
-  const back = ctx.s.orders.filter((o) => o.sellerId === OPERATOR_SELLER_ID && o.status === "Delivered").sort((a, b) => (b.deliveredAt ?? "").localeCompare(a.deliveredAt ?? "")).map((o) => o.id);
+  const back = ctx.s.orders.filter((o) => o.sellerId === OPERATOR_SELLER_ID && o.status === "Delivered" && (o.route ?? "cds") === "cds").sort((a, b) => (b.deliveredAt ?? "").localeCompare(a.deliveredAt ?? "")).map((o) => o.id);
   const o3 = back[2] ? ctx.s.orders.find((o) => o.id === back[2]) : undefined;
   if (o3) {
     const id = createRetailerReturn(o3.id, [{ sku: o3.lines[0].sku, qty: 2 }], "Near expiry date", at(-1, 16, 0));
@@ -681,7 +749,6 @@ export function buildSeed(): CdsState {
   finalise();
   try {
     sellerLateReturns();
-    autoSettlePickups();
   } catch (e) {
     console.error("[CDS seed] late returns", e);
   }

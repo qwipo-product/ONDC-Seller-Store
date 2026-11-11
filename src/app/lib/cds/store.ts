@@ -57,7 +57,6 @@ function commit() {
   state = { ...getCds(), rev: getCds().rev + 1 };
   ctx.s = state;
   // Delivery-app updates may close out pickups the seller never marked.
-  engine.autoSettlePickups();
   persist();
   listeners.forEach((fn) => fn());
 }

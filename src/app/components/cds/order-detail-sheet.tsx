@@ -1,7 +1,7 @@
 // Cross Dock Store (CDS) — order detail side panel.
 // Shows only what the seller needs: product summary and payment summary.
 
-import { useState } from "react";
+import { useState, type ElementType } from "react";
 import { Ban } from "lucide-react";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../ui/sheet";
 import { Button } from "../ui/button";
@@ -9,12 +9,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from "../ui/textarea";
 import { Label } from "../ui/label";
 import { cn } from "../ui/utils";
-import { CANCELLABLE, fmtDateTime, fmtINR, goodQty, isPartialPickup, isPartiallyCancelled, isPickedUpStage, orderMoney, orderValue, pickupQty, returnStage, sellerOrderStage, sellerPayoutStatus } from "../../lib/cds/calc";
+import { SELLER_CANCELLABLE, fmtDateTime, fmtINR, goodQty, isPartialPickup, isPartiallyCancelled, isPickedUpStage, orderMoney, orderValue, pickupQty, returnStage, sellerOrderStage, sellerPayoutStatus } from "../../lib/cds/calc";
 import { engine, run } from "../../lib/cds/store";
 import type { CdsOrder } from "../../lib/cds/types";
 import { FilterSelect, PaymentPill, Pill, useCdsScope } from "./cds-ui";
-import { PickupSettleAction, PickupSettledPill, ReturnSettleAction } from "./settle-dialog";
-import { LbnpSimulator } from "./trip-detail-sheet";
 
 export function OrderDetailSheet({ orderId, onClose }: { orderId: string | null; onClose: () => void }) {
   const { s, retailerMap } = useCdsScope();
@@ -37,8 +35,27 @@ export function OrderDetailSheet({ orderId, onClose }: { orderId: string | null;
   );
 }
 
-/** Order panel: product summary + payment summary, nothing else. */
-function OrderBody({ o, retailer, onCancel }: { o: CdsOrder; retailer: string; onCancel: () => void }) {
+/** CDS / 3PL section on the full order page (/orders/:id). Same content as
+ *  the old side panel minus the product table (the page has its own). */
+export function CdsOrderSection({ orderId }: { orderId: string }) {
+  const { s, retailerMap } = useCdsScope();
+  const o = s.orders.find((x) => x.id === orderId);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  if (!o) return null;
+  return (
+    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+      <OrderBody o={o} retailer={retailerMap.get(o.retailerId)?.name ?? ""} onCancel={() => setCancelOpen(true)} page />
+      <CancelDialog o={o} open={cancelOpen} onOpenChange={setCancelOpen} />
+    </div>
+  );
+}
+
+/** Order content: header, last update, (product summary), payment summary. */
+function OrderBody({ o, retailer, onCancel, page = false }: { o: CdsOrder; retailer: string; onCancel: () => void; page?: boolean }) {
+  // Sheet parts only work inside the side panel; on a page use plain elements.
+  const Hdr: ElementType = page ? "div" : SheetHeader;
+  const Ttl: ElementType = page ? "h3" : SheetTitle;
+  const Desc: ElementType = page ? "p" : SheetDescription;
   const { s } = useCdsScope();
   const m = orderMoney(o, s);
   const cancelled = o.status === "Cancelled";
@@ -48,7 +65,7 @@ function OrderBody({ o, retailer, onCancel }: { o: CdsOrder; retailer: string; o
   const editNote = s.adjustments.find((a) => a.orderId === o.id && a.type === "Partial Cancellation")?.note.split(" — ").pop() ?? (o.lines.some((l) => l.confirmedQty < l.orderedQty) ? "Edited before confirming" : undefined);
   const collection = s.collections.find((c) => c.splits.some((sp) => sp.orderId === o.id));
   const last = [...o.history].sort((x, y) => x.at.localeCompare(y.at)).pop();
-  const canCancel = CANCELLABLE.includes(o.status);
+  const canCancel = SELLER_CANCELLABLE.includes(o.status);
 
   let collected: string;
   if (o.paymentType === "Credit") collected = "Credit — handled offline by you";
@@ -64,27 +81,28 @@ function OrderBody({ o, retailer, onCancel }: { o: CdsOrder; retailer: string; o
 
   return (
     <>
-      <SheetHeader className="border-b border-gray-200 p-5 pr-12">
+      <Hdr className={page ? "border-b border-gray-200 bg-gray-50/60 px-5 py-4" : "border-b border-gray-200 p-5 pr-12"}>
         <div className="flex flex-wrap items-center gap-2">
           <Pill tone={stage.tone}>{stage.label}</Pill>
           {isPartiallyCancelled(o) && <Pill tone="red">Partially cancelled</Pill>}
           {isPartialPickup(o) && <Pill tone="amber">Partial pickup</Pill>}
           {returns.length > 0 && <Pill tone="purple">Return raised</Pill>}
-          <PickupSettledPill o={o} />
         </div>
-        <SheetTitle className="mt-2 text-base">{retailer}</SheetTitle>
-        <SheetDescription className="text-xs">
+        <Ttl className="mt-2 flex items-center gap-2 text-base font-semibold text-gray-900">
+          {retailer}
+          <Pill tone={o.route === "3pl" ? "blue" : "indigo"}>{o.route === "3pl" ? "3PL Logistics" : "Cross Dock Store"}</Pill>
+        </Ttl>
+        <Desc className="text-xs text-gray-500">
           <span className="font-mono">{o.id}</span> · placed {fmtDateTime(o.placedAt)}
-        </SheetDescription>
+        </Desc>
         <div className="mt-3 flex flex-wrap gap-2">
           {canCancel && (
             <Button size="sm" variant="outline" className="gap-1.5 text-red-700" onClick={onCancel}>
               <Ban className="h-4 w-4" /> Cancel order
             </Button>
           )}
-          {isPickedUpStage(o.status) && <PickupSettleAction o={o} retailer={retailer} />}
         </div>
-      </SheetHeader>
+      </Hdr>
 
       <div className="space-y-5 p-5">
         {o.status === "Pickup Requested" && (
@@ -103,7 +121,8 @@ function OrderBody({ o, retailer, onCancel }: { o: CdsOrder; retailer: string; o
           </section>
         )}
 
-        {/* Product summary */}
+        {/* Product summary (the full order page shows its own items table) */}
+        {!page && (
         <section>
           <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Product summary · {o.lines.length} {o.lines.length === 1 ? "product" : "products"}</h4>
           <div className="overflow-x-auto rounded-lg border border-gray-200">
@@ -144,6 +163,7 @@ function OrderBody({ o, retailer, onCancel }: { o: CdsOrder; retailer: string; o
             </table>
           </div>
         </section>
+        )}
 
         {/* Payment summary */}
         <section>
@@ -190,7 +210,6 @@ function OrderBody({ o, retailer, onCancel }: { o: CdsOrder; retailer: string; o
                   </div>
                   <div className="flex items-center gap-2">
                     <Pill tone={returnStage(r).tone}>{returnStage(r).label}</Pill>
-                    <ReturnSettleAction r={r} retailer={retailer} />
                   </div>
                 </div>
               ))}
@@ -198,7 +217,6 @@ function OrderBody({ o, retailer, onCancel }: { o: CdsOrder; retailer: string; o
           </section>
         )}
 
-        <DeliveryPartnerSimulator o={o} />
       </div>
     </>
   );
@@ -237,47 +255,6 @@ function MoneyLine({
         {value < 0 ? `−${fmtINR(-value)}` : fmtINR(value)}
       </p>
     </div>
-  );
-}
-
-/** Prototype only: stands in for the delivery partner app and the payout
- *  system, so the demo can move an order / return forward and enable
- *  "Mark settled". Not part of the seller's real screen. */
-function DeliveryPartnerSimulator({ o }: { o: CdsOrder }) {
-  const { s } = useCdsScope();
-  const actions: { label: string; fn: () => void; msg: string }[] = [];
-  for (const r of s.returns.filter((x) => x.orderId === o.id && x.type === "Retailer Return" && !x.sellerSettledAt)) {
-    if (r.status === "Open") actions.push({ label: `${r.id}: return collected from retailer`, fn: () => engine.scheduleReturnToSeller(r.id), msg: "Return collected — coming back to you" });
-    if (r.status === "Return to Seller Scheduled") actions.push({ label: `${r.id}: goods returned to seller`, fn: () => engine.markReturnedToSeller(r.id), msg: "Goods returned to you" });
-  }
-  const own = s.settlements.find((x) => x.orderIds.includes(o.id) && x.sellerId === o.sellerId);
-  const recov = s.settlements.find((x) => x.status !== "Settled" && x.recoveries?.some((v) => v.orderId === o.id));
-  for (const st of [own, recov]) {
-    if (st && st.status !== "Settled" && o.status === "Delivered" && o.paymentType !== "Credit" && !actions.some((a) => a.label.startsWith(st.id)))
-      actions.push({ label: `${st.id}: payout sent to seller`, fn: () => engine.payoutSettlement(st.id), msg: "Payout sent to you" });
-  }
-  // Pickup / delivery trip updates (LBNP + delivery app), prototype only.
-  const sh = s.shipments.find((x) => x.id === o.shipmentId);
-  const delivery = s.trips.find((t) => t.id === sh?.deliveryTripId);
-  const trip =
-    delivery && ["Out for Delivery", "Delivery Failed"].includes(o.status)
-      ? delivery
-      : ["Pickup Requested", "Picked Up"].includes(o.status)
-        ? s.trips.find((t) => t.id === o.pickupTripId)
-        : undefined;
-  if (!actions.length) return trip ? <LbnpSimulator t={trip} /> : null;
-  return (
-    <section className="rounded-lg border border-dashed border-amber-300 bg-amber-50/50 p-3">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-800">Prototype only · delivery partner / payout updates</p>
-      <div className="mt-2 flex flex-wrap gap-2">
-        {actions.map((a) => (
-          <Button key={a.label} size="sm" variant="outline" className="h-7 border-amber-300 bg-white text-xs text-amber-900" onClick={() => run(a.fn, a.msg)}>
-            {a.label}
-          </Button>
-        ))}
-      </div>
-      {trip && <div className="mt-3"><LbnpSimulator t={trip} /></div>}
-    </section>
   );
 }
 

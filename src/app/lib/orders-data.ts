@@ -19,6 +19,8 @@
 // now use the consistent status name "Cancelled" across the
 // whole module.
 
+import { sampleSKUs } from "./my-sku-data";
+
 export type OrderStatus = "New" | "Confirmed" | "Delivered" | "Cancelled";
 
 /**
@@ -348,11 +350,11 @@ export const seedOrders: Order[] = [
         lineTotal: 24624,
       },
       {
-        skuCode: "SKU-AASH-10",
-        productName: "Aashirvaad Atta 10kg",
+        skuCode: "190000001",
+        productName: "Aashirvaad Whole Wheat Atta 10 kg",
         company: "ITC Limited",
         brand: "Aashirvaad",
-        category: "Foodgrains",
+        category: "Cooking and Baking Needs",
         qty: 20,
         originalPricePerUnit: 450,
         finalPricePerUnit: 420,
@@ -361,11 +363,11 @@ export const seedOrders: Order[] = [
         lineTotal: 8400,
       },
       {
-        skuCode: "SKU-SUNF-DF150",
-        productName: "Sunfeast Biscuits Dark Fantasy 150g",
+        skuCode: "200000002",
+        productName: "Sunfeast Dark Fantasy Choco Fills 75 g",
         company: "ITC Limited",
         brand: "Sunfeast",
-        category: "Biscuits",
+        category: "Chocolates and Biscuits",
         qty: 50,
         originalPricePerUnit: 35,
         finalPricePerUnit: 35,
@@ -374,11 +376,11 @@ export const seedOrders: Order[] = [
         lineTotal: 1750,
       },
       {
-        skuCode: "SKU-CLAS-NB172",
-        productName: "Classmate Notebook 172 Pages",
-        company: "ITC Limited",
-        brand: "Classmate",
-        category: "Stationery",
+        skuCode: "260000004",
+        productName: "Tata Tea Gold 250 g",
+        company: "Tata Consumer Products",
+        brand: "Tata Tea",
+        category: "Tea and Coffee",
         qty: 30,
         originalPricePerUnit: 45,
         finalPricePerUnit: 45,
@@ -387,11 +389,11 @@ export const seedOrders: Order[] = [
         lineTotal: 1350,
       },
       {
-        skuCode: "SKU-BING-MA90",
-        productName: "Bingo Mad Angles 90g",
+        skuCode: "210000001",
+        productName: "Bingo Mad Angles Achaari Masti 80 g",
         company: "ITC Limited",
         brand: "Bingo",
-        category: "Snacks",
+        category: "Snacks and Namkeen",
         qty: 40,
         originalPricePerUnit: 20,
         finalPricePerUnit: 20,
@@ -400,11 +402,11 @@ export const seedOrders: Order[] = [
         lineTotal: 800,
       },
       {
-        skuCode: "SKU-YIPP-240",
-        productName: "Yippee Noodles 240g",
+        skuCode: "220000001",
+        productName: "Yippee Magic Masala Noodles 4-pack 280 g",
         company: "ITC Limited",
         brand: "Yippee",
-        category: "Noodles",
+        category: "Pasta, Soup and Noodles",
         qty: 25,
         originalPricePerUnit: 12,
         finalPricePerUnit: 12,
@@ -1468,7 +1470,360 @@ export const seedOrders: Order[] = [
     channelOrderId: "ONDC-ORD-911047",
     buyerCode: "BUYER-SKP-174",
     gstNumber: "36AANCS9517Z1ZQ",
-  },];
+  },
+  // ---- Fresh New orders for CDS demos (today / yesterday) ----
+  // [New · fresh demo order · KPHB Colony]
+  {
+    id: "QWI-ONDC-260520-NA1KPH",
+    brand: "Aashirvaad",
+    company: "ITC Limited",
+    source: "ONDC",
+    retailerName: "Sri Lakshmi Kirana",
+    itemsSummary: "Aashirvaad Whole Wheat Atta 10 kg + 2 more",
+    orderValue: 4878,
+    paymentMode: "COD",
+    orderDate: "2026-05-20",
+    customerOrderId: "QWI-ORD-260520-NA1KPH",
+    orderTime: "08:40 AM",
+    status: "New",
+    marketplace: "ONDC",
+    expectedDeliveryDate: "2026-05-21",
+    deliveryType: "Regular",
+    orderType: "standard",
+    buyerContact: "+91 98765 43351",
+    channelOrderId: "ONDC-ORD-790051",
+    buyerAddress: "Main Road, KPHB Colony, Hyderabad, Telangana",
+    buyerLat: 17.4935,
+    buyerLng: 78.3996,
+    connectivity: "Online",
+    lineItems: [
+      { skuCode: "190000001", productName: "Aashirvaad Whole Wheat Atta 10 kg", company: "ITC Limited", brand: "Aashirvaad", category: "Cooking and Baking Needs", qty: 6, originalPricePerUnit: 525, finalPricePerUnit: 525, discountApplied: 0, discountDetails: "No Discount", lineTotal: 3150 },
+      { skuCode: "200000001", productName: "Sunfeast Marie Light 200 g", company: "ITC Limited", brand: "Sunfeast", category: "Chocolates and Biscuits", qty: 24, originalPricePerUnit: 27, finalPricePerUnit: 27, discountApplied: 0, discountDetails: "No Discount", lineTotal: 648 },
+      { skuCode: "220000001", productName: "Yippee Magic Masala Noodles 4-pack 280 g", company: "ITC Limited", brand: "Yippee", category: "Pasta, Soup and Noodles", qty: 20, originalPricePerUnit: 54, finalPricePerUnit: 54, discountApplied: 0, discountDetails: "No Discount", lineTotal: 1080 },
+    ],
+  },
+  // [New · fresh demo order · Madhapur]
+  {
+    id: "QWI-ONDC-260520-NA2MDP",
+    brand: "Saffola",
+    company: "Marico Limited",
+    source: "ONDC",
+    retailerName: "Hitech Daily Needs",
+    itemsSummary: "Saffola Gold Refined Oil 1 L + 1 more",
+    orderValue: 3120,
+    paymentMode: "Prepaid",
+    orderDate: "2026-05-20",
+    customerOrderId: "QWI-ORD-260520-NA2MDP",
+    orderTime: "09:05 AM",
+    status: "New",
+    marketplace: "ONDC",
+    expectedDeliveryDate: "2026-05-21",
+    deliveryType: "Regular",
+    orderType: "standard",
+    buyerContact: "+91 98765 43352",
+    channelOrderId: "ONDC-ORD-790052",
+    buyerAddress: "Main Road, Madhapur, Hyderabad, Telangana",
+    buyerLat: 17.4483,
+    buyerLng: 78.3915,
+    connectivity: "Online",
+    lineItems: [
+      { skuCode: "270000001", productName: "Saffola Gold Refined Oil 1 L", company: "Marico Limited", brand: "Saffola", category: "Oil & Ghee", qty: 10, originalPricePerUnit: 192, finalPricePerUnit: 192, discountApplied: 0, discountDetails: "No Discount", lineTotal: 1920 },
+      { skuCode: "270000003", productName: "Parachute Coconut Oil 200 ml", company: "Marico Limited", brand: "Parachute", category: "Beauty & Hygiene", qty: 12, originalPricePerUnit: 100, finalPricePerUnit: 100, discountApplied: 0, discountDetails: "No Discount", lineTotal: 1200 },
+    ],
+  },
+  // [New · fresh demo order · Gachibowli]
+  {
+    id: "QWI-FLPK-260520-NA3GCB",
+    brand: "Bingo",
+    company: "ITC Limited",
+    source: "ONDC",
+    retailerName: "Gachibowli Fresh Mart",
+    itemsSummary: "Bingo Tedhe Medhe Tomato Twist 80 g + 2 more",
+    orderValue: 25440,
+    paymentMode: "Prepaid",
+    orderDate: "2026-05-20",
+    customerOrderId: "QWI-ORD-260520-NA3GCB",
+    orderTime: "09:50 AM",
+    status: "New",
+    marketplace: "Flipkart",
+    expectedDeliveryDate: "2026-05-21",
+    deliveryType: "Regular",
+    orderType: "standard",
+    buyerContact: "+91 98765 43353",
+    channelOrderId: "FLIPKART-ORD-790053",
+    buyerAddress: "Main Road, Gachibowli, Hyderabad, Telangana",
+    buyerLat: 17.4401,
+    buyerLng: 78.3489,
+    connectivity: "Online",
+    lineItems: [
+      { skuCode: "210000002", productName: "Bingo Tedhe Medhe Tomato Twist 80 g", company: "ITC Limited", brand: "Bingo", category: "Snacks and Namkeen", qty: 60, originalPricePerUnit: 27, finalPricePerUnit: 27, discountApplied: 0, discountDetails: "No Discount", lineTotal: 1620 },
+      { skuCode: "200000002", productName: "Sunfeast Dark Fantasy Choco Fills 75 g", company: "ITC Limited", brand: "Sunfeast", category: "Chocolates and Biscuits", qty: 60, originalPricePerUnit: 45, finalPricePerUnit: 45, discountApplied: 0, discountDetails: "No Discount", lineTotal: 2700 },
+      { skuCode: "300000002", productName: "Pepsi PET 600 ml (Case of 24)", company: "PepsiCo India", brand: "Pepsi", category: "Beverages", qty: 24, originalPricePerUnit: 880, finalPricePerUnit: 880, discountApplied: 0, discountDetails: "No Discount", lineTotal: 21120 },
+    ],
+  },
+  // [New · fresh demo order · Kukatpally]
+  {
+    id: "QWI-ONDC-260520-NA4KKP",
+    brand: "Tata Sampann",
+    company: "Tata Consumer Products",
+    source: "ONDC",
+    retailerName: "Venkateswara Provisions",
+    itemsSummary: "Tata Sampann Toor Dal Unpolished 1 kg + 1 more",
+    orderValue: 2712,
+    paymentMode: "COD",
+    orderDate: "2026-05-20",
+    customerOrderId: "QWI-ORD-260520-NA4KKP",
+    orderTime: "10:20 AM",
+    status: "New",
+    marketplace: "ONDC",
+    expectedDeliveryDate: "2026-05-21",
+    deliveryType: "Regular",
+    orderType: "standard",
+    buyerContact: "+91 98765 43354",
+    channelOrderId: "ONDC-ORD-790054",
+    buyerAddress: "Main Road, Kukatpally, Hyderabad, Telangana",
+    buyerLat: 17.4849,
+    buyerLng: 78.4138,
+    connectivity: "Online",
+    lineItems: [
+      { skuCode: "260000002", productName: "Tata Sampann Toor Dal Unpolished 1 kg", company: "Tata Consumer Products", brand: "Tata Sampann", category: "Dals and Pulses", qty: 4, originalPricePerUnit: 165, finalPricePerUnit: 165, discountApplied: 0, discountDetails: "No Discount", lineTotal: 660 },
+      { skuCode: "180000008", productName: "FREEDOM REF. SUNFLOWER OIL 1 LTR.X16NOS.", company: "Gemini Edibles & Fats India", brand: "Freedom", category: "Edible Oil", qty: 12, originalPricePerUnit: 171, finalPricePerUnit: 171, discountApplied: 0, discountDetails: "No Discount", lineTotal: 2052 },
+    ],
+  },
+  // [New · fresh demo order · Ameerpet]
+  {
+    id: "QWI-AMZN-260520-NA5AMP",
+    brand: "Britannia",
+    company: "Britannia Industries",
+    source: "ONDC",
+    retailerName: "Ameerpet Super Bazaar",
+    itemsSummary: "Britannia Good Day Cashew 200 g + 1 more",
+    orderValue: 3684,
+    paymentMode: "Prepaid",
+    orderDate: "2026-05-20",
+    customerOrderId: "QWI-ORD-260520-NA5AMP",
+    orderTime: "11:35 AM",
+    status: "New",
+    marketplace: "Amazon",
+    expectedDeliveryDate: "2026-05-21",
+    deliveryType: "Regular",
+    orderType: "standard",
+    buyerContact: "+91 98765 43355",
+    channelOrderId: "AMAZON-ORD-790055",
+    buyerAddress: "Main Road, Ameerpet, Hyderabad, Telangana",
+    buyerLat: 17.4375,
+    buyerLng: 78.4482,
+    connectivity: "Online",
+    lineItems: [
+      { skuCode: "230000002", productName: "Britannia Good Day Cashew 200 g", company: "Britannia Industries", brand: "Britannia", category: "Chocolates and Biscuits", qty: 48, originalPricePerUnit: 46, finalPricePerUnit: 46, discountApplied: 0, discountDetails: "No Discount", lineTotal: 2208 },
+      { skuCode: "230000001", productName: "Britannia Marie Gold 250 g", company: "Britannia Industries", brand: "Britannia", category: "Chocolates and Biscuits", qty: 36, originalPricePerUnit: 41, finalPricePerUnit: 41, discountApplied: 0, discountDetails: "No Discount", lineTotal: 1476 },
+    ],
+  },
+  // [New · fresh demo order · Begumpet]
+  {
+    id: "QWI-ONDC-260519-NA6BGP",
+    brand: "Tata Tea",
+    company: "Tata Consumer Products",
+    source: "ONDC",
+    retailerName: "Begumpet General Store",
+    itemsSummary: "Tata Tea Premium 500 g + 1 more",
+    orderValue: 3630,
+    paymentMode: "COD",
+    orderDate: "2026-05-19",
+    customerOrderId: "QWI-ORD-260519-NA6BGP",
+    orderTime: "04:15 PM",
+    status: "New",
+    marketplace: "ONDC",
+    expectedDeliveryDate: "2026-05-20",
+    deliveryType: "Regular",
+    orderType: "standard",
+    buyerContact: "+91 98765 43356",
+    channelOrderId: "ONDC-ORD-790056",
+    buyerAddress: "Main Road, Begumpet, Hyderabad, Telangana",
+    buyerLat: 17.444,
+    buyerLng: 78.467,
+    connectivity: "Online",
+    lineItems: [
+      { skuCode: "260000003", productName: "Tata Tea Premium 500 g", company: "Tata Consumer Products", brand: "Tata Tea", category: "Tea and Coffee", qty: 6, originalPricePerUnit: 255, finalPricePerUnit: 255, discountApplied: 0, discountDetails: "No Discount", lineTotal: 1530 },
+      { skuCode: "190000001", productName: "Aashirvaad Whole Wheat Atta 10 kg", company: "ITC Limited", brand: "Aashirvaad", category: "Cooking and Baking Needs", qty: 4, originalPricePerUnit: 525, finalPricePerUnit: 525, discountApplied: 0, discountDetails: "No Discount", lineTotal: 2100 },
+    ],
+  },
+  // [New · fresh demo order · Miyapur]
+  {
+    id: "QWI-ONDC-260519-NA7MYP",
+    brand: "Bingo",
+    company: "ITC Limited",
+    source: "ONDC",
+    retailerName: "Miyapur Kirana Point",
+    itemsSummary: "Bingo Mad Angles Achaari Masti 80 g + 1 more",
+    orderValue: 3780,
+    paymentMode: "COD",
+    orderDate: "2026-05-19",
+    customerOrderId: "QWI-ORD-260519-NA7MYP",
+    orderTime: "05:30 PM",
+    status: "New",
+    marketplace: "ONDC",
+    expectedDeliveryDate: "2026-05-20",
+    deliveryType: "Regular",
+    orderType: "standard",
+    buyerContact: "+91 98765 43357",
+    channelOrderId: "ONDC-ORD-790057",
+    buyerAddress: "Main Road, Miyapur, Hyderabad, Telangana",
+    buyerLat: 17.4968,
+    buyerLng: 78.3575,
+    connectivity: "Online",
+    lineItems: [
+      { skuCode: "210000001", productName: "Bingo Mad Angles Achaari Masti 80 g", company: "ITC Limited", brand: "Bingo", category: "Snacks and Namkeen", qty: 80, originalPricePerUnit: 27, finalPricePerUnit: 27, discountApplied: 0, discountDetails: "No Discount", lineTotal: 2160 },
+      { skuCode: "220000001", productName: "Yippee Magic Masala Noodles 4-pack 280 g", company: "ITC Limited", brand: "Yippee", category: "Pasta, Soup and Noodles", qty: 30, originalPricePerUnit: 54, finalPricePerUnit: 54, discountApplied: 0, discountDetails: "No Discount", lineTotal: 1620 },
+    ],
+  },
+  // [New · fresh demo order · Kondapur]
+  {
+    id: "QWI-FLPK-260519-NA8KDP",
+    brand: "Freedom",
+    company: "Gemini Edibles & Fats India",
+    source: "ONDC",
+    retailerName: "Kondapur Mini Mart",
+    itemsSummary: "FREEDOM REF. SUNFLOWER OIL 1 LTR.X16NOS. + 2 more",
+    orderValue: 2736,
+    paymentMode: "Prepaid",
+    orderDate: "2026-05-19",
+    customerOrderId: "QWI-ORD-260519-NA8KDP",
+    orderTime: "06:10 PM",
+    status: "New",
+    marketplace: "Flipkart",
+    expectedDeliveryDate: "2026-05-20",
+    deliveryType: "Regular",
+    orderType: "standard",
+    buyerContact: "+91 98765 43358",
+    channelOrderId: "FLIPKART-ORD-790058",
+    buyerAddress: "Main Road, Kondapur, Hyderabad, Telangana",
+    buyerLat: 17.4618,
+    buyerLng: 78.357,
+    connectivity: "Online",
+    lineItems: [
+      { skuCode: "180000008", productName: "FREEDOM REF. SUNFLOWER OIL 1 LTR.X16NOS.", company: "Gemini Edibles & Fats India", brand: "Freedom", category: "Edible Oil", qty: 8, originalPricePerUnit: 171, finalPricePerUnit: 171, discountApplied: 0, discountDetails: "No Discount", lineTotal: 1368 },
+      { skuCode: "270000003", productName: "Parachute Coconut Oil 200 ml", company: "Marico Limited", brand: "Parachute", category: "Beauty & Hygiene", qty: 6, originalPricePerUnit: 100, finalPricePerUnit: 100, discountApplied: 0, discountDetails: "No Discount", lineTotal: 600 },
+      { skuCode: "270000001", productName: "Saffola Gold Refined Oil 1 L", company: "Marico Limited", brand: "Saffola", category: "Oil & Ghee", qty: 4, originalPricePerUnit: 192, finalPricePerUnit: 192, discountApplied: 0, discountDetails: "No Discount", lineTotal: 768 },
+    ],
+  },
+  // [New · fresh demo order · Uppal]
+  {
+    id: "QWI-ONDC-260520-NB1UPL",
+    brand: "Aashirvaad",
+    company: "ITC Limited",
+    source: "ONDC",
+    retailerName: "Uppal Traders",
+    itemsSummary: "Aashirvaad Whole Wheat Atta 10 kg + 1 more",
+    orderValue: 2955,
+    paymentMode: "COD",
+    orderDate: "2026-05-20",
+    customerOrderId: "QWI-ORD-260520-NB1UPL",
+    orderTime: "10:00 AM",
+    status: "New",
+    marketplace: "ONDC",
+    expectedDeliveryDate: "2026-05-21",
+    deliveryType: "Regular",
+    orderType: "standard",
+    buyerContact: "+91 98765 43359",
+    channelOrderId: "ONDC-ORD-790059",
+    buyerAddress: "Main Road, Uppal, Hyderabad, Telangana",
+    buyerLat: 17.4058,
+    buyerLng: 78.5591,
+    connectivity: "Online",
+    lineItems: [
+      { skuCode: "190000001", productName: "Aashirvaad Whole Wheat Atta 10 kg", company: "ITC Limited", brand: "Aashirvaad", category: "Cooking and Baking Needs", qty: 5, originalPricePerUnit: 525, finalPricePerUnit: 525, discountApplied: 0, discountDetails: "No Discount", lineTotal: 2625 },
+      { skuCode: "260000002", productName: "Tata Sampann Toor Dal Unpolished 1 kg", company: "Tata Consumer Products", brand: "Tata Sampann", category: "Dals and Pulses", qty: 2, originalPricePerUnit: 165, finalPricePerUnit: 165, discountApplied: 0, discountDetails: "No Discount", lineTotal: 330 },
+    ],
+  },
+  // [New · fresh demo order · LB Nagar]
+  {
+    id: "QWI-ONDC-260520-NB2LBN",
+    brand: "Bingo",
+    company: "ITC Limited",
+    source: "ONDC",
+    retailerName: "LB Nagar Kirana",
+    itemsSummary: "Bingo Tedhe Medhe Tomato Twist 80 g + 1 more",
+    orderValue: 16920,
+    paymentMode: "Prepaid",
+    orderDate: "2026-05-20",
+    customerOrderId: "QWI-ORD-260520-NB2LBN",
+    orderTime: "11:10 AM",
+    status: "New",
+    marketplace: "ONDC",
+    expectedDeliveryDate: "2026-05-21",
+    deliveryType: "Regular",
+    orderType: "standard",
+    buyerContact: "+91 98765 43360",
+    channelOrderId: "ONDC-ORD-790060",
+    buyerAddress: "Main Road, LB Nagar, Hyderabad, Telangana",
+    buyerLat: 17.3457,
+    buyerLng: 78.5522,
+    connectivity: "Online",
+    lineItems: [
+      { skuCode: "210000002", productName: "Bingo Tedhe Medhe Tomato Twist 80 g", company: "ITC Limited", brand: "Bingo", category: "Snacks and Namkeen", qty: 40, originalPricePerUnit: 27, finalPricePerUnit: 27, discountApplied: 0, discountDetails: "No Discount", lineTotal: 1080 },
+      { skuCode: "300000002", productName: "Pepsi PET 600 ml (Case of 24)", company: "PepsiCo India", brand: "Pepsi", category: "Beverages", qty: 18, originalPricePerUnit: 880, finalPricePerUnit: 880, discountApplied: 0, discountDetails: "No Discount", lineTotal: 15840 },
+    ],
+  },
+  // [New · fresh demo order · Kompally]
+  {
+    id: "QWI-AMZN-260519-NB3KMP",
+    brand: "Britannia",
+    company: "Britannia Industries",
+    source: "ONDC",
+    retailerName: "Kompally Fresh Store",
+    itemsSummary: "Britannia Good Day Cashew 200 g + 1 more",
+    orderValue: 2400,
+    paymentMode: "COD",
+    orderDate: "2026-05-19",
+    customerOrderId: "QWI-ORD-260519-NB3KMP",
+    orderTime: "03:45 PM",
+    status: "New",
+    marketplace: "Amazon",
+    expectedDeliveryDate: "2026-05-20",
+    deliveryType: "Regular",
+    orderType: "standard",
+    buyerContact: "+91 98765 43361",
+    channelOrderId: "AMAZON-ORD-790061",
+    buyerAddress: "Main Road, Kompally, Hyderabad, Telangana",
+    buyerLat: 17.5384,
+    buyerLng: 78.4862,
+    connectivity: "Online",
+    lineItems: [
+      { skuCode: "230000002", productName: "Britannia Good Day Cashew 200 g", company: "Britannia Industries", brand: "Britannia", category: "Chocolates and Biscuits", qty: 30, originalPricePerUnit: 46, finalPricePerUnit: 46, discountApplied: 0, discountDetails: "No Discount", lineTotal: 1380 },
+      { skuCode: "260000003", productName: "Tata Tea Premium 500 g", company: "Tata Consumer Products", brand: "Tata Tea", category: "Tea and Coffee", qty: 4, originalPricePerUnit: 255, finalPricePerUnit: 255, discountApplied: 0, discountDetails: "No Discount", lineTotal: 1020 },
+    ],
+  },
+  // [New · fresh demo order · Shamshabad]
+  {
+    id: "QWI-ONDC-260519-NB4SSB",
+    brand: "Freedom",
+    company: "Gemini Edibles & Fats India",
+    source: "ONDC",
+    retailerName: "Shamshabad Supermarket",
+    itemsSummary: "FREEDOM REF. SUNFLOWER OIL 1 LTR.X16NOS. + 1 more",
+    orderValue: 2862,
+    paymentMode: "COD",
+    orderDate: "2026-05-19",
+    customerOrderId: "QWI-ORD-260519-NB4SSB",
+    orderTime: "07:20 PM",
+    status: "New",
+    marketplace: "ONDC",
+    expectedDeliveryDate: "2026-05-20",
+    deliveryType: "Regular",
+    orderType: "standard",
+    buyerContact: "+91 98765 43362",
+    channelOrderId: "ONDC-ORD-790062",
+    buyerAddress: "Main Road, Shamshabad, Hyderabad, Telangana",
+    buyerLat: 17.2632,
+    buyerLng: 78.3965,
+    connectivity: "Online",
+    lineItems: [
+      { skuCode: "180000008", productName: "FREEDOM REF. SUNFLOWER OIL 1 LTR.X16NOS.", company: "Gemini Edibles & Fats India", brand: "Freedom", category: "Edible Oil", qty: 10, originalPricePerUnit: 171, finalPricePerUnit: 171, discountApplied: 0, discountDetails: "No Discount", lineTotal: 1710 },
+      { skuCode: "270000001", productName: "Saffola Gold Refined Oil 1 L", company: "Marico Limited", brand: "Saffola", category: "Oil & Ghee", qty: 6, originalPricePerUnit: 192, finalPricePerUnit: 192, discountApplied: 0, discountDetails: "No Discount", lineTotal: 1152 },
+    ],
+  },
+];
 
 // Hyderabad-area buyer location data per seed order — lat/lng,
 // street address, and Online/Offline connectivity. Kept out of the
@@ -1680,6 +2035,86 @@ const ORDER_GEO: Record<
     address: "Shop 3, Ayyappa Society Main Road, Madhapur, Hyderabad, Telangana 500081",
     connectivity: "Online",
   },
+  // Retailers outside the Kukatpally CDS area (outer Hyderabad) — these
+  // orders are "3PL Logistics Delivery" for CDS sellers.
+  "QWI-ONDC-260517-N4WQ2S": {
+    lat: 17.6295,
+    lng: 78.4812,
+    address: "Main Road, Medchal, Hyderabad, Telangana",
+    connectivity: "Online",
+  },
+  "QWI-ONDC-260517-R8T3LM": {
+    lat: 17.4058,
+    lng: 78.5591,
+    address: "Main Road, Uppal, Hyderabad, Telangana",
+    connectivity: "Online",
+  },
+  "QWI-ONDC-260516-H5V9PK": {
+    lat: 17.3457,
+    lng: 78.5522,
+    address: "Main Road, LB Nagar, Hyderabad, Telangana",
+    connectivity: "Online",
+  },
+  "QWI-ONDC-260515-Q2X6BN": {
+    lat: 17.4138,
+    lng: 78.5783,
+    address: "Main Road, Boduppal, Hyderabad, Telangana",
+    connectivity: "Online",
+  },
+  "QWI-ONDC-260513-W7C1DZ": {
+    lat: 17.3687,
+    lng: 78.5268,
+    address: "Main Road, Dilsukhnagar, Hyderabad, Telangana",
+    connectivity: "Online",
+  },
+  "QWI-ONDC-260517-D3F8KT": {
+    lat: 17.3752,
+    lng: 78.5663,
+    address: "Main Road, Nagole, Hyderabad, Telangana",
+    connectivity: "Online",
+  },
+  "QWI-ONDC-260516-M9B2VC": {
+    lat: 17.5487,
+    lng: 78.3881,
+    address: "Main Road, Bachupally, Hyderabad, Telangana",
+    connectivity: "Online",
+  },
+  "QWI-ONDC-260515-P6L4XE": {
+    lat: 17.2632,
+    lng: 78.3965,
+    address: "Main Road, Shamshabad, Hyderabad, Telangana",
+    connectivity: "Online",
+  },
+  "QWI-ONDC-260514-T1R7NH": {
+    lat: 17.5384,
+    lng: 78.4862,
+    address: "Main Road, Kompally, Hyderabad, Telangana",
+    connectivity: "Online",
+  },
+  "QWI-ONDC-260512-K8W5QZ": {
+    lat: 17.5332,
+    lng: 78.2645,
+    address: "Main Road, Patancheru, Hyderabad, Telangana",
+    connectivity: "Online",
+  },
+  "QWI-ONDC-260511-V2N9JD": {
+    lat: 17.4504,
+    lng: 78.6855,
+    address: "Main Road, Ghatkesar, Hyderabad, Telangana",
+    connectivity: "Online",
+  },
+  "QWI-ONDC-260510-Z4C6LU": {
+    lat: 17.3268,
+    lng: 78.6046,
+    address: "Main Road, Hayathnagar, Hyderabad, Telangana",
+    connectivity: "Online",
+  },
+  "QWI-ONDC-260509-Y7H3PA": {
+    lat: 17.5186,
+    lng: 78.3845,
+    address: "Main Road, Nizampet, Hyderabad, Telangana",
+    connectivity: "Online",
+  },
 };
 
 // Merge the geo data into the seed array so the View on Map dialog,
@@ -1841,11 +2276,11 @@ export interface SkuPackConfig {
 // configured, so its lines can be edited in single pieces.
 const SKU_PACK_CONFIG: Record<string, SkuPackConfig> = {
   "180000008": { innerPack: 16, upc: 16 },
-  "SKU-AASH-10": { innerPack: 1, upc: 4 },
-  "SKU-SUNF-DF150": { innerPack: 10, upc: 60 },
-  "SKU-CLAS-NB172": { innerPack: 6, upc: 48 },
-  "SKU-BING-MA90": { innerPack: 10, upc: 80 },
-  "SKU-YIPP-240": { innerPack: 5, upc: 40 },
+  "190000001": { innerPack: 1, upc: 4 },
+  "200000002": { innerPack: 10, upc: 60 },
+  "260000004": { innerPack: 6, upc: 48 },
+  "210000001": { innerPack: 10, upc: 80 },
+  "220000001": { innerPack: 5, upc: 40 },
 };
 
 export function getSkuPackConfig(skuCode: string): SkuPackConfig | undefined {
@@ -2151,46 +2586,195 @@ export interface SynthesizedOrderProduct {
   basePrice?: number;
 }
 
-/** Build the order-detail shape from a list `Order`. The caller
- *  (order-detail.tsx) supplies the rich line items for orders we
- *  have full mock data for; for the rest we synthesise a single
- *  line from itemsSummary so the products table isn't empty. */
-export function synthesizeProducts(
-  order: Order,
-): SynthesizedOrderProduct[] {
-  // Use line items when present (real export-grade detail).
-  if (order.lineItems && order.lineItems.length > 0) {
-    return order.lineItems.map((li, idx) => ({
-      id: String(idx + 1),
-      name: li.productName,
-      skuId: li.skuCode,
-      orderedQuantity: li.qty,
-      availableStock: Math.max(li.qty * 2, 50),
-      basePrice: li.originalPricePerUnit,
-      pricePerUnit: li.finalPricePerUnit,
-      totalPrice: li.lineTotal,
-    }));
+
+// ---- Product lines for orders without explicit lineItems ----
+// Every order shows real products from the seller's SKU catalogue (My SKU),
+// so the order page, CDS / 3PL tabs, Payments and the export all list the
+// same SKU codes, names and short names.
+
+const BRAND_COMPANY: Record<string, string> = {
+  Aashirvaad: "ITC Limited", Sunfeast: "ITC Limited", Bingo: "ITC Limited", Yippee: "ITC Limited",
+  Freedom: "Gemini Edibles & Fats India", "Sri Krupa": "Sri Krupa Oils", "First Klass": "Gemini Edibles & Fats India",
+  Britannia: "Britannia Industries", Nestle: "Nestle India",
+  "Surf Excel": "Hindustan Unilever", Wheel: "Hindustan Unilever", Lifebuoy: "Hindustan Unilever", Dove: "Hindustan Unilever", Lux: "Hindustan Unilever",
+  Tata: "Tata Consumer Products", "Tata Sampann": "Tata Consumer Products", "Tata Tea": "Tata Consumer Products",
+  Saffola: "Marico Limited", Parachute: "Marico Limited", "Hair & Care": "Marico Limited",
+  Cadbury: "Mondelez India", Bournvita: "Mondelez India",
+  Tide: "Procter & Gamble", Ariel: "Procter & Gamble", Pantene: "Procter & Gamble", Whisper: "Procter & Gamble",
+  "Coca-Cola": "Coca-Cola India", Sprite: "Coca-Cola India", "Thumbs Up": "Coca-Cola India", Pepsi: "PepsiCo India",
+  Amul: "Amul (GCMMF)", "Mother Dairy": "Mother Dairy", "Kellogg's": "Kellogg India", "Bagrry's": "Bagrry's India",
+  Pedigree: "Mars Petcare", Whiskas: "Mars Petcare",
+};
+
+type CatalogItem = { sku: string; name: string; brand: string; company: string; category: string; price: number; words: Set<string> };
+
+const STOP = new Set(["units", "unit", "pack", "packs", "of", "the", "and", "with", "mixed", "skus", "sku", "wholesale", "assorted", "items", "case", "pet", "ltr", "nos"]);
+const wordsOf = (s: string) =>
+  new Set(
+    s
+      .toLowerCase()
+      .replace(/[^a-z0-9 ]/g, " ")
+      .split(/\s+/)
+      .filter((w) => w.length > 2 && !/^\d/.test(w) && !STOP.has(w)),
+  );
+
+let catalogCache: CatalogItem[] | undefined;
+const catalog = (): CatalogItem[] =>
+  (catalogCache ??= sampleSKUs
+    .filter((s) => (s.sellingPrice ?? 0) > 0)
+    .map((s) => ({
+      sku: s.sku,
+      name: s.name,
+      brand: s.brand,
+      company: BRAND_COMPANY[s.brand] ?? s.brand,
+      category: s.category,
+      price: s.sellingPrice ?? 100,
+      words: wordsOf(`${s.name} ${s.brand}`),
+    })));
+
+const hashOf = (s: string) => {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  return h >>> 0;
+};
+
+/** Best catalogue match for a product name from the order summary. */
+function matchCatalog(name: string, used: Set<string>): CatalogItem | undefined {
+  const want = wordsOf(name);
+  let best: CatalogItem | undefined;
+  let bestScore = 0;
+  for (const c of catalog()) {
+    if (used.has(c.sku)) continue;
+    let score = 0;
+    for (const w of want) if (c.words.has(w)) score++;
+    if (score > bestScore) {
+      best = c;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
+/** A related catalogue product: same brand → same company → same
+ *  category as the order's first line → anything (deterministic). */
+function pickRelated(order: Order, anchor: CatalogItem | undefined, used: Set<string>, salt: number): CatalogItem {
+  const free = catalog().filter((c) => !used.has(c.sku));
+  const pools = [
+    free.filter((c) => anchor && c.brand === anchor.brand),
+    free.filter((c) => c.company === order.company || (anchor && c.company === anchor.company)),
+    free.filter((c) => anchor && c.category === anchor.category),
+    free.filter((c) => wordsOf(`${order.brand} ${order.company}`).size && [...wordsOf(`${order.brand} ${order.company}`)].some((w) => c.words.has(w))),
+    free,
+  ];
+  const pool = pools.find((p) => p.length) ?? catalog();
+  return pool[hashOf(`${order.id}#${salt}`) % pool.length];
+}
+
+/** Product lines (lineItems shape) for any order — the stored lineItems
+ *  when present, otherwise catalogue products built from itemsSummary.
+ *  Lines describe the order as placed (edits sit in qtyModifications);
+ *  line totals add up to the original order value exactly. */
+export function orderLines(order: Order): OrderLineItem[] {
+  if (order.lineItems && order.lineItems.length > 0) return order.lineItems;
+
+  // Parse the summary: "<qty> units <name>", "<name> × <qty>",
+  // "<A> + <B>", "<A> + N more".
+  const summary = order.itemsSummary.trim();
+  const unitsM = /^(\d+)\s+units?\s+(.+)$/i.exec(summary);
+  const timesM = /^(.+?)\s*[×x]\s*(\d+)$/i.exec(summary);
+  let names: string[];
+  let fixedQty: number | undefined;
+  let extra = 0;
+  if (unitsM) {
+    names = [unitsM[2]];
+    fixedQty = Number(unitsM[1]);
+  } else if (timesM) {
+    names = [timesM[1].trim()];
+    fixedQty = Number(timesM[2]);
+  } else {
+    const moreM = /^(.+?)\s*\+\s*(\d+)\s+more$/i.exec(summary);
+    if (moreM) {
+      names = [moreM[1].trim()];
+      extra = Number(moreM[2]);
+    } else {
+      names = summary.split("+").map((s) => s.trim()).filter(Boolean);
+    }
+  }
+  if (!names.length) names = [summary];
+  // A single-product summary still gets 2–3 lines, like a real retailer order.
+  if (names.length === 1 && extra === 0) extra = 1 + (hashOf(order.id) % 2);
+
+  const used = new Set<string>();
+  const items: CatalogItem[] = [];
+  for (const n of names) {
+    const c = matchCatalog(n, used) ?? pickRelated(order, items[0], used, items.length);
+    used.add(c.sku);
+    items.push(c);
+  }
+  for (let k = 0; k < extra; k++) {
+    const c = pickRelated(order, items[0], used, items.length);
+    used.add(c.sku);
+    items.push(c);
   }
 
-  // Fallback — derive a placeholder line item from the itemsSummary
-  // string. The summary follows a "<qty> units <name>" / "Sunflower
-  // Oil + N more" shape; we strip the suffix and approximate the
-  // unit price from orderValue / qty.
-  const summary = order.itemsSummary;
-  const m = /^(\d+)\s+units\s+(.+)$/i.exec(summary);
-  const qty = m ? Number(m[1]) : 1;
-  const name = m ? m[2] : summary;
-  const ppu = qty > 0 ? +(order.orderValue / qty).toFixed(2) : order.orderValue;
-  return [
-    {
-      id: "1",
-      name,
-      skuId: `${order.id}-LINE-1`,
-      orderedQuantity: qty,
-      availableStock: qty * 2,
-      basePrice: ppu,
-      pricePerUnit: ppu,
-      totalPrice: order.orderValue,
-    },
-  ];
+  // Split the value into whole-rupee line totals that add up exactly.
+  const total = Math.round(order.originalOrderValue ?? order.orderValue);
+  const weights = [1.4, 0.8, 1.1, 0.65, 0.95, 1.2].slice(0, items.length);
+  const wSum = weights.reduce((x, w) => x + w, 0);
+  // Fixed unit count ("100 units …") is shared across the lines.
+  const qtyShare = fixedQty
+    ? (() => {
+        const q = weights.map((w) => Math.max(1, Math.floor((fixedQty * w) / wSum)));
+        q[q.length - 1] = Math.max(1, fixedQty - q.slice(0, -1).reduce((x, n) => x + n, 0));
+        return q;
+      })()
+    : undefined;
+  let left = total;
+  return items.map((c, i) => {
+    const last = i === items.length - 1;
+    const target = last ? left : Math.floor((total * weights[i]) / wSum);
+    let qty = qtyShare ? qtyShare[i] : Math.max(1, Math.round(target / c.price));
+    let lineTotal: number;
+    if (!last) {
+      const unit = Math.max(1, Math.round(target / qty));
+      lineTotal = unit * qty;
+    } else {
+      lineTotal = left;
+      if (!qtyShare) {
+        // nearest quantity that divides the remainder into a whole-rupee price
+        for (let d = 0; d <= Math.ceil(qty * 0.3); d++) {
+          if (qty - d >= 1 && left % (qty - d) === 0) { qty = qty - d; break; }
+          if (left % (qty + d) === 0) { qty = qty + d; break; }
+        }
+      }
+    }
+    left -= lineTotal;
+    const ppu = +(lineTotal / qty).toFixed(2);
+    return {
+      skuCode: c.sku,
+      productName: c.name,
+      company: c.company,
+      brand: c.brand,
+      category: c.category,
+      qty,
+      originalPricePerUnit: ppu,
+      finalPricePerUnit: ppu,
+      discountApplied: 0,
+      discountDetails: "No Discount",
+      lineTotal,
+    };
+  });
+}
+
+export function synthesizeProducts(order: Order): SynthesizedOrderProduct[] {
+  return orderLines(order).map((li, idx) => ({
+    id: String(idx + 1),
+    name: li.productName,
+    skuId: li.skuCode,
+    orderedQuantity: li.qty,
+    availableStock: Math.max(li.qty * 2, 50),
+    basePrice: li.originalPricePerUnit,
+    pricePerUnit: li.finalPricePerUnit,
+    totalPrice: li.lineTotal,
+  }));
 }

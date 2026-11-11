@@ -50,6 +50,10 @@ export function isModified(o: CdsOrder): boolean {
 
 export const RECEIVED_STATUSES: CdsOrderStatus[] = ["Received", "Received Short", "Sorting"];
 
+/** Seller can cancel only while the order is Ready for logistics — once
+ *  logistics is requested (CDS or 3PL) the order is View-only. */
+export const SELLER_CANCELLABLE: CdsOrderStatus[] = ["Confirmed"];
+
 export const CANCELLABLE: CdsOrderStatus[] = [
   "Confirmed",
   "Pickup Requested",
@@ -166,6 +170,24 @@ export function fmtINRShort(n: number): string {
   return fmtINR(n);
 }
 
+// ---- display calendar ----
+// CDS events are stored on the real clock, while the Orders module runs on
+// a fixed demo day. Timestamps are shifted onto the Orders calendar when
+// shown, so "Today" and every date match the Orders page. Date-only strings
+// (YYYY-MM-DD) are already on the Orders calendar and are shown as-is.
+let displayShiftDays = 0;
+let displayToday: string | null = null;
+export function setDisplayCalendar(ordersToday: string) {
+  displayToday = ordersToday;
+  const a = new Date(ordersToday + "T00:00:00");
+  const b = new Date(todayLocal() + "T00:00:00");
+  displayShiftDays = Math.round((a.getTime() - b.getTime()) / 86400000);
+}
+function shown(iso: string): Date {
+  const d = new Date(iso);
+  return displayShiftDays ? new Date(d.getTime() + displayShiftDays * 86400000) : d;
+}
+
 export function fmtTime(iso?: string): string {
   if (!iso) return "—";
   return new Date(iso).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
@@ -173,14 +195,15 @@ export function fmtTime(iso?: string): string {
 
 export function fmtDate(iso?: string): string {
   if (!iso) return "—";
-  const d = iso.length === 10 ? new Date(iso + "T00:00:00") : new Date(iso);
+  const d = iso.length === 10 ? new Date(iso + "T00:00:00") : shown(iso);
   return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 }
 
 export function fmtDayLabel(iso?: string): string {
   if (!iso) return "—";
-  const date = iso.length === 10 ? iso : localDate(iso);
-  const off = dayOffset(date);
+  const date = iso.length === 10 ? iso : localDate(shown(iso));
+  const base = displayToday ?? todayLocal();
+  const off = Math.round((new Date(date + "T00:00:00").getTime() - new Date(base + "T00:00:00").getTime()) / 86400000);
   if (off === 0) return "Today";
   if (off === -1) return "Yesterday";
   if (off === 1) return "Tomorrow";

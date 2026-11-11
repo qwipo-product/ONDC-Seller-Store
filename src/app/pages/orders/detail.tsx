@@ -44,7 +44,9 @@ import { Warehouse } from "lucide-react";
 import { useAuth } from "../../lib/auth-context";
 import { isCdsEnabled } from "../../lib/cds/store";
 import { useCdsOrderIds, useCdsOrderMap } from "../../components/cds/cds-order-sync";
+import { CdsOrderSection } from "../../components/cds/order-detail-sheet";
 import { sellerOrderStage } from "../../lib/cds/calc";
+import { isCdsServiceable } from "../../lib/cds/order-bridge";
 // Shared orders store — the detail page now looks up the right
 // order by URL :orderId rather than rendering a single hard-coded
 // mock for every route. Status writes (confirm / cancel / mark as
@@ -403,6 +405,7 @@ export function OrderDetail() {
   // newer New order can be viewed and edited but not confirmed yet.
   const attention = getAttentionOrders(getOrders());
   const confirmLocked =
+    !(isCdsEnabled(user?.id) && user?.dataMode !== "empty") &&
     attention.length > 0 && !attention.some((a) => a.order.id === orderId) && getOrderById(orderId ?? "")?.status === "New";
   const cdsOrderIds = useCdsOrderIds();
   // Connector sellers manage confirmed orders from the CDS tab.
@@ -558,6 +561,11 @@ export function OrderDetail() {
   };
 
   const handleConfirmOrder = () => {
+    // CDS sellers confirm straight away — no pop-up.
+    if (isCdsEnabled(user?.id) && user?.dataMode !== "empty") {
+      handleConfirm();
+      return;
+    }
     setIsConfirmModalOpen(true);
   };
 
@@ -567,7 +575,12 @@ export function OrderDetail() {
     // page (and any other subscriber) sees the change.
     if (orderData.orderId) updateOrderStatus(orderData.orderId, "Confirmed");
     setIsConfirmModalOpen(false);
-    toast.success("Order confirmed successfully!");
+    const confirmedOrder = orderData.orderId ? getOrderById(orderData.orderId) : undefined;
+    toast.success(
+      isCdsEnabled(user?.id) && user?.dataMode !== "empty" && confirmedOrder
+        ? `Order moved to ${isCdsServiceable(confirmedOrder) ? "CDS" : "3PL Logistics"}`
+        : "Order confirmed successfully!",
+    );
     setTimeout(() => {
       navigate("/orders");
     }, 1500);
@@ -627,7 +640,8 @@ export function OrderDetail() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => navigate("/orders")}
+              // Back to the tab you came from (CDS, 3PL, Returns…).
+              onClick={() => (window.history.length > 1 ? navigate(-1) : navigate("/orders"))}
               className="gap-1.5 h-8"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -641,7 +655,7 @@ export function OrderDetail() {
                 {getStatusBadge(orderData)}
                 {cdsOrder && orderData.status === "Confirmed" && (
                   <span className="inline-flex items-center gap-1 rounded-full border border-teal-200 bg-teal-50 px-2 py-0.5 text-[11px] font-medium text-teal-700">
-                    <Warehouse className="h-3 w-3" /> CDS · {sellerOrderStage(cdsOrder.status).label}
+                    <Warehouse className="h-3 w-3" /> {cdsOrder.route === "3pl" ? "3PL" : "CDS"} · {sellerOrderStage(cdsOrder.status).label}
                   </span>
                 )}
                 {getChannelBadge(orderData.channel)}
@@ -686,11 +700,11 @@ export function OrderDetail() {
               {orderData.status === "Confirmed" && inCds && (
                 <Button
                   size="sm"
-                  className="bg-teal-600 hover:bg-teal-700 h-8 gap-1.5"
-                  onClick={() => navigate("/orders?tab=cds")}
+                  className={`h-8 gap-1.5 ${cdsOrder?.route === "3pl" ? "bg-blue-600 hover:bg-blue-700" : "bg-teal-600 hover:bg-teal-700"}`}
+                  onClick={() => navigate(cdsOrder?.route === "3pl" ? "/orders?tab=logistics" : "/orders?tab=cds")}
                 >
                   <Warehouse className="h-3.5 w-3.5" />
-                  Manage in CDS tab
+                  {cdsOrder?.route === "3pl" ? "Manage in 3PL Logistics tab" : "Manage in CDS tab"}
                 </Button>
               )}
               {orderData.status === "Confirmed" && !inCds && (
@@ -704,14 +718,17 @@ export function OrderDetail() {
                     <XCircle className="h-3.5 w-3.5 mr-1.5" />
                     Cancel
                   </Button>
-                  <Button
-                    size="sm"
-                    className="bg-green-600 hover:bg-green-700 h-8"
-                    onClick={handleMarkDelivered}
-                  >
-                    <Truck className="h-3.5 w-3.5 mr-1.5" />
-                    Mark as Delivered
-                  </Button>
+                  {/* CDS sellers deliver only via the CDS or 3PL (from the Orders list). */}
+                  {!(isCdsEnabled(user?.id) && user?.dataMode !== "empty") && (
+                    <Button
+                      size="sm"
+                      className="bg-green-600 hover:bg-green-700 h-8"
+                      onClick={handleMarkDelivered}
+                    >
+                      <Truck className="h-3.5 w-3.5 mr-1.5" />
+                      Mark as Delivered
+                    </Button>
+                  )}
                 </>
               )}
             </div>
@@ -719,6 +736,8 @@ export function OrderDetail() {
       </div>
 
       <div className="p-4 space-y-3">
+        {/* CDS / 3PL delivery: stage, last update, payment summary, returns, actions */}
+        {cdsOrder && <CdsOrderSection orderId={cdsOrder.id} />}
         {/* Cancellation banner — only renders when the order is in a
             terminal Cancelled state. Two variants:
               - Buyer-cancelled  → amber, signals the buyer pulled the

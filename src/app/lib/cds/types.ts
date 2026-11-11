@@ -106,7 +106,12 @@ export interface CdsOrderLine {
   deliveredQty?: number;
 }
 
+export type Route = "cds" | "3pl";
+
 export interface CdsOrder {
+  /** "cds" = via the Cross Dock Store; "3pl" = picked up and delivered
+   *  straight to the retailer by the 3PL partner. Absent = "cds". */
+  route?: Route;
   id: string;
   ondcOrderId: string;
   sellerId: string;
@@ -175,6 +180,7 @@ export interface Rider {
 }
 
 export interface CdsTrip {
+  route?: Route;
   id: string; // LBNP trip id
   kind: TripKind;
   cdsId: string;
@@ -246,6 +252,7 @@ export interface DeliveryAttempt {
 }
 
 export interface Shipment {
+  route?: Route;
   id: string;
   cdsId: string;
   retailerId: string;

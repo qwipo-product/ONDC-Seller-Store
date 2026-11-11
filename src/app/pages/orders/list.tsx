@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { Card, CardContent } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
@@ -9,6 +9,7 @@ import { MultiSelect } from "../../components/ui/multi-select";
 import { Textarea } from "../../components/ui/textarea";
 import { Checkbox } from "../../components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -40,6 +41,8 @@ import {
   X,
   Filter,
   Eye,
+  ChevronDown,
+  Send,
   Pencil,
   Download,
   Zap,
@@ -59,9 +62,11 @@ import { ListPagination } from "../../components/ui/list-pagination";
 import { OrdersMapDialog } from "../../components/orders-map-dialog";
 import { useAuth } from "../../lib/auth-context";
 import { isCdsEnabled } from "../../lib/cds/store";
+import { SELLER_CANCELLABLE } from "../../lib/cds/calc";
 import { CdsOrdersTab } from "../../components/cds/cds-orders-tab";
 import { CdsReturnsTab, useCdsReturnCount } from "../../components/cds/cds-returns-tab";
 import { useCdsOrderIds, useCdsOrderMap } from "../../components/cds/cds-order-sync";
+import { areaFromAddress, isCdsServiceable } from "../../lib/cds/order-bridge";
 import type { CdsOrderStatus } from "../../lib/cds/types";
 import { sellerOrderStage } from "../../lib/cds/calc";
 
@@ -95,6 +100,7 @@ import {
   isStalePendingOrder,
   STALE_PENDING_NUDGE_DAYS,
   getAttentionOrders,
+  orderLines,
 } from "../../lib/orders-data";
 
 // An order is a "beat" delivery when it rides a configured
@@ -125,6 +131,53 @@ type TabType =
   | "cds"
   | "returns";
 
+// ---- Bulk "Actions" menu --------------------------------------------
+// After selecting orders the seller sees "N selected" and one Actions
+// button; clicking it lists every action available for that tab.
+type SelectionAction = {
+  label: string;
+  icon: ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+  /** Shown under a disabled action to say why. */
+  hint?: string;
+  tone?: "default" | "danger";
+};
+
+function SelectionActions({ count, actions }: { count: number; actions: SelectionAction[] }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-sm text-gray-600">{count} selected</span>
+      <DropdownMenu modal={false}>
+        <DropdownMenuTrigger asChild>
+          <Button size="sm" className="gap-1.5 bg-blue-600 text-white hover:bg-blue-700">
+            Actions
+            <ChevronDown className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-64">
+          {actions.map((a) => (
+            <DropdownMenuItem
+              key={a.label}
+              disabled={a.disabled}
+              onSelect={() => a.onClick()}
+              className={a.tone === "danger" ? "text-red-700 focus:text-red-700" : undefined}
+            >
+              <span className="flex w-full items-start gap-2">
+                <span className="mt-0.5 shrink-0">{a.icon}</span>
+                <span className="min-w-0">
+                  <span className="block">{a.label}</span>
+                  {a.disabled && a.hint && <span className="block text-[11px] text-gray-500">{a.hint}</span>}
+                </span>
+              </span>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
 export function Orders() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -133,6 +186,12 @@ export function Orders() {
   // CdsOrderSync) — they stay on Confirmed and show their CDS stage.
   const cdsOrderIds = useCdsOrderIds();
   const cdsOrderMap = useCdsOrderMap();
+  // Tabs that draw their own summary + filters (CDS, 3PL for CDS sellers, Returns).
+  const ownHeaderTab = (tab: string) => tab === "cds" || tab === "returns" || (cdsEnabled && tab === "logistics");
+  // CDS sellers: the order type comes from CDS serviceability (buyer inside
+  // the CDS polygon → CDS Store Delivery, else 3PL Logistics Delivery).
+  // Other sellers keep Beat / Non-Beat.
+  const isRouteA = (o: Order) => (cdsEnabled ? isCdsServiceable(o) : isBeatOrder(o));
   const cdsReturnCount = useCdsReturnCount();
   const location = useLocation();
 
@@ -148,6 +207,9 @@ export function Orders() {
       setLogisticsEnabled(getLogisticsSettings(user.id).enabled),
     );
   }, [user]);
+  // 3PL is always available to CDS sellers — it's their only route for
+  // orders outside the CDS area.
+  const threePlEnabled = logisticsEnabled || cdsEnabled;
 
   // Source of truth lives in lib/orders-data. We mirror it locally
   // and resubscribe so writes from the detail page propagate here.
@@ -169,7 +231,7 @@ export function Orders() {
     setOrdersStore(next);
   };
   const [activeTab, setActiveTab] = useState<TabType>(() =>
-    (["cds", "returns"] as const).find((x) => x === new URLSearchParams(window.location.search).get("tab")) ?? "all",
+    (["cds", "returns", "logistics"] as const).find((x) => x === new URLSearchParams(window.location.search).get("tab")) ?? "all",
   );
   // Sub-tab inside Confirmed: split deliveries by when they're due.
   // "all" matches both buckets — the default so existing flows keep
@@ -322,6 +384,10 @@ export function Orders() {
   // every Confirmed-tab count and list runs through.
   const isWithLogisticsPartner = (o: Order) =>
     o.status === "Confirmed" && o.logisticsRequested === true;
+  // Orders moved to the CDS leave Confirmed (like 3PL hand-offs) and are
+  // tracked on the CDS tab.
+  // CDS sellers: confirming routes orders automatically to the CDS or 3PL
+  // tab, and Confirmed keeps showing all of them with their stage.
   const isSellerActionable = (o: Order) => !isWithLogisticsPartner(o);
 
   // Calculate summary statistics
@@ -408,14 +474,16 @@ export function Orders() {
       // filters mirror across all three. "all" on either dimension is
       // a pass-through.
       let matchesConfirmedSub = true;
-      if (tab === "confirmed" || tab === "new" || tab === "logistics") {
+      // Delivery day + Order type apply on every list tab.
+      {
         if (confirmedDeliveryDay !== "all") {
           matchesConfirmedSub =
             matchesConfirmedSub &&
             order.expectedDeliveryDate === confirmedDeliveryDay;
         }
-        if (confirmedBeatMode !== "all") {
-          const beat = isBeatOrder(order);
+        // The 3PL tab has no Order type filter for CDS sellers — ignore it there.
+        if (confirmedBeatMode !== "all" && !(cdsEnabled && tab === "logistics")) {
+          const beat = isRouteA(order);
           matchesConfirmedSub =
             matchesConfirmedSub &&
             (confirmedBeatMode === "beat" ? beat : !beat);
@@ -532,8 +600,8 @@ export function Orders() {
     return {
       all: base.length,
       dayBuckets,
-      beat: scopedToDay.filter(isBeatOrder).length,
-      nonBeat: scopedToDay.filter((o) => !isBeatOrder(o)).length,
+      beat: scopedToDay.filter(isRouteA).length,
+      nonBeat: scopedToDay.filter((o) => !isRouteA(o)).length,
     };
   };
 
@@ -582,6 +650,30 @@ export function Orders() {
       confirmedDeliveryDay,
     ],
   );
+  const allBucketCounts = useMemo(() => buildBucketCounts(() => true), [
+      orders,
+      searchQuery,
+      marketplaceFilter,
+      selectedBrandFilters,
+      selectedDeliveryTypes,
+      confirmedDeliveryDay,
+    ]);
+  const deliveredBucketCounts = useMemo(() => buildBucketCounts((o) => o.status === "Delivered"), [
+      orders,
+      searchQuery,
+      marketplaceFilter,
+      selectedBrandFilters,
+      selectedDeliveryTypes,
+      confirmedDeliveryDay,
+    ]);
+  const cancelledBucketCounts = useMemo(() => buildBucketCounts((o) => o.status === "Cancelled"), [
+      orders,
+      searchQuery,
+      marketplaceFilter,
+      selectedBrandFilters,
+      selectedDeliveryTypes,
+      confirmedDeliveryDay,
+    ]);
 
   // VIW-2026-06911 — Soft nudge only (Stage 1). New orders the seller
   // has sat on past the threshold, across the whole list — not just
@@ -641,8 +733,12 @@ export function Orders() {
   // Confirm / Cancel dialogs — same handlers the bulk action bar
   // uses, so eligibility rules and toasts stay identical.
   const handleStaleReviewConfirm = () => {
-    setSelectedOrders(staleReviewSelection);
     setIsStaleReviewDialogOpen(false);
+    if (cdsEnabled) {
+      handleConfirmOrders(staleReviewSelection);
+      return;
+    }
+    setSelectedOrders(staleReviewSelection);
     setIsConfirmDialogOpen(true);
   };
   const handleStaleReviewCancel = () => {
@@ -666,7 +762,9 @@ export function Orders() {
     () => new Set(attentionItems.map((i) => i.order.id)),
     [attentionItems],
   );
-  const gateActive = attentionItems.length > 0;
+  // CDS sellers can select and confirm any New order — the older-orders
+  // lock (and its pop-up) applies only to other sellers.
+  const gateActive = !cdsEnabled && attentionItems.length > 0;
   // Fresh incoming orders: New, but not themselves part of the backlog.
   const isMaskedOrder = (o: Order) =>
     gateActive && o.status === "New" && !attentionIds.has(o.id);
@@ -747,39 +845,50 @@ export function Orders() {
     };
   }, [orders, searchQuery, marketplaceFilter, selectedBrandFilters]);
 
-  // Handle select all for current tab
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedOrders(
-        currentTabOrders.filter((o) => !isMaskedOrder(o)).map((o) => o.id),
-      );
-    } else {
-      setSelectedOrders([]);
-    }
+  // Rows the seller can tick: not locked, and not a 3PL order already
+  // sent to LBNP.
+  const canSelect = (o: Order) => !isMaskedOrder(o);
+
+  // Header checkbox: selects / clears the rows shown on this page (not
+  // hidden pages), keeping any selection made on other pages.
+  const handleSelectAll = (checked: boolean, pageRows: Order[]) => {
+    const ids = pageRows.filter((o) => canSelect(o)).map((o) => o.id);
+    setSelectedOrders((prev) =>
+      checked ? Array.from(new Set([...prev, ...ids])) : prev.filter((id) => !ids.includes(id)),
+    );
   };
 
-  // Handle individual selection
+  // Row checkbox — functional update so quick clicks never drop a change.
   const handleSelectOrder = (orderId: string, checked: boolean) => {
-    if (checked) {
-      setSelectedOrders([...selectedOrders, orderId]);
-    } else {
-      setSelectedOrders(selectedOrders.filter((id) => id !== orderId));
-    }
+    setSelectedOrders((prev) =>
+      checked ? (prev.includes(orderId) ? prev : [...prev, orderId]) : prev.filter((id) => id !== orderId),
+    );
   };
+
+
+  // Keep the selection to orders still in this tab's list — a search,
+  // filter or status change shouldn't leave hidden orders selected.
+  useEffect(() => {
+    const visible = new Set(currentTabOrders.map((o) => o.id));
+    setSelectedOrders((prev) => {
+      const next = prev.filter((id) => visible.has(id));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [currentTabOrders]);
 
   // The 3PL Logistics tab only exists while the connector is on. If
   // the admin turns it off mid-session, fall back to All rather than
   // leaving the seller on a tab whose trigger has disappeared.
   useEffect(() => {
-    if ((!logisticsEnabled || cdsEnabled) && activeTab === "logistics") {
+    if (!threePlEnabled && activeTab === "logistics") {
       setActiveTab("all");
       setSelectedOrders([]);
     }
-  }, [logisticsEnabled, cdsEnabled, activeTab]);
+  }, [threePlEnabled, activeTab]);
 
   useEffect(() => {
     const want = new URLSearchParams(location.search).get("tab");
-    if ((want === "cds" || want === "returns") && cdsEnabled) {
+    if ((want === "cds" || want === "returns" || want === "logistics") && cdsEnabled) {
       setActiveTab(want);
       setSelectedOrders([]);
     } else if (!want) {
@@ -794,7 +903,7 @@ export function Orders() {
     setActiveTab(tab as TabType);
     // Keep the URL in step with the CDS / Returns tabs so the sidebar
     // highlights the right item and links back here work.
-    const want = tab === "cds" || tab === "returns" ? "?tab=" + tab : "";
+    const want = cdsEnabled && (tab === "cds" || tab === "returns" || tab === "logistics") ? "?tab=" + tab : "";
     if (location.search !== want) navigate("/orders" + want, { replace: true });
     setSelectedOrders([]);
     setCurrentPage(1); // Reset to first page
@@ -802,10 +911,9 @@ export function Orders() {
     // we leave New, Confirmed or 3PL Logistics (the tabs that host
     // the filters), so a fresh visit always lands on "All days / All
     // orders".
-    if (tab !== "confirmed" && tab !== "new" && tab !== "logistics") {
-      setConfirmedDeliveryDay("all");
-      setConfirmedBeatMode("all");
-    }
+    // Every tab has its own Delivery day / Order type view — start fresh.
+    setConfirmedDeliveryDay("all");
+    setConfirmedBeatMode("all");
     // Same idea for the Cancelled tab's "Cancelled By" quick filter
     // — reset on the way out so it doesn't quietly persist.
     if (tab !== "cancelled") setCancelledByFilter("all");
@@ -899,8 +1007,8 @@ export function Orders() {
   // its committed Delivery Day is. (The earlier today/tomorrow-only
   // rule was dropped — it didn't reflect an actual business
   // requirement.)
-  const handleConfirmOrders = () => {
-    const allSelected = orders.filter((o) => selectedOrders.includes(o.id));
+  const handleConfirmOrders = (ids: string[] = selectedOrders) => {
+    const allSelected = orders.filter((o) => ids.includes(o.id));
     if (allSelected.length === 0) {
       toast.error("Nothing to confirm — no orders selected.");
       return;
@@ -913,9 +1021,18 @@ export function Orders() {
           : order,
       ),
     );
-    toast.success(
-      `Confirmed ${allSelected.length} order${allSelected.length === 1 ? "" : "s"}.`,
-    );
+    if (cdsEnabled) {
+      // One short line: where the confirmed orders went, by order type.
+      const n = (k: number) => `${k} order${k === 1 ? "" : "s"}`;
+      const toCds = allSelected.filter((o) => isCdsServiceable(o)).length;
+      const to3pl = allSelected.length - toCds;
+      const parts = [toCds ? `${n(toCds)} moved to CDS` : "", to3pl ? `${n(to3pl)} moved to 3PL Logistics` : ""].filter(Boolean);
+      toast.success(parts.join(" · "));
+    } else {
+      toast.success(
+        `Confirmed ${allSelected.length} order${allSelected.length === 1 ? "" : "s"}.`,
+      );
+    }
     setSelectedOrders((prev) => prev.filter((id) => !selectedIds.has(id)));
     setIsConfirmDialogOpen(false);
   };
@@ -928,7 +1045,18 @@ export function Orders() {
       toast.error("Please provide a reason for cancellation");
       return;
     }
-    updateOrderStatuses(selectedOrders, "Cancelled", cancelReason, "Seller");
+    // CDS sellers: once logistics is requested the order can't be cancelled.
+    const cancellable = cdsEnabled
+      ? selectedOrders.filter((id) => {
+          const c = cdsOrderMap.get(id);
+          return !c || SELLER_CANCELLABLE.includes(c.status);
+        })
+      : selectedOrders;
+    if (cancellable.length < selectedOrders.length) {
+      toast.error(`${selectedOrders.length - cancellable.length} order(s) already have logistics requested and can't be cancelled.`);
+    }
+    if (!cancellable.length) return;
+    updateOrderStatuses(cancellable, "Cancelled", cancelReason, "Seller");
     toast.success(
       `${selectedOrders.length} order(s) cancelled. Reason: ${cancelReason}`,
     );
@@ -1032,35 +1160,6 @@ export function Orders() {
   const orderDateLabelFor = (order: Order): string =>
     order.orderTime ? `${order.orderDate} ${order.orderTime}` : order.orderDate;
 
-  // Synthesize a single line item from `itemsSummary` for orders
-  // that don't carry full lineItems. Best-effort parsing: pulls the
-  // leading qty + product description, prices to orderValue/qty, and
-  // marks the line as no-discount.
-  const synthesizeLineItems = (order: Order): OrderLineItem[] => {
-    const m = order.itemsSummary.match(/^\s*(\d+)\s+units?\s+(.+?)\s*$/i);
-    const qty = m ? parseInt(m[1], 10) : 1;
-    const name = m ? m[2] : order.itemsSummary;
-    const ppu = qty > 0 ? +(order.orderValue / qty).toFixed(2) : order.orderValue;
-    return [
-      {
-        skuCode: `SKU-${order.id.replace(/[^0-9]/g, "").slice(-5)}`,
-        productName: name,
-        // No richer brand/company info to draw on — fall back to the
-        // order's brand and an em-dash for company. Real builds would
-        // resolve company and category from the SKU catalog.
-        company: "—",
-        brand: order.brand,
-        category: "—",
-        qty,
-        originalPricePerUnit: ppu,
-        finalPricePerUnit: ppu,
-        discountApplied: 0,
-        discountDetails: "No Discount",
-        lineTotal: order.orderValue,
-      },
-    ];
-  };
-
   const handleExport = () => {
     const range = resolveExportRange();
     if (!range) {
@@ -1113,7 +1212,7 @@ export function Orders() {
       "Order Status",
       "Order Date",
       "Order Type",
-      "Beat Name",
+      cdsEnabled ? "Area Name" : "Beat Name",
       "Delivery Day",
       "Buyer Name",
       "Buyer Contact",
@@ -1150,10 +1249,7 @@ export function Orders() {
     }
 
     ordersToExport.forEach((order) => {
-      const lines =
-        order.lineItems && order.lineItems.length > 0
-          ? order.lineItems
-          : synthesizeLineItems(order);
+      const lines = orderLines(order);
       const orderLevelSavings = lines.reduce(
         (n, l) => n + l.discountApplied,
         0,
@@ -1167,8 +1263,10 @@ export function Orders() {
           clubSize > 1 ? clubSize : "",
           statusLabelFor(order),
           orderDateLabelFor(order),
-          cdsEnabled ? "CDS Store Delivery" : getOrderType(order) === "beat" ? "Beat" : "Non-Beat",
-          cdsEnabled ? "" : order.beatName ?? "",
+          cdsEnabled
+            ? isCdsServiceable(order) ? "CDS Store Delivery" : "3PL Logistics Delivery"
+            : getOrderType(order) === "beat" ? "Beat" : "Non-Beat",
+          cdsEnabled ? areaFromAddress(order.buyerAddress) : order.beatName ?? "",
           order.expectedDeliveryDate,
           order.retailerName,
           order.buyerContact ?? "",
@@ -1248,11 +1346,16 @@ export function Orders() {
             <Badge className="bg-green-50 text-green-700 border-green-200">
               Confirmed
             </Badge>
-            {c && (
-              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-teal-700">
-                <Warehouse className="h-3 w-3" /> CDS · {cdsStageLabel(c.status)}
-              </span>
-            )}
+            {c &&
+              (c.route === "3pl" ? (
+                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700">
+                  <Truck className="h-3 w-3" /> 3PL · {cdsStageLabel(c.status)}
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-teal-700">
+                  <Warehouse className="h-3 w-3" /> CDS · {cdsStageLabel(c.status)}
+                </span>
+              ))}
           </span>
         );
       }
@@ -1338,7 +1441,8 @@ export function Orders() {
     // is deliberately excluded — the order belongs to the partner at
     // that point and completion arrives from their app, so there is
     // nothing for the seller to select or act on.
-    const isActionable = activeTab === "new" || activeTab === "confirmed";
+    const isActionable =
+      activeTab === "new" || activeTab === "confirmed" || (cdsEnabled && activeTab === "logistics");
 
     return (
       <div className="flex-1 overflow-auto">
@@ -1348,11 +1452,14 @@ export function Orders() {
               {isActionable && (
                 <th className="text-left py-2.5 px-3 w-10">
                   <Checkbox
-                    checked={
-                      selectedOrders.length === ordersToRender.length &&
-                      ordersToRender.length > 0
-                    }
-                    onCheckedChange={handleSelectAll}
+                    aria-label="Select all orders on this page"
+                    checked={(() => {
+                      const pageIds = ordersToRender.filter((o) => canSelect(o)).map((o) => o.id);
+                      const picked = pageIds.filter((id) => selectedOrders.includes(id)).length;
+                      if (picked === 0 || pageIds.length === 0) return false;
+                      return picked === pageIds.length ? true : "indeterminate";
+                    })()}
+                    onCheckedChange={(v) => handleSelectAll(v === true, ordersToRender)}
                   />
                 </th>
               )}
@@ -1382,11 +1489,9 @@ export function Orders() {
               <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
                 Order Type
               </th>
-              {!cdsEnabled && (
-                <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
-                  Beat Name
-                </th>
-              )}
+              <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
+                {cdsEnabled ? "Area Name" : "Beat Name"}
+              </th>
               <th className="text-right px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
                 Order Value
               </th>
@@ -1418,11 +1523,15 @@ export function Orders() {
                       <span title="Confirm your older pending orders first">
                         <Lock className="h-3.5 w-3.5 text-gray-400" />
                       </span>
+                    ) : !canSelect(order) ? (
+                      // 3PL order already sent to LBNP — nothing to select.
+                      <span className="block h-4 w-4" />
                     ) : (
                       <Checkbox
+                        aria-label={`Select ${order.id}`}
                         checked={selectedOrders.includes(order.id)}
                         onCheckedChange={(checked) =>
-                          handleSelectOrder(order.id, checked as boolean)
+                          handleSelectOrder(order.id, checked === true)
                         }
                       />
                     )}
@@ -1505,10 +1614,17 @@ export function Orders() {
                     the same visual language. */}
                 <td className="px-3 py-2.5 whitespace-nowrap">
                   {cdsEnabled ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-teal-200 bg-teal-50 text-[11px] font-medium text-teal-700">
-                      <Warehouse className="h-3 w-3" />
-                      CDS Store Delivery
-                    </span>
+                    isCdsServiceable(order) ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-teal-200 bg-teal-50 text-[11px] font-medium text-teal-700">
+                        <Warehouse className="h-3 w-3" />
+                        CDS Store Delivery
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-blue-200 bg-blue-50 text-[11px] font-medium text-blue-700">
+                        <Truck className="h-3 w-3" />
+                        3PL Logistics Delivery
+                      </span>
+                    )
                   ) : getOrderType(order) === "beat" ? (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-emerald-200 bg-emerald-50 text-[11px] font-medium text-emerald-700">
                       <Route className="h-3 w-3" />
@@ -1524,7 +1640,11 @@ export function Orders() {
                 {/* Beat Name — surfaces the configured serviceability
                     beat that owns this delivery. Falls back to "—"
                     for orphan / ad-hoc orders. */}
-                {!cdsEnabled && (
+                {cdsEnabled ? (
+                <td className="px-3 py-2.5 whitespace-nowrap text-xs text-gray-700" title={order.buyerAddress}>
+                  {areaFromAddress(order.buyerAddress) || <span className="text-gray-400">—</span>}
+                </td>
+                ) : (
                 <td
                   className="px-3 py-2.5 whitespace-nowrap"
                   title={order.beatName ?? "No beat assigned"}
@@ -1617,7 +1737,13 @@ export function Orders() {
   // row, parameterised on a counts object. Same JSX powers the New
   // tab and the Confirmed tab so the surfaces stay in lockstep.
   type BucketCounts = ReturnType<typeof buildBucketCounts>;
-  const renderDayAndBeatFilters = (counts: BucketCounts) => (
+  // showType=false hides the Order type row (e.g. 3PL Logistics tab for
+  // CDS sellers — every order there is already 3PL).
+  const renderDayAndBeatFilters = (
+    counts: BucketCounts,
+    showType = true,
+    fixedType?: { label: string; icon: ReactNode },
+  ) => (
     <div className="px-6 pt-4 pb-2 border-b flex-shrink-0 space-y-2">
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-xs font-medium text-gray-600 uppercase tracking-wide mr-1">
@@ -1659,16 +1785,22 @@ export function Orders() {
         })}
       </div>
 
+      {fixedType && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs font-medium text-gray-600 uppercase tracking-wide mr-1">
+            Order type:
+          </span>
+          <span className="text-xs px-3 py-1.5 rounded-full border gap-1.5 inline-flex items-center bg-blue-600 text-white border-blue-600">
+            {fixedType.icon}
+            {fixedType.label} ({counts.beat + counts.nonBeat})
+          </span>
+        </div>
+      )}
+      {showType && !fixedType && (
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-xs font-medium text-gray-600 uppercase tracking-wide mr-1">
           Order type:
         </span>
-        {cdsEnabled ? (
-          <span className="text-xs px-3 py-1.5 rounded-full border gap-1.5 inline-flex items-center bg-teal-600 text-white border-teal-600">
-            <Warehouse className="h-3 w-3" />
-            CDS Store Delivery ({counts.beat + counts.nonBeat})
-          </span>
-        ) : (<>
         <button
           onClick={() => handleConfirmedBeatModeChange("all")}
           className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
@@ -1683,26 +1815,26 @@ export function Orders() {
           onClick={() => handleConfirmedBeatModeChange("beat")}
           className={`text-xs px-3 py-1.5 rounded-full border transition-colors gap-1.5 inline-flex items-center ${
             confirmedBeatMode === "beat"
-              ? "bg-emerald-600 text-white border-emerald-600"
-              : "bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
+              ? cdsEnabled ? "bg-teal-600 text-white border-teal-600" : "bg-emerald-600 text-white border-emerald-600"
+              : cdsEnabled ? "bg-teal-50 text-teal-800 border-teal-200 hover:bg-teal-100" : "bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
           }`}
         >
-          <Route className="h-3 w-3" />
-          Beat orders ({counts.beat})
+          {cdsEnabled ? <Warehouse className="h-3 w-3" /> : <Route className="h-3 w-3" />}
+          {cdsEnabled ? "CDS Store Delivery" : "Beat orders"} ({counts.beat})
         </button>
         <button
           onClick={() => handleConfirmedBeatModeChange("non-beat")}
           className={`text-xs px-3 py-1.5 rounded-full border transition-colors gap-1.5 inline-flex items-center ${
             confirmedBeatMode === "non-beat"
-              ? "bg-amber-600 text-white border-amber-600"
-              : "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100"
+              ? cdsEnabled ? "bg-blue-600 text-white border-blue-600" : "bg-amber-600 text-white border-amber-600"
+              : cdsEnabled ? "bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100" : "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100"
           }`}
         >
-          <Zap className="h-3 w-3" />
-          Non-beat orders ({counts.nonBeat})
+          {cdsEnabled ? <Truck className="h-3 w-3" /> : <Zap className="h-3 w-3" />}
+          {cdsEnabled ? "3PL Logistics Delivery" : "Non-beat orders"} ({counts.nonBeat})
         </button>
-        </>)}
       </div>
+      )}
     </div>
   );
 
@@ -1758,13 +1890,13 @@ export function Orders() {
                     {/* Only meaningful once the seller can actually
                         hand orders off, so it's gated on the same flag
                         as the Request 3PL Logistics action. */}
-                    {logisticsEnabled && !cdsEnabled && (
+                    {threePlEnabled && (
                       <TabsTrigger
                         value="logistics"
                         className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2 transition-all whitespace-nowrap"
                       >
                         <Truck className="h-4 w-4 mr-2" />
-                        <span className="font-medium">3PL Logistics ({summary.logistics})</span>
+                        <span className="font-medium">{cdsEnabled ? "3PL Logistics" : `3PL Logistics (${summary.logistics})`}</span>
                       </TabsTrigger>
                     )}
                     <TabsTrigger
@@ -1793,7 +1925,7 @@ export function Orders() {
                   </TabsList>
 
                   {/* Action Buttons */}
-                  {!isEmpty && activeTab !== "cds" && activeTab !== "returns" && (
+                  {!isEmpty && !ownHeaderTab(activeTab) && (
                   <div className="flex gap-2 flex-shrink-0">
                     {/* Filters Button */}
                     <Button
@@ -1829,7 +1961,7 @@ export function Orders() {
                   so they react to every active filter. Lets the
                   seller eyeball the business shape of the slice
                   they're looking at without exporting a report. */}
-              {!isEmpty && activeTab !== "cds" && activeTab !== "returns" && (
+              {!isEmpty && !ownHeaderTab(activeTab) && (
                 <div className="px-6 py-2.5 border-b border-gray-100 bg-gradient-to-r from-purple-50/40 via-white to-emerald-50/40 flex-shrink-0 flex flex-wrap items-center gap-x-6 gap-y-2">
                   <div className="flex items-baseline gap-1.5">
                     <span className="text-[10px] uppercase tracking-wider font-semibold text-gray-500">
@@ -1898,6 +2030,7 @@ export function Orders() {
 
             {/* Tab Contents */}
             <TabsContent value="all" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
+              {!isEmpty && renderDayAndBeatFilters(allBucketCounts)}
               {!isEmpty && (
               <div className="px-6 py-4 border-b flex-shrink-0">
                 <div className="flex items-center justify-between gap-4">
@@ -1964,35 +2097,19 @@ export function Orders() {
                       delivery clustering before they confirm a wave of
                       new orders. */}
                   {selectedOrders.length > 0 && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-600 mr-2">{selectedOrders.length} selected</span>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="border-blue-300 text-blue-700 hover:bg-blue-50 gap-2"
-                        onClick={handleViewOnMap}
-                      >
-                        <MapPin className="h-4 w-4" />
-                        View on Map
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="bg-green-600 hover:bg-green-700 text-white gap-2"
-                        onClick={() => setIsConfirmDialogOpen(true)}
-                      >
-                        <CheckCircle2 className="h-4 w-4" />
-                        Confirm
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="border-red-300 text-red-700 hover:bg-red-50 gap-2"
-                        onClick={() => setIsCancelDialogOpen(true)}
-                      >
-                        <XCircle className="h-4 w-4" />
-                        Cancel
-                      </Button>
-                    </div>
+                    <SelectionActions
+                      count={selectedOrders.length}
+                      actions={[
+                        {
+                          label: "Confirm",
+                          icon: <CheckCircle2 className="h-4 w-4 text-green-600" />,
+                          // CDS sellers confirm straight away — no review pop-up.
+                          onClick: () => (cdsEnabled ? handleConfirmOrders() : setIsConfirmDialogOpen(true)),
+                        },
+                        { label: "View on Map", icon: <MapPin className="h-4 w-4 text-blue-600" />, onClick: handleViewOnMap },
+                        { label: "Cancel", icon: <XCircle className="h-4 w-4" />, onClick: () => setIsCancelDialogOpen(true), tone: "danger" },
+                      ]}
+                    />
                   )}
                 </div>
               </div>
@@ -2068,69 +2185,23 @@ export function Orders() {
                           alongside "Mark Delivered" rather than
                           replacing it. */}
                       {selectedOrders.length > 0 && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-gray-600 mr-2">{selectedOrders.length} selected</span>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="border-blue-300 text-blue-700 hover:bg-blue-50 gap-2"
-                            onClick={handleViewOnMap}
-                          >
-                            <MapPin className="h-4 w-4" />
-                            View on Map
-                          </Button>
-                          {cdsEnabled ? (
-                            <Button
-                              size="sm"
-                              className="bg-teal-600 hover:bg-teal-700 text-white gap-2"
-                              onClick={() => handleTabChange("cds")}
-                            >
-                              <Warehouse className="h-4 w-4" />
-                              Manage in CDS tab
-                            </Button>
-                          ) : (<>
-                          {logisticsEnabled && (
-                            <Button
-                              size="sm"
-                              className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
-                              onClick={() => setIsRequestLogisticsDialogOpen(true)}
-                            >
-                              <Truck className="h-4 w-4" />
-                              Request 3PL Logistics
-                            </Button>
-                          )}
-                          <Button
-                            size="sm"
-                            className="bg-green-600 hover:bg-green-700 text-white gap-2"
-                            onClick={() => setIsDeliverDialogOpen(true)}
-                          >
-                            <PackageCheck className="h-4 w-4" />
-                            Mark Delivered
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="border-red-300 text-red-700 hover:bg-red-50 gap-2"
-                            onClick={() => setIsCancelDialogOpen(true)}
-                          >
-                            <XCircle className="h-4 w-4" />
-                            Cancel
-                          </Button>
-                          </>)}
-                        </div>
+                        <SelectionActions
+                          count={selectedOrders.length}
+                          actions={[
+                            ...(cdsEnabled
+                              ? [] // routed automatically on confirm — manage them on the CDS / 3PL tabs
+                              : [
+                                  ...(logisticsEnabled
+                                    ? [{ label: "Request 3PL Logistics", icon: <Truck className="h-4 w-4 text-blue-600" />, onClick: () => setIsRequestLogisticsDialogOpen(true) }]
+                                    : []),
+                                  { label: "Mark Delivered", icon: <PackageCheck className="h-4 w-4 text-green-600" />, onClick: () => setIsDeliverDialogOpen(true) },
+                                ]),
+                            { label: "View on Map", icon: <MapPin className="h-4 w-4 text-blue-600" />, onClick: handleViewOnMap },
+                            { label: "Cancel", icon: <XCircle className="h-4 w-4" />, onClick: () => setIsCancelDialogOpen(true), tone: "danger" as const },
+                          ]}
+                        />
                       )}
                     </div>
-                    {cdsEnabled && (
-                      <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-800">
-                        <span className="flex items-center gap-2">
-                          <Warehouse className="h-4 w-4 shrink-0" />
-                          Your confirmed orders go to the Cross Dock Store (CDS). Edit quantities, cancel and request logistics from the CDS tab.
-                        </span>
-                        <Button size="sm" variant="outline" className="h-7 shrink-0 border-teal-300 bg-white text-teal-700 hover:bg-teal-100" onClick={() => handleTabChange("cds")}>
-                          Open CDS tab
-                        </Button>
-                      </div>
-                    )}
                   </div>
                 </>
               )}
@@ -2147,6 +2218,10 @@ export function Orders() {
                 which in production arrives from the delivery-partner
                 app via LBNP rather than from a button here. */}
             <TabsContent value="logistics" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
+              {cdsEnabled ? (
+                <CdsOrdersTab route="3pl" />
+              ) : (
+              <>
               {!isEmpty && renderDayAndBeatFilters(logisticsBucketCounts)}
               <div className="px-6 py-4 border-b flex-shrink-0">
                 <div className="relative max-w-md">
@@ -2182,9 +2257,12 @@ export function Orders() {
                   itemLabel="order"
                 />
               )}
+              </>
+              )}
             </TabsContent>
 
             <TabsContent value="delivered" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
+              {!isEmpty && renderDayAndBeatFilters(deliveredBucketCounts)}
               {!isEmpty && (
               <div className="px-6 py-4 border-b flex-shrink-0">
                 <div className="relative max-w-md">
@@ -2212,6 +2290,7 @@ export function Orders() {
             </TabsContent>
 
             <TabsContent value="cancelled" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
+              {!isEmpty && renderDayAndBeatFilters(cancelledBucketCounts)}
               {!isEmpty && (
                 <>
                   {/* Cancelled-By quick filter — split a flat Cancelled
@@ -2529,7 +2608,7 @@ export function Orders() {
                   <span className="text-[10px] text-gray-500">{o.id}</span>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  {cdsEnabled ? (
+                  {cdsOrderIds.has(o.id) ? (
                     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap border border-teal-200 bg-teal-50 text-teal-700">
                       <Warehouse className="h-3 w-3" />
                       CDS Store Delivery
@@ -2647,7 +2726,7 @@ export function Orders() {
               const count = selectedOrders.length;
               return (
                 <Button
-                  onClick={handleConfirmOrders}
+                  onClick={() => handleConfirmOrders()}
                   disabled={count === 0}
                   className="gap-2"
                 >
@@ -2833,7 +2912,7 @@ export function Orders() {
               <Button
                 className="bg-green-600 hover:bg-green-700 text-white gap-1.5"
                 disabled={gateSelectedIds.length === 0}
-                onClick={() => setIsGateConfirmOpen(true)}
+                onClick={() => (cdsEnabled ? handleGateConfirm() : setIsGateConfirmOpen(true))}
               >
                 <CheckCircle2 className="h-3.5 w-3.5" />
                 Confirm selected{gateSelectedIds.length > 0 ? ` (${gateSelectedIds.length})` : ""}
@@ -2908,6 +2987,7 @@ export function Orders() {
         </DialogContent>
       </Dialog>
 
+
       {/* Request 3PL Logistics Dialog — the hand-off is one-way from
           the seller's side, so it gets a confirmation step. Kept to a
           plain confirm, matching the other bulk dialogs on this page. */}
@@ -2922,9 +3002,7 @@ export function Orders() {
               Request 3PL Logistics
             </DialogTitle>
             <DialogDescription>
-              Send {selectedOrders.length === 1
-                ? "1 order"
-                : `${selectedOrders.length} orders`}{" "}
+              Send {selectedOrders.length === 1 ? "1 order" : `${selectedOrders.length} orders`}{" "}
               to the logistics partner for delivery.
             </DialogDescription>
           </DialogHeader>

@@ -55,7 +55,7 @@ import {
   getAdminPageTitle,
 } from "../lib/admin-navigation";
 import { getPendingRequests } from "../lib/product-store-data";
-import { AlertOctagon, Loader2, UserPlus } from "lucide-react";
+import { AlertOctagon, Loader2, RotateCcw, UserPlus } from "lucide-react";
 import { RouteProgress } from "./ui/page-loader";
 import { ThemeToggle } from "./theme-toggle";
 // External target the Logistics menu opens in a new tab. The Logistics
@@ -82,8 +82,8 @@ type SellerNavItem = {
 };
 
 // Cross Dock Store (CDS) — shown for sellers whose CDS connector is
-// enabled from the Admin portal. Sits right after Support; these
-// sellers don't get the external Logistics item (CDS handles it).
+// enabled from the Admin portal. Sits right after Support; Logistics
+// (3PL) stays too, since the seller picks CDS or 3PL per order.
 const cdsNavigation: SellerNavItem = {
   name: "Cross Dock Store (CDS)",
   icon: Warehouse,
@@ -255,7 +255,7 @@ export function RootLayout() {
               sellerLoadingScreensNav,
             ]
           : isCdsEnabled(user?.id)
-            ? [...sellerNavigation.filter((i) => i.name !== "Logistics"), cdsNavigation]
+            ? sellerNavigation.flatMap((i) => (i.name === "Support" ? [i, cdsNavigation] : [i]))
             : sellerNavigation;
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [expandedMenu, setExpandedMenu] = useState<string | null>(
@@ -606,6 +606,22 @@ export function RootLayout() {
                       <Settings className="h-4 w-4 mr-2" />
                       Settings
                     </DropdownMenuItem>
+                    {/* Prototype: start a demo from fresh CDS / 3PL data. */}
+                    {!isEmptyMode && isCdsEnabled(user?.id) && (
+                      <DropdownMenuItem
+                        onClick={() => {
+                          try {
+                            localStorage.removeItem("qwipo.cds.state");
+                          } catch {
+                            /* storage unavailable */
+                          }
+                          window.location.reload();
+                        }}
+                      >
+                        <RotateCcw className="h-4 w-4 mr-2" />
+                        Reset demo data
+                      </DropdownMenuItem>
+                    )}
                   </>
                 )}
                 <DropdownMenuSeparator />

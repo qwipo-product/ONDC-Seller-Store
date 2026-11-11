@@ -9,13 +9,49 @@
 
 import { getOrderById, getOrdersToday, synthesizeProducts, type Order } from "../orders-data";
 import type { ImportedOrder } from "./engine";
-import { localDate } from "./calc";
+import { localDate, setDisplayCalendar } from "./calc";
+
+// Show CDS dates on the Orders page calendar.
+setDisplayCalendar(getOrdersToday());
 
 /** Sellers the admin portal has given CDS connector access (demo). */
 export const CDS_CONNECTOR_SELLERS = ["seller-prod-rm-traders"];
 
 /** The CDS whose polygon covers this seller's retailers. */
 export const SELLER_CDS_ID = "kkp";
+
+/**
+ * Serviceable area of the seller's CDS connector — the polygon the admin
+ * draws when creating the connector (demo: Kukatpally CDS, covering
+ * west & central Hyderabad from Miyapur/Gachibowli to Secunderabad/Abids).
+ * [lat, lng] points. The seller's own location is inside it.
+ */
+export const CDS_SERVICE_POLYGON: [number, number][] = [
+  [17.515, 78.335],
+  [17.515, 78.47],
+  [17.47, 78.515],
+  [17.38, 78.515],
+  [17.38, 78.42],
+  [17.425, 78.335],
+];
+
+function inPolygon(lat: number, lng: number, poly: [number, number][]): boolean {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [yi, xi] = poly[i];
+    const [yj, xj] = poly[j];
+    if (yi > lat !== yj > lat && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
+/** True when the buyer's delivery location is inside the CDS serviceable
+ *  area → "CDS Store Delivery"; otherwise "3PL Logistics Delivery".
+ *  Orders without a location can't be checked, so they go by 3PL. */
+export function isCdsServiceable(o: { buyerLat?: number; buyerLng?: number }): boolean {
+  if (o.buyerLat === undefined || o.buyerLng === undefined) return false;
+  return inPolygon(o.buyerLat, o.buyerLng, CDS_SERVICE_POLYGON);
+}
 
 /** YYYY-MM-DD + n days (UTC-safe). */
 export function plusDays(date: string, n: number): string {
@@ -71,6 +107,12 @@ function to24h(t?: string): string {
   return `${h}:${m[2]}`;
 }
 
+/** Area / locality from a buyer address ("…, Madhapur, Hyderabad, Telangana 500081" → "Madhapur"). */
+export function areaFromAddress(address?: string): string {
+  const parts = address?.split(",").map((x) => x.trim()).filter(Boolean) ?? [];
+  return parts.length >= 3 ? parts[parts.length - 3] : parts[0] ?? "";
+}
+
 /** Map a confirmed seller order into the CDS. Quantity edits made at
  *  confirmation travel with it. */
 export function toImported(o: Order): ImportedOrder {
@@ -84,8 +126,7 @@ export function toImported(o: Order): ImportedOrder {
       confirmedQty: mod?.modifiedQty ?? p.orderedQuantity,
     };
   });
-  const parts = o.buyerAddress?.split(",").map((x) => x.trim()).filter(Boolean) ?? [];
-  const area = parts.length >= 3 ? parts[parts.length - 3] : parts[0] ?? "";
+  const area = areaFromAddress(o.buyerAddress);
   return {
     id: o.id,
     ondcOrderId: o.channelOrderId ?? o.id,

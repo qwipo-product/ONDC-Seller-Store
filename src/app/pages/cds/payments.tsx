@@ -38,8 +38,7 @@ import {
   useCdsScope,
   useTable,
 } from "../../components/cds/cds-ui";
-import { OrderDetailSheet } from "../../components/cds/order-detail-sheet";
-import { PaymentSettleAction } from "../../components/cds/settle-dialog";
+import { useNavigate } from "react-router";
 import { type DateRangeKey, downloadCsv, fmtDate, fmtDateTime, fmtINR, goodQty, inRange, orderMoney, type OrderMoney, paymentSettleCheck, sellerPayoutStatus, type SettleCheck } from "../../lib/cds/calc";
 import { OPERATOR_SELLER_ID } from "../../lib/cds/master-data";
 import type { CdsOrder } from "../../lib/cds/types";
@@ -80,7 +79,7 @@ export function CdsPayments() {
   const [filter, setFilter] = useState<Filter>("all");
   const [q, setQ] = useState("");
   const [breakdownId, setBreakdownId] = useState<string | null>(null);
-  const [orderId, setOrderId] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const rows = useMemo<Row[]>(() => {
     const out: Row[] = [];
@@ -180,7 +179,6 @@ export function CdsPayments() {
     { key: "upcoming", label: "Awaiting delivery" },
     { key: "due", label: "To be paid" },
     { key: "settled", label: "Paid to you" },
-    { key: "closed", label: "Settled" },
     { key: "changes", label: "Edited, short or returned" },
     { key: "issue", label: "Needs attention" },
   ];
@@ -257,7 +255,12 @@ export function CdsPayments() {
             {table.paged.length === 0 && <EmptyRow cols={9} text="No CDS orders in this period." />}
             {table.paged.map((r) => (
               <tr key={r.o.id} className="cursor-pointer hover:bg-gray-50" onClick={() => setBreakdownId(r.o.id)}>
-                <Td><Mono>{r.o.id}</Mono></Td>
+                <Td>
+                  <Mono>{r.o.id}</Mono>
+                  <p className={`mt-0.5 text-[10px] font-medium ${r.o.route === "3pl" ? "text-blue-700" : "text-teal-700"}`}>
+                    {r.o.route === "3pl" ? "3PL Logistics" : "Cross Dock Store"}
+                  </p>
+                </Td>
                 <Td>{retailerName(r.o.retailerId)}</Td>
                 <Td className="whitespace-nowrap text-xs text-gray-600">
                   {fmtDateTime(r.when)}
@@ -298,7 +301,6 @@ export function CdsPayments() {
                     >
                       <Eye className="h-3.5 w-3.5" /> View
                     </Button>
-                    <PaymentSettleAction o={r.o} retailer={retailerName(r.o.retailerId)} />
                   </div>
                 </Td>
               </tr>
@@ -312,9 +314,8 @@ export function CdsPayments() {
         row={selected}
         retailer={selected ? retailerName(selected.o.retailerId) : ""}
         onClose={() => setBreakdownId(null)}
-        onOpenOrder={(id) => { setBreakdownId(null); setOrderId(id); }}
+        onOpenOrder={(id) => { setBreakdownId(null); navigate(`/orders/${id}`); }}
       />
-      <OrderDetailSheet orderId={orderId} onClose={() => setOrderId(null)} />
     </CdsPage>
   );
 }
@@ -437,7 +438,6 @@ function PaymentBreakdown({
                 <Button variant="outline" size="sm" className="gap-1.5" onClick={() => onOpenOrder(row.o.id)}>
                   View order <ArrowRight className="h-4 w-4" />
                 </Button>
-                <PaymentSettleAction o={row.o} retailer={retailer} />
                 {!row.check.ready && !row.check.done && row.check.reason && (
                   <span className="text-[11px] text-gray-500">{row.check.reason}</span>
                 )}

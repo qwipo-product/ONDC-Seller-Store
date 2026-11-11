@@ -2,7 +2,9 @@
 // CDS connector access. Mounted once in the root layout.
 //
 // Orders → CDS
-//   · A confirmed order joins the CDS automatically ("Ready for logistics").
+//   · Confirming an order routes it by serviceability (inside the CDS area →
+//     CDS tab, outside → 3PL Logistics tab) and requests the pickup from
+//     LBNP straight away — it lands at "Pickup requested".
 //   · An order cancelled from the Orders page is cancelled in the CDS.
 // CDS → Orders
 //   · Edit qty (partial cancel) and partial pickup update the order's
@@ -11,8 +13,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { OPERATOR_SELLER_ID } from "../../lib/cds/master-data";
-import { CANCELLABLE } from "../../lib/cds/calc";
-import { SELLER_CDS_ID, alignToOrdersDay, cdsDeliveryDate, toImported } from "../../lib/cds/order-bridge";
+import { SELLER_CANCELLABLE } from "../../lib/cds/calc";
+import { SELLER_CDS_ID, alignToOrdersDay, cdsDeliveryDate, isCdsServiceable, toImported } from "../../lib/cds/order-bridge";
 import { engine, getCds, runQuiet, useCds } from "../../lib/cds/store";
 import type { CdsOrder } from "../../lib/cds/types";
 import {
@@ -114,16 +116,29 @@ function sync() {
   const orders = getOrders();
 
   // Orders → CDS
-  const toAdd = orders.filter((o) => o.status === "Confirmed" && !byId.has(o.id));
   const toCancel = orders.filter((o) => {
     const c = byId.get(o.id);
-    return o.status === "Cancelled" && c && c.status !== "Cancelled" && CANCELLABLE.includes(c.status);
+    return o.status === "Cancelled" && c && c.status !== "Cancelled" && SELLER_CANCELLABLE.includes(c.status);
   });
-  if (toAdd.length || toCancel.length) {
+  const toRoute = orders.filter((o) => o.status === "Confirmed" && !o.logisticsRequested && !byId.has(o.id));
+  if (toRoute.length || toCancel.length) {
     runQuiet(() => {
-      for (const o of toAdd) {
+      // Confirming does both steps: route by serviceability AND send the
+      // pickup request to LBNP (one request per route).
+      const byRoute: Record<"cds" | "3pl", string[]> = { cds: [], "3pl": [] };
+      for (const o of toRoute) {
         try {
-          engine.moveOrderToCds(OPERATOR_SELLER_ID, SELLER_CDS_ID, toImported(o));
+          const route = isCdsServiceable(o) ? "cds" : "3pl";
+          engine.moveOrderToCds(OPERATOR_SELLER_ID, SELLER_CDS_ID, toImported(o), undefined, route);
+          byRoute[route].push(o.id);
+        } catch {
+          /* skip */
+        }
+      }
+      for (const ids of Object.values(byRoute)) {
+        if (!ids.length) continue;
+        try {
+          engine.requestPickupTrip(ids, { slot: "Assigned by LBNP" });
         } catch {
           /* skip */
         }
@@ -143,11 +158,13 @@ function sync() {
   let changed = false;
   const next = orders.map((o) => {
     let n = o;
-    // CDS sellers deliver the day after the order is placed.
-    const due = cdsDeliveryDate(o.orderDate);
-    if (n.expectedDeliveryDate !== due) n = { ...n, expectedDeliveryDate: due };
     const c = byId.get(o.id);
-    if (c && c.sellerId === OPERATOR_SELLER_ID) n = applyCdsToOrder(n, c);
+    if (c && c.sellerId === OPERATOR_SELLER_ID) {
+      // CDS orders are delivered the day after the order is placed.
+      const due = cdsDeliveryDate(o.orderDate);
+      if (n.expectedDeliveryDate !== due) n = { ...n, expectedDeliveryDate: due };
+      n = applyCdsToOrder(n, c);
+    }
     if (n !== o) changed = true;
     return n;
   });

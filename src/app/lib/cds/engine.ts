@@ -106,10 +106,12 @@ export function attachToShipment(o: CdsOrder): Shipment {
       x.cdsId === o.cdsId &&
       x.retailerId === o.retailerId &&
       x.waveDate === o.waveDate &&
+      (x.route ?? "cds") === (o.route ?? "cds") &&
       x.status === "Open",
   );
   if (!sh) {
     sh = {
+      route: o.route ?? "cds",
       id: nextId("SHP", 40000),
       cdsId: o.cdsId,
       retailerId: o.retailerId,
@@ -162,10 +164,11 @@ export function requestPickupTrip(
     .filter((o): o is CdsOrder => !!o && o.status === "Confirmed");
   if (!orders.length) fail("Select at least one confirmed order");
   const cdsId = orders[0].cdsId;
+  const route = orders[0].route ?? "cds";
   const id = nextId("LBNP-PK", 24000);
   const bySeller = new Map<string, CdsOrder[]>();
   for (const o of orders) {
-    if (o.cdsId !== cdsId) continue;
+    if (o.cdsId !== cdsId || (o.route ?? "cds") !== route) continue;
     bySeller.set(o.sellerId, [...(bySeller.get(o.sellerId) ?? []), o]);
   }
   const stops: TripStop[] = [...bySeller.entries()].map(([sellerId, os], i) => ({
@@ -179,6 +182,7 @@ export function requestPickupTrip(
     eta: addMinutes(at, 70 + i * 35),
   }));
   const trip: CdsTrip = {
+    route,
     id,
     kind: "Pickup",
     cdsId,
@@ -190,9 +194,9 @@ export function requestPickupTrip(
     note: opts.note,
   };
   ctx.s.trips.push(trip);
-  const by = operatorName(cdsId);
   for (const os of bySeller.values()) {
     for (const o of os) {
+      const by = sellerName(o.sellerId);
       o.pickupTripId = id;
       setStatus(o, "Pickup Requested", "Pickup requested on LBNP", "first-mile", by, at, `Trip ${id} · ${stops.length} seller stop(s)`);
     }
@@ -268,14 +272,56 @@ export function lbnpCompletePickupStop(
     );
     o.settlementLock = { at, value: orderValue(o) };
     log(o, { title: "Settlement planning locked at pickup", note: `₹${Math.round(orderValue(o)).toLocaleString("en-IN")} planned for ${sellerName(o.sellerId)}`, leg: "payment", by: "LBNP" }, at);
+    if (o.route === "3pl") startThreePlDelivery(o, t, addMinutes(at, 10));
   }
-  if (t.stops.every((x) => x.status !== "Pending")) {
+  if ((t.route ?? "cds") === "3pl" && t.stops.every((x) => x.status !== "Pending")) {
+    // 3PL pickups don't go to the CDS — the trip ends once every stop is picked up.
+    t.status = "Completed";
+    t.completedAt = at;
+  }
+  if ((t.route ?? "cds") !== "3pl" && t.stops.every((x) => x.status !== "Pending")) {
     for (const o of tripOrders(t)) {
       if (o.status === "Picked Up") {
         setStatus(o, "In Transit to CDS", `In transit to ${findLocation(t.cdsId).name}`, "first-mile", by, addMinutes(at, 5));
       }
     }
   }
+}
+
+/** 3PL: the pickup rider takes the order straight to the retailer — a
+ *  delivery trip starts right away (no CDS, no sorting or handover). */
+function startThreePlDelivery(o: CdsOrder, pickup: CdsTrip, at: string) {
+  const sh = findShipment(o.shipmentId);
+  if (!sh || sh.deliveryTripId) return;
+  const id = nextId("LBNP-3P", 61000);
+  ctx.s.trips.push({
+    route: "3pl",
+    id,
+    kind: "Delivery",
+    cdsId: o.cdsId,
+    status: "In Progress",
+    requestedAt: at,
+    startedAt: at,
+    rider: pickup.rider,
+    stops: [
+      {
+        id: `${id}-D1`,
+        seq: 1,
+        type: "Drop",
+        retailerId: sh.retailerId,
+        shipmentId: sh.id,
+        orderIds: [o.id],
+        expectedUnits: orderUnits(o),
+        status: "Pending",
+        eta: addMinutes(at, 45),
+      },
+    ],
+    distanceKm: Math.round(8 + ctx.rand() * 10),
+    slot: "Assigned by LBNP",
+  });
+  sh.deliveryTripId = id;
+  sh.status = "Out for Delivery";
+  setStatus(o, "Out for Delivery", `Out for delivery to ${retailerName(o.retailerId)}`, "last-mile", `${pickup.rider?.name ?? "3PL rider"} (3PL)`, at, "Direct 3PL delivery — no CDS stop");
 }
 
 export function lbnpArriveAtCds(tripId: string, at?: string) {
@@ -1112,15 +1158,18 @@ export interface ImportedOrder {
 }
 
 /** A connector seller confirms an order — it joins the CDS flow automatically. */
-export function moveOrderToCds(sellerId: string, cdsId: string, input: ImportedOrder, at?: string): CdsOrder {
+export function moveOrderToCds(sellerId: string, cdsId: string, input: ImportedOrder, at?: string, route: "cds" | "3pl" = "cds"): CdsOrder {
   if (findOrder(input.id)) fail(`${input.id} is already with the CDS`);
   const when = T(at);
-  let r = ctx.s.retailers.find((x) => x.name === input.retailerName && x.cdsId === cdsId);
+  let r = ctx.s.retailers.find(
+    (x) => x.name === input.retailerName && x.cdsId === cdsId && (!input.retailerArea || x.area === input.retailerArea),
+  );
   if (!r) {
     r = { id: `r-x${ctx.s.retailers.length + 1}`, name: input.retailerName, owner: "—", phone: input.retailerPhone, area: input.retailerArea, cdsId, serviceableCdsId: cdsId, type: "Kirana" };
     ctx.s.retailers.push(r);
   }
   const o: CdsOrder = {
+    route,
     id: input.id,
     ondcOrderId: input.ondcOrderId,
     sellerId,
@@ -1138,7 +1187,15 @@ export function moveOrderToCds(sellerId: string, cdsId: string, input: ImportedO
   if (mods.length) {
     log(o, { title: "Order modified at confirmation", note: mods.map((l) => `${l.name}: ${l.orderedQty} → ${l.confirmedQty}`).join("; "), leg: "order", by: sellerName(sellerId) }, when);
   }
-  setStatus(o, "Confirmed", `Added to CDS · ${findLocation(cdsId).name}`, "order", sellerName(sellerId), when, "Ready to request logistics");
+  setStatus(
+    o,
+    "Confirmed",
+    route === "3pl" ? "Added to 3PL Logistics" : `Added to CDS · ${findLocation(cdsId).name}`,
+    "order",
+    sellerName(sellerId),
+    when,
+    "Logistics requested from LBNP on confirm",
+  );
   ctx.s.orders.push(o);
   attachToShipment(o);
   return o;
