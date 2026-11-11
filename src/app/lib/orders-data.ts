@@ -2778,3 +2778,17 @@ export function synthesizeProducts(order: Order): SynthesizedOrderProduct[] {
     totalPrice: li.lineTotal,
   }));
 }
+
+// Orders without stored lineItems take their products from the catalogue
+// (orderLines), so the order-level Company / Brand follow the first product
+// — the Company column, its filter and the order page then agree with the
+// product lines. Runs last: orderLines needs the catalogue constants above.
+{
+  const fix = (o: Order): Order => {
+    if (o.lineItems && o.lineItems.length > 0) return o;
+    const first = orderLines(o)[0];
+    return first ? { ...o, company: first.company, brand: first.brand } : o;
+  };
+  for (let i = 0; i < seedOrders.length; i++) seedOrders[i] = fix(seedOrders[i]);
+  _orders = _orders.map(fix);
+}

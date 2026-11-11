@@ -1,56 +1,18 @@
-// Cross Dock Store (CDS) tab on the seller Orders page.
+// Cross Dock Store (CDS) and 3PL Logistics tabs on the seller Orders page.
 //
-// The connector seller's confirmed orders (they join the CDS on confirm):
-//   Ready for logistics → request an LBNP pickup (one trip, many orders)
-//   Pickup requested    → cancel if needed (quantities are edited on the New tab, before confirming)
-//   Picked up           → pickup agent verified with OTP; partial pickups are flagged
-//   Delivered / returns → updated by the delivery app (read-only here)
-// Clicking a row opens the full order journey.
+// Confirming an order routes it here and requests the pickup from LBNP:
+//   Pickup requested → Picked up (agent OTP) → Delivered; Cancelled.
+// The table is the same as the Confirmed tab (rendered by the Orders page);
+// this component supplies the summary, filters and which orders to show.
 
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router";
-import { Ban, Eye, Send, Truck, Warehouse } from "lucide-react";
-import { Button } from "../ui/button";
-import { Checkbox } from "../ui/checkbox";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
-import { Label } from "../ui/label";
-import { Textarea } from "../ui/textarea";
+import { useMemo, useState, type ReactNode } from "react";
+import { Truck, Warehouse } from "lucide-react";
 import { cn } from "../ui/utils";
-import {
-  SELLER_CANCELLABLE,
-  fmtDate,
-  fmtINR,
-  inRange,
-  isModified,
-  isPartialPickup,
-  isPartiallyCancelled,
-  orderUnits,
-  orderValue,
-  sellerOrderStage,
-  type DateRangeKey,
-} from "../../lib/cds/calc";
+import { inRange, isPartiallyCancelled, orderValue, type DateRangeKey } from "../../lib/cds/calc";
 import { OPERATOR_SELLER_ID } from "../../lib/cds/master-data";
 import { cdsOrderDates } from "../../lib/cds/order-bridge";
-import { engine, run } from "../../lib/cds/store";
 import type { CdsOrder, Route } from "../../lib/cds/types";
-import {
-  DateRangeSelect,
-  EmptyRow,
-  Mono,
-  Pager,
-  PaymentPill,
-  Pill,
-  SearchBox,
-  Td,
-  Th,
-  THead,
-  TableWrap,
-  STICKY_ACTIONS_TD,
-  STICKY_ACTIONS_TH,
-  useCdsScope,
-  useTable,
-} from "./cds-ui";
-import { CancelDialog } from "./order-detail-sheet";
+import { DateRangeSelect, Pager, SearchBox, useCdsScope, useTable } from "./cds-ui";
 import { DayAndTypeFilters, OrdersSummaryStrip } from "./orders-header-filters";
 import { getOrdersToday } from "../../lib/orders-data";
 
@@ -69,8 +31,8 @@ const STAGES: { key: StageKey; label: string; match: (o: CdsOrder, hasReturn: bo
  *  tab). Confirming an order sends it here and to LBNP in one step, so both
  *  start at Pickup requested → Picked up → Delivered. 3PL orders go straight
  *  to the retailer. */
-export function CdsOrdersTab({ route = "cds" }: { route?: Route }) {
-  const { s, retailerName, retailerMap, cdsName } = useCdsScope();
+export function CdsOrdersTab({ route = "cds", renderTable }: { route?: Route; renderTable: (orderIds: string[]) => ReactNode }) {
+  const { s, retailerName } = useCdsScope();
   const isThreePl = route === "3pl";
   const mine = useMemo(
     () => s.orders.filter((o) => o.sellerId === OPERATOR_SELLER_ID && (o.route ?? "cds") === route),
@@ -82,9 +44,6 @@ export function CdsOrdersTab({ route = "cds" }: { route?: Route }) {
   const [stage, setStage] = useState<StageKey>("requested");
   const [range, setRange] = useState<DateRangeKey>("7d");
   const [q, setQ] = useState("");
-  const navigate = useNavigate();
-  const openOrder = (id: string) => navigate(`/orders/${id}`);
-  const [dialog, setDialog] = useState<{ kind: "cancel"; o: CdsOrder } | null>(null);
   const [day, setDay] = useState("all");
 
   const base = useMemo(() => {
@@ -166,75 +125,10 @@ export function CdsOrdersTab({ route = "cds" }: { route?: Route }) {
         <DateRangeSelect value={range} onChange={(v) => { setRange(v); table.setPage(1); }} />
       </div>
 
-      <div className="flex-1 overflow-auto">
-        <TableWrap>
-          <THead>
-            <Th sortKey="orderDate" table={table}>Order date</Th>
-            <Th>Delivery date</Th>
-            <Th>Order ID</Th>
-            <Th sortKey="retailer" table={table}>Retailer</Th>
-            <Th className="text-right">Items</Th>
-            <Th sortKey="value" table={table} className="text-right">Value</Th>
-            <Th>Payment</Th>
-            <Th>Status</Th>
-            <Th className={STICKY_ACTIONS_TH}>Actions</Th>
-          </THead>
-          <tbody className="divide-y divide-gray-100">
-            {table.paged.length === 0 && (
-              <EmptyRow cols={9} text="No orders here. Orders you confirm land here automatically, already sent to LBNP." />
-            )}
-            {table.paged.map((o) => {
-              const dates = cdsOrderDates(o.id, o.placedAt);
-              return (
-                <tr key={o.id} className="cursor-pointer hover:bg-gray-50" onClick={() => openOrder(o.id)}>
-                  <Td className="whitespace-nowrap text-xs text-gray-700">{fmtDate(dates.orderDate)}</Td>
-                  <Td className="whitespace-nowrap text-xs text-gray-700">
-                    {fmtDate(dates.deliveryDate)}
-                    {dates.deliveredOn && dates.deliveredOn !== dates.deliveryDate && (
-                      <p className="text-[11px] text-gray-500">Delivered {fmtDate(dates.deliveredOn)}</p>
-                    )}
-                  </Td>
-                  <Td>
-                    <Mono>{o.id}</Mono>
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {isModified(o) && <Pill tone="amber">Qty changed</Pill>}
-                      {isPartiallyCancelled(o) && <Pill tone="red">Part cancelled</Pill>}
-                      {isPartialPickup(o) && <Pill tone="amber">Partial pickup</Pill>}
-                      {returnOrderIds.has(o.id) && <Pill tone="purple">Return raised</Pill>}
-                    </div>
-                  </Td>
-                  <Td>
-                    <p className="font-medium text-gray-900">{retailerName(o.retailerId)}</p>
-                    <p className="text-xs text-gray-500">{retailerMap.get(o.retailerId)?.area}</p>
-                  </Td>
-                  <Td className="text-right tabular-nums">{orderUnits(o)} {orderUnits(o) === 1 ? "unit" : "units"}</Td>
-                  <Td className="text-right tabular-nums font-medium">{fmtINR(orderValue(o))}</Td>
-                  <Td><PaymentPill type={o.paymentType} /></Td>
-                  <Td>
-                    <Pill tone={sellerOrderStage(o.status).tone}>{sellerOrderStage(o.status).label}</Pill>
-                    <p className="mt-0.5 text-[11px] text-gray-500">{isThreePl ? "3PL · direct to retailer" : cdsName(o.cdsId)}</p>
-                  </Td>
-                  <Td className={STICKY_ACTIONS_TD}>
-                    <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                      <Button size="sm" variant="outline" className="h-7 gap-1 px-2 text-xs" onClick={() => openOrder(o.id)}>
-                        <Eye className="h-3.5 w-3.5" /> View
-                      </Button>
-                      {SELLER_CANCELLABLE.includes(o.status) && (
-                        <Button size="sm" variant="outline" className="h-7 gap-1 px-2 text-xs text-red-700" onClick={() => setDialog({ kind: "cancel", o })}>
-                          <Ban className="h-3.5 w-3.5" /> Cancel
-                        </Button>
-                      )}
-                    </div>
-                  </Td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </TableWrap>
-      </div>
+      {/* Same table as the Confirmed tab (columns, badges, actions). */}
+      {renderTable(table.paged.map((o) => o.id))}
       <Pager table={table} label="order" />
 
-      {dialog?.kind === "cancel" && <CancelDialog o={dialog.o} open onOpenChange={(v) => !v && setDialog(null)} />}
     </div>
   );
 }

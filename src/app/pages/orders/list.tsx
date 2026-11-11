@@ -82,7 +82,6 @@ import {
 // don't redeclare them here.
 import {
   type Order,
-  type OrderLineItem,
   type DeliveryType,
   type CancelledBy,
   SELLER_INFO,
@@ -1401,22 +1400,37 @@ export function Orders() {
       timeZone: "UTC",
     });
 
+  // CDS / 3PL / Returns tabs show the same table as Confirmed, for the
+  // orders those tabs pick (ids from the CDS store).
+  const renderLinkedTable = (orderIds: string[], statusNotes?: Map<string, ReactNode>) => {
+    const byId = new Map(orders.map((o) => [o.id, o] as const));
+    return renderOrderTable(orderIds.map((id) => byId.get(id)).filter((o): o is Order => !!o), statusNotes);
+  };
+
   // Render order table
-  const renderOrderTable = (ordersToRender: Order[]) => {
+  const renderOrderTable = (ordersToRender: Order[], statusNotes?: Map<string, ReactNode>) => {
     if (ordersToRender.length === 0) {
       const hasSearch = searchQuery.trim().length > 0;
       const title = hasSearch
         ? "No orders match your search"
         : activeTab === "all"
           ? "No orders yet"
-          : activeTab === "logistics"
-            ? "Nothing with the logistics partner"
-            : `No ${activeTab} orders`;
+          : activeTab === "cds"
+            ? "No Cross Dock Store orders here"
+            : activeTab === "returns"
+              ? "No returns here"
+              : activeTab === "logistics"
+                ? cdsEnabled ? "No 3PL Logistics orders here" : "Nothing with the logistics partner"
+                : `No ${activeTab} orders`;
       const description = hasActiveFilters
         ? "No orders match your current filters. Try clearing them to see everything."
         : activeTab === "all"
           ? "Once retailers start placing orders on ONDC and connected marketplaces, they'll show up here ready for you to confirm and dispatch."
-          : activeTab === "logistics"
+          : cdsEnabled && (activeTab === "cds" || activeTab === "logistics")
+            ? "Orders you confirm land here automatically, already sent to LBNP."
+            : activeTab === "returns"
+              ? "Returns raised by the delivery app will appear here."
+              : activeTab === "logistics"
             ? "Orders you send from Confirmed using Request 3PL Logistics will appear here until the delivery partner completes them."
             : `You don't have any ${activeTab} orders right now — new ones will land here automatically.`;
       return (
@@ -1441,8 +1455,7 @@ export function Orders() {
     // is deliberately excluded — the order belongs to the partner at
     // that point and completion arrives from their app, so there is
     // nothing for the seller to select or act on.
-    const isActionable =
-      activeTab === "new" || activeTab === "confirmed" || (cdsEnabled && activeTab === "logistics");
+    const isActionable = activeTab === "new" || activeTab === "confirmed";
 
     return (
       <div className="flex-1 overflow-auto">
@@ -1671,7 +1684,14 @@ export function Orders() {
                   </span>
                 </td>
                 <td className="px-3 py-2.5 whitespace-nowrap">
-                  {getStatusBadge(order)}
+                  {statusNotes?.has(order.id) ? (
+                    <span className="inline-flex flex-col items-start gap-0.5">
+                      {getStatusBadge(order)}
+                      {statusNotes.get(order.id)}
+                    </span>
+                  ) : (
+                    getStatusBadge(order)
+                  )}
                 </td>
                 {activeTab === "cancelled" && (
                   <td className="px-3 py-2.5 max-w-[200px]">
@@ -2219,7 +2239,7 @@ export function Orders() {
                 app via LBNP rather than from a button here. */}
             <TabsContent value="logistics" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
               {cdsEnabled ? (
-                <CdsOrdersTab route="3pl" />
+                <CdsOrdersTab route="3pl" renderTable={renderLinkedTable} />
               ) : (
               <>
               {!isEmpty && renderDayAndBeatFilters(logisticsBucketCounts)}
@@ -2371,12 +2391,12 @@ export function Orders() {
 
             {cdsEnabled && (
               <TabsContent value="cds" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
-                <CdsOrdersTab />
+                <CdsOrdersTab renderTable={renderLinkedTable} />
               </TabsContent>
             )}
             {cdsEnabled && (
               <TabsContent value="returns" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
-                <CdsReturnsTab />
+                <CdsReturnsTab renderTable={renderLinkedTable} />
               </TabsContent>
             )}
           </Tabs>
