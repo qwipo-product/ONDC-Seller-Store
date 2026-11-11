@@ -79,6 +79,12 @@ export function operatorName(cdsId: string): string {
   return `${findLocation(cdsId).manager} (CDS)`;
 }
 
+/** Who handles an order's returns: CDS staff, or the 3PL delivery partner
+ *  for 3PL orders (they never pass through a CDS). */
+function handlerName(o: CdsOrder | undefined, cdsId: string): string {
+  return o?.route === "3pl" ? "3PL delivery partner" : operatorName(cdsId);
+}
+
 function log(o: CdsOrder, e: Omit<CdsEvent, "at">, at?: string) {
   o.history.push({ ...e, at: T(at) });
 }
@@ -982,7 +988,7 @@ export function createRetailerReturn(orderId: string, items: { sku: string; qty:
       }
     }
   }
-  log(o, { title: "Retailer return raised", note: `${rc.id} · ${lines.map((l) => `${l.qty} × ${l.name}`).join(", ")} · ${reason}`, leg: "exception", by: operatorName(o.cdsId) }, when);
+  log(o, { title: "Retailer return raised", note: `${rc.id} · ${lines.map((l) => `${l.qty} × ${l.name}`).join(", ")} · ${reason}`, leg: "exception", by: handlerName(o, o.cdsId) }, when);
   return rc.id;
 }
 
@@ -1011,7 +1017,7 @@ export function scheduleReturnToSeller(id: string, at?: string) {
   r.status = "Return to Seller Scheduled";
   r.updatedAt = T(at);
   const o = findOrder(r.orderId);
-  if (o) log(o, { title: "Return to seller scheduled", note: `${r.id} · goes back on the next pickup trip from ${sellerName(r.sellerId)}`, leg: "exception", by: operatorName(r.cdsId) }, at);
+  if (o) log(o, { title: "Return to seller scheduled", note: `${r.id} · goes back ${o.route === "3pl" ? "with the 3PL delivery partner" : `on the next pickup trip from ${sellerName(r.sellerId)}`}`, leg: "exception", by: handlerName(o, r.cdsId) }, at);
 }
 
 export function markReturnedToSeller(id: string, at?: string) {
@@ -1022,9 +1028,9 @@ export function markReturnedToSeller(id: string, at?: string) {
   const o = findOrder(r.orderId);
   if (o) {
     if (r.type === "Delivery Failure (RTO)") {
-      setStatus(o, "Returned to Seller", "Returned to seller", "exception", operatorName(r.cdsId), at, r.id);
+      setStatus(o, "Returned to Seller", "Returned to seller", "exception", handlerName(o, r.cdsId), at, r.id);
     } else {
-      log(o, { title: "Goods returned to seller", note: `${r.id} · ${r.items.map((i) => `${i.qty} × ${i.name}`).join(", ")}`, leg: "exception", by: operatorName(r.cdsId) }, at);
+      log(o, { title: "Goods returned to seller", note: `${r.id} · ${r.items.map((i) => `${i.qty} × ${i.name}`).join(", ")}`, leg: "exception", by: handlerName(o, r.cdsId) }, at);
     }
   }
 }

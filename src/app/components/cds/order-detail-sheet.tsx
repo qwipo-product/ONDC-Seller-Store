@@ -1,39 +1,18 @@
-// Cross Dock Store (CDS) — order detail side panel.
-// Shows only what the seller needs: product summary and payment summary.
+// Cross Dock Store (CDS) / 3PL section on the full order page (/orders/:id).
+// Shows what the seller needs: stage, last update, payment summary, returns.
 
 import { useState, type ElementType } from "react";
 import { Ban } from "lucide-react";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../ui/sheet";
+import { SheetDescription, SheetHeader, SheetTitle } from "../ui/sheet";
 import { Button } from "../ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Textarea } from "../ui/textarea";
 import { Label } from "../ui/label";
 import { cn } from "../ui/utils";
-import { SELLER_CANCELLABLE, fmtDateTime, fmtINR, goodQty, isPartialPickup, isPartiallyCancelled, isPickedUpStage, orderMoney, orderValue, pickupQty, returnStage, sellerOrderStage, sellerPayoutStatus } from "../../lib/cds/calc";
+import { SELLER_CANCELLABLE, fmtDateTime, fmtINR, goodQty, isPartialPickup, isPartiallyCancelled, orderMoney, orderValue, pickupQty, returnStage, sellerOrderStage, sellerPayoutStatus } from "../../lib/cds/calc";
 import { engine, run } from "../../lib/cds/store";
 import type { CdsOrder } from "../../lib/cds/types";
 import { FilterSelect, PaymentPill, Pill, useCdsScope } from "./cds-ui";
-
-export function OrderDetailSheet({ orderId, onClose }: { orderId: string | null; onClose: () => void }) {
-  const { s, retailerMap } = useCdsScope();
-  const o = orderId ? s.orders.find((x) => x.id === orderId) : undefined;
-  const [cancelOpen, setCancelOpen] = useState(false);
-
-  return (
-    <Sheet open={!!orderId} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent className="w-full sm:max-w-xl overflow-y-auto p-0 gap-0">
-        {o && (
-          <OrderBody
-            o={o}
-            retailer={retailerMap.get(o.retailerId)?.name ?? ""}
-            onCancel={() => setCancelOpen(true)}
-          />
-        )}
-        {o && <CancelDialog o={o} open={cancelOpen} onOpenChange={setCancelOpen} />}
-      </SheetContent>
-    </Sheet>
-  );
-}
 
 /** CDS / 3PL section on the full order page (/orders/:id). Same content as
  *  the old side panel minus the product table (the page has its own). */
@@ -181,7 +160,7 @@ function OrderBody({ o, retailer, onCancel, page = false }: { o: CdsOrder; retai
             )}
             <MoneyLine label="Billed to retailer" value={m.billed} total />
             {m.returns > 0 && <MoneyLine label="Returned by retailer" note={returns.map((r) => r.reason).join(", ")} value={-m.returns} tone="red" />}
-            <MoneyLine label={delivered ? "Your payout" : "Expected payout"} value={m.payout} total strong />
+            <MoneyLine label={delivered || cancelled ? "Your payout" : "Expected payout"} value={m.payout} total strong />
           </div>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <div className="rounded-lg border border-gray-200 p-3">

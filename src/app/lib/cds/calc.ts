@@ -159,9 +159,13 @@ export function addDays(date: string, days: number): string {
 // ---- formatting ----
 
 const inr = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 });
+const inrPaise = new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+/** Rupees; paise are shown only when the amount has them (same as the
+ *  Orders pages, e.g. ₹9,771.52). */
 export function fmtINR(n: number): string {
-  return `₹${inr.format(Math.round(n))}`;
+  const r = Math.round(n * 100) / 100;
+  return Number.isInteger(r) ? `₹${inr.format(r)}` : `₹${inrPaise.format(r)}`;
 }
 
 export function fmtINRShort(n: number): string {
@@ -182,6 +186,11 @@ export function setDisplayCalendar(ordersToday: string) {
   const a = new Date(ordersToday + "T00:00:00");
   const b = new Date(todayLocal() + "T00:00:00");
   displayShiftDays = Math.round((a.getTime() - b.getTime()) / 86400000);
+}
+/** A real-clock CDS timestamp moved onto the Orders demo calendar (for
+ *  values written back to Orders-module orders). */
+export function toDisplayIso(iso: string): string {
+  return shown(iso).toISOString();
 }
 function shown(iso: string): Date {
   const d = new Date(iso);

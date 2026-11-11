@@ -13,7 +13,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { OPERATOR_SELLER_ID } from "../../lib/cds/master-data";
-import { SELLER_CANCELLABLE, goodQty } from "../../lib/cds/calc";
+import { SELLER_CANCELLABLE, goodQty, toDisplayIso } from "../../lib/cds/calc";
 import { SELLER_CDS_ID, alignToOrdersDay, cdsDeliveryDate, isCdsServiceable, toImported } from "../../lib/cds/order-bridge";
 import { engine, getCds, runQuiet, useCds } from "../../lib/cds/store";
 import type { CdsOrder } from "../../lib/cds/types";
@@ -100,7 +100,7 @@ function applyCdsToOrder(o: Order, c: CdsOrder): Order {
       status: "Cancelled",
       cancelledBy: c.cancelledBy === "Retailer" ? "Buyer" : "Seller",
       cancellationReason: c.cancelReason ?? "Cancelled in CDS",
-      cancellationTime: c.history[c.history.length - 1]?.at ?? new Date().toISOString(),
+      cancellationTime: toDisplayIso([...c.history].reverse().find((h) => /^Cancelled/i.test(h.title))?.at ?? c.history[c.history.length - 1]?.at ?? new Date().toISOString()),
     };
   } else if (c.status === "Delivered" && next.status !== "Delivered" && next.status !== "Cancelled") {
     next = { ...next, status: "Delivered", actualDeliveryDate: c.deliveredAt ? alignToOrdersDay(c.deliveredAt) : undefined };
