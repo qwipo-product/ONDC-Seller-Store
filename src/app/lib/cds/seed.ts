@@ -49,7 +49,7 @@ import { seedOrders } from "../orders-data";
 import { SELLER_CDS_ID, alignToCdsDay, plusDays, toImported } from "./order-bridge";
 import type { CdsOrder, CdsState, CdsTrip, PaymentType, Shipment } from "./types";
 
-export const CDS_DATA_VERSION = 36;
+export const CDS_DATA_VERSION = 37;
 const PAST_DAYS = 4;
 
 function mulberry32(seed: number) {

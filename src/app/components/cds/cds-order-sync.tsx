@@ -13,7 +13,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { OPERATOR_SELLER_ID } from "../../lib/cds/master-data";
-import { SELLER_CANCELLABLE } from "../../lib/cds/calc";
+import { SELLER_CANCELLABLE, goodQty } from "../../lib/cds/calc";
 import { SELLER_CDS_ID, alignToOrdersDay, cdsDeliveryDate, isCdsServiceable, toImported } from "../../lib/cds/order-bridge";
 import { engine, getCds, runQuiet, useCds } from "../../lib/cds/store";
 import type { CdsOrder } from "../../lib/cds/types";
@@ -55,9 +55,10 @@ function effectiveQty(o: Order): Map<string, { qty: number; actual: number; line
   return m;
 }
 
-/** Quantity the retailer is billed for on a CDS line. */
+/** Quantity the retailer is billed for on a CDS line: what was picked up,
+ *  less anything short or damaged at CDS receiving (same as Payments). */
 function billedQty(l: CdsOrder["lines"][number]): number {
-  return l.pickedQty ?? l.confirmedQty;
+  return goodQty(l);
 }
 
 function applyCdsToOrder(o: Order, c: CdsOrder): Order {

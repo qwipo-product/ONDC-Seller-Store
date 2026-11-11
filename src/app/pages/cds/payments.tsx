@@ -15,7 +15,7 @@
 // orders show ₹0 so the seller can see why nothing is coming.
 
 import { useMemo, useState } from "react";
-import { ArrowRight, CheckCircle2, Clock, Download, Eye, RotateCcw, Wallet } from "lucide-react";
+import { ArrowRight, CheckCircle2, Clock, Download, Eye, RotateCcw, Truck, Wallet, Warehouse } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../../components/ui/sheet";
 import {
@@ -39,12 +39,12 @@ import {
   useTable,
 } from "../../components/cds/cds-ui";
 import { useNavigate } from "react-router";
-import { type DateRangeKey, downloadCsv, fmtDate, fmtDateTime, fmtINR, goodQty, inRange, orderMoney, type OrderMoney, paymentSettleCheck, sellerPayoutStatus, type SettleCheck } from "../../lib/cds/calc";
+import { type DateRangeKey, downloadCsv, fmtDate, fmtDateTime, fmtINR, goodQty, inRange, orderMoney, type OrderMoney, sellerPayoutStatus } from "../../lib/cds/calc";
 import { OPERATOR_SELLER_ID } from "../../lib/cds/master-data";
 import type { CdsOrder } from "../../lib/cds/types";
 import { cn } from "../../components/ui/utils";
 
-type Filter = "all" | "upcoming" | "due" | "settled" | "ready" | "closed" | "changes" | "issue";
+type Filter = "all" | "upcoming" | "due" | "settled" | "changes" | "issue";
 type Tone = "green" | "amber" | "red" | "blue" | "gray" | "purple" | "indigo";
 
 type Money = OrderMoney;
@@ -57,8 +57,6 @@ interface Row {
   collection: { label: string; tone: Tone; sub?: string };
   payout: { label: string; tone: Tone; sub?: string };
   group: Filter[];
-  /** Seller "Mark settled" state. */
-  check: SettleCheck;
   /** Money actually paid out for this order (settled orders). */
   paid: number;
   /** Return value recovered from a later payout (return came after payout). */
@@ -78,6 +76,7 @@ export function CdsPayments() {
   const [range, setRange] = useState<DateRangeKey>("7d");
   const [filter, setFilter] = useState<Filter>("all");
   const [q, setQ] = useState("");
+  const [route, setRoute] = useState<"all" | "cds" | "3pl">("all");
   const [breakdownId, setBreakdownId] = useState<string | null>(null);
   const navigate = useNavigate();
 
@@ -145,16 +144,20 @@ export function CdsPayments() {
       }
       // One payout vocabulary on every screen (see sellerPayoutStatus).
       payout = sellerPayoutStatus(o, s);
-      const check = paymentSettleCheck(o, s);
-      if (check.ready) group.push("ready");
-      if (check.done) group.push("closed");
-      out.push({ o, m, when, stage, collection, payout, group, check, paid, recovered, editReason, returnReason: ret?.reason });
+      out.push({ o, m, when, stage, collection, payout, group, paid, recovered, editReason, returnReason: ret?.reason });
     }
     return out;
   }, [s, range]);
 
   const needle = q.trim().toLowerCase();
-  const shown = rows.filter((r) => r.group.includes(filter) && (!needle || `${r.o.id} ${retailerName(r.o.retailerId)}`.toLowerCase().includes(needle)));
+  const routeOf = (r: Row) => r.o.route ?? "cds";
+  const typeCount = (k: "cds" | "3pl") => rows.filter((r) => r.group.includes(filter) && routeOf(r) === k).length;
+  const shown = rows.filter(
+    (r) =>
+      r.group.includes(filter) &&
+      (route === "all" || routeOf(r) === route) &&
+      (!needle || `${r.o.id} ${retailerName(r.o.retailerId)}`.toLowerCase().includes(needle)),
+  );
   const table = useTable(shown, {
     sort: { key: "at", dir: "desc" },
     accessors: { at: (r) => r.when, payout: (r) => r.m.payout },
@@ -188,7 +191,7 @@ export function CdsPayments() {
   return (
     <CdsPage
       title="CDS Payments"
-      description="What you get paid for each CDS order — after your edits, short pickups and returns"
+      description="What you get paid for each Cross Dock Store and 3PL Logistics order — after your edits, short pickups and returns"
       showSwitcher={false}
       actions={
         <>
@@ -233,6 +236,25 @@ export function CdsPayments() {
             {f.label} ({count(f.key)})
           </button>
         ))}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="mr-1 text-xs font-medium uppercase tracking-wide text-gray-600">Order type:</span>
+        {([
+          { key: "all", label: `All (${typeCount("cds") + typeCount("3pl")})`, on: "border-gray-900 bg-gray-900 text-white", off: "border-gray-300 bg-white text-gray-700 hover:bg-gray-50", icon: null },
+          { key: "cds", label: `Cross Dock Store (${typeCount("cds")})`, on: "border-teal-600 bg-teal-600 text-white", off: "border-teal-200 bg-teal-50 text-teal-800 hover:bg-teal-100", icon: <Warehouse className="h-3 w-3" /> },
+          { key: "3pl", label: `3PL Logistics (${typeCount("3pl")})`, on: "border-blue-600 bg-blue-600 text-white", off: "border-blue-200 bg-blue-50 text-blue-800 hover:bg-blue-100", icon: <Truck className="h-3 w-3" /> },
+        ] as const).map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => { setRoute(t.key); table.setPage(1); }}
+            className={cn("inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-colors", route === t.key ? t.on : t.off)}
+          >
+            {t.icon}
+            {t.label}
+          </button>
+        ))}
         <div className="ml-auto flex items-center gap-2">
           <SearchBox value={q} onChange={(v) => { setQ(v); table.setPage(1); }} placeholder="Order ID or retailer" />
         </div>
@@ -252,7 +274,7 @@ export function CdsPayments() {
             <Th className={STICKY_ACTIONS_TH}>Actions</Th>
           </THead>
           <tbody className="divide-y divide-gray-100">
-            {table.paged.length === 0 && <EmptyRow cols={9} text="No CDS orders in this period." />}
+            {table.paged.length === 0 && <EmptyRow cols={9} text="No CDS or 3PL orders here in this period." />}
             {table.paged.map((r) => (
               <tr key={r.o.id} className="cursor-pointer hover:bg-gray-50" onClick={() => setBreakdownId(r.o.id)}>
                 <Td>
@@ -438,9 +460,6 @@ function PaymentBreakdown({
                 <Button variant="outline" size="sm" className="gap-1.5" onClick={() => onOpenOrder(row.o.id)}>
                   View order <ArrowRight className="h-4 w-4" />
                 </Button>
-                {!row.check.ready && !row.check.done && row.check.reason && (
-                  <span className="text-[11px] text-gray-500">{row.check.reason}</span>
-                )}
               </div>
             </div>
           </>

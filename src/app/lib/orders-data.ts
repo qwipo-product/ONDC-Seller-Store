@@ -2683,14 +2683,11 @@ export function orderLines(order: Order): OrderLineItem[] {
   const unitsM = /^(\d+)\s+units?\s+(.+)$/i.exec(summary);
   const timesM = /^(.+?)\s*[×x]\s*(\d+)$/i.exec(summary);
   let names: string[];
-  let fixedQty: number | undefined;
   let extra = 0;
   if (unitsM) {
     names = [unitsM[2]];
-    fixedQty = Number(unitsM[1]);
   } else if (timesM) {
     names = [timesM[1].trim()];
-    fixedQty = Number(timesM[2]);
   } else {
     const moreM = /^(.+?)\s*\+\s*(\d+)\s+more$/i.exec(summary);
     if (moreM) {
@@ -2717,35 +2714,29 @@ export function orderLines(order: Order): OrderLineItem[] {
     items.push(c);
   }
 
-  // Split the value into whole-rupee line totals that add up exactly.
+  // Split the value into line totals that add up exactly. Every unit
+  // price is whole paise and unit × qty = line total exactly, so the order
+  // page, CDS / 3PL, Payments and edits all compute the same amounts.
   const total = Math.round(order.originalOrderValue ?? order.orderValue);
   const weights = [1.4, 0.8, 1.1, 0.65, 0.95, 1.2].slice(0, items.length);
   const wSum = weights.reduce((x, w) => x + w, 0);
-  // Fixed unit count ("100 units …") is shared across the lines.
-  const qtyShare = fixedQty
-    ? (() => {
-        const q = weights.map((w) => Math.max(1, Math.floor((fixedQty * w) / wSum)));
-        q[q.length - 1] = Math.max(1, fixedQty - q.slice(0, -1).reduce((x, n) => x + n, 0));
-        return q;
-      })()
-    : undefined;
   let left = total;
   return items.map((c, i) => {
     const last = i === items.length - 1;
     const target = last ? left : Math.floor((total * weights[i]) / wSum);
-    let qty = qtyShare ? qtyShare[i] : Math.max(1, Math.round(target / c.price));
+    const want = Math.max(1, Math.round(target / c.price));
+    let qty = want;
     let lineTotal: number;
     if (!last) {
       const unit = Math.max(1, Math.round(target / qty));
       lineTotal = unit * qty;
     } else {
       lineTotal = left;
-      if (!qtyShare) {
-        // nearest quantity that divides the remainder into a whole-rupee price
-        for (let d = 0; d <= Math.ceil(qty * 0.3); d++) {
-          if (qty - d >= 1 && left % (qty - d) === 0) { qty = qty - d; break; }
-          if (left % (qty + d) === 0) { qty = qty + d; break; }
-        }
+      // nearest quantity that gives a whole-paise unit price
+      const paise = Math.round(left * 100);
+      for (let d = 0; d < want + 5; d++) {
+        if (want - d >= 1 && paise % (want - d) === 0) { qty = want - d; break; }
+        if (paise % (want + d) === 0) { qty = want + d; break; }
       }
     }
     left -= lineTotal;
