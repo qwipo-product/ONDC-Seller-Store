@@ -15,9 +15,8 @@
 // orders show ₹0 so the seller can see why nothing is coming.
 
 import { useMemo, useState } from "react";
-import { ArrowRight, CheckCircle2, Clock, Download, Eye, RotateCcw, Truck, Wallet, Warehouse } from "lucide-react";
+import { CheckCircle2, Clock, Download, Eye, RotateCcw, Truck, Wallet, Warehouse } from "lucide-react";
 import { Button } from "../../components/ui/button";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../../components/ui/sheet";
 import {
   CdsPage,
   DateRangeSelect,
@@ -39,7 +38,7 @@ import {
   useTable,
 } from "../../components/cds/cds-ui";
 import { useNavigate } from "react-router";
-import { type DateRangeKey, downloadCsv, fmtDate, fmtDateTime, fmtINR, goodQty, inRange, orderMoney, type OrderMoney, sellerPayoutStatus } from "../../lib/cds/calc";
+import { type DateRangeKey, downloadCsv, fmtDate, fmtDateTime, fmtINR, inRange, orderMoney, type OrderMoney, sellerPayoutStatus } from "../../lib/cds/calc";
 import { OPERATOR_SELLER_ID } from "../../lib/cds/master-data";
 import type { CdsOrder } from "../../lib/cds/types";
 import { cn } from "../../components/ui/utils";
@@ -77,8 +76,9 @@ export function CdsPayments() {
   const [filter, setFilter] = useState<Filter>("all");
   const [q, setQ] = useState("");
   const [route, setRoute] = useState<"all" | "cds" | "3pl">("all");
-  const [breakdownId, setBreakdownId] = useState<string | null>(null);
   const navigate = useNavigate();
+  // View opens the full order page (its CDS / 3PL section has the payment summary).
+  const openOrder = (id: string) => navigate(`/orders/${id}`);
 
   const rows = useMemo<Row[]>(() => {
     const out: Row[] = [];
@@ -186,7 +186,6 @@ export function CdsPayments() {
     { key: "issue", label: "Needs attention" },
   ];
 
-  const selected = rows.find((r) => r.o.id === breakdownId);
 
   return (
     <CdsPage
@@ -276,7 +275,7 @@ export function CdsPayments() {
           <tbody className="divide-y divide-gray-100">
             {table.paged.length === 0 && <EmptyRow cols={9} text="No CDS or 3PL orders here in this period." />}
             {table.paged.map((r) => (
-              <tr key={r.o.id} className="cursor-pointer hover:bg-gray-50" onClick={() => setBreakdownId(r.o.id)}>
+              <tr key={r.o.id} className="cursor-pointer hover:bg-gray-50" onClick={() => openOrder(r.o.id)}>
                 <Td>
                   <Mono>{r.o.id}</Mono>
                   <p className={`mt-0.5 text-[10px] font-medium ${r.o.route === "3pl" ? "text-blue-700" : "text-teal-700"}`}>
@@ -319,7 +318,7 @@ export function CdsPayments() {
                       size="sm"
                       variant="outline"
                       className="h-7 gap-1 px-2 text-xs"
-                      onClick={(e) => { e.stopPropagation(); setBreakdownId(r.o.id); }}
+                      onClick={(e) => { e.stopPropagation(); openOrder(r.o.id); }}
                     >
                       <Eye className="h-3.5 w-3.5" /> View
                     </Button>
@@ -332,175 +331,6 @@ export function CdsPayments() {
         <Pager table={table} label="order" />
       </Panel>
 
-      <PaymentBreakdown
-        row={selected}
-        retailer={selected ? retailerName(selected.o.retailerId) : ""}
-        onClose={() => setBreakdownId(null)}
-        onOpenOrder={(id) => { setBreakdownId(null); navigate(`/orders/${id}`); }}
-      />
     </CdsPage>
-  );
-}
-
-/** Line-by-line money trail for one order. */
-function PaymentBreakdown({
-  row,
-  retailer,
-  onClose,
-  onOpenOrder,
-}: {
-  row?: Row;
-  retailer: string;
-  onClose: () => void;
-  onOpenOrder: (id: string) => void;
-}) {
-  const { s } = useCdsScope();
-  const returns = row ? s.returns.filter((r) => r.orderId === row.o.id && r.type === "Retailer Return") : [];
-  const returnedQty = (sku: string) => returns.reduce((x, r) => x + r.items.filter((i) => i.sku === sku).reduce((y, i) => y + i.qty, 0), 0);
-  return (
-    <Sheet open={!!row} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent className="w-full sm:max-w-xl overflow-y-auto p-0 gap-0">
-        {row && (
-          <>
-            <SheetHeader className="border-b p-5">
-              <SheetTitle className="flex items-center gap-2">
-                Payment breakdown <Pill tone={row.payout.tone}>{row.payout.label}</Pill>
-              </SheetTitle>
-              <SheetDescription>
-                <span className="font-mono">{row.o.id}</span> · {retailer}
-              </SheetDescription>
-            </SheetHeader>
-
-            <div className="space-y-5 p-5">
-              {/* Money trail */}
-              <section className="rounded-xl border border-gray-200">
-                <Line label="Ordered value" value={row.m.ordered} />
-                {row.stage === "cancelled" ? (
-                  <Line label="Order cancelled" note={row.editReason} value={-row.m.ordered} tone="amber" />
-                ) : (
-                  <>
-                    {row.m.edited > 0 && <Line label="Edited by you" note={row.editReason ?? "Quantity reduced before pickup"} value={-row.m.edited} tone="amber" />}
-                    {row.m.shortPickup > 0 && <Line label="Short at pickup" note="Rider collected less than confirmed" value={-row.m.shortPickup} tone="amber" />}
-                    {row.m.shortCds > 0 && <Line label="Short / damaged at CDS" note="Found at CDS receiving" value={-row.m.shortCds} tone="amber" />}
-                  </>
-                )}
-                <Line label="Billed to retailer" value={row.m.billed} total />
-                {row.m.returns > 0 && (
-                  <Line
-                    label="Returned by retailer"
-                    note={[row.returnReason, row.recovered ? "Already paid out — recovered from your next payout" : undefined].filter(Boolean).join(" · ")}
-                    value={-row.m.returns}
-                    tone="red"
-                  />
-                )}
-                <Line
-                  label={row.stage === "upcoming" ? "Expected payout" : "Your payout"}
-                  value={row.m.payout}
-                  total
-                  strong
-                  note={row.o.paymentType === "Credit" && row.stage === "delivered" ? "Credit order — handled offline by you" : undefined}
-                />
-              </section>
-
-              {/* Items */}
-              <section>
-                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Items</h4>
-                <div className="overflow-x-auto rounded-lg border border-gray-200">
-                  <table className="w-full text-xs">
-                    <thead className="bg-gray-50 text-gray-500">
-                      <tr>
-                        <th className="px-3 py-2 text-left font-medium">Item</th>
-                        <th className="px-2 py-2 text-right font-medium">Ordered</th>
-                        <th className="px-2 py-2 text-right font-medium">Final</th>
-                        <th className="px-2 py-2 text-right font-medium">Returned</th>
-                        <th className="px-3 py-2 text-right font-medium">Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {row.o.lines.map((l) => {
-                        const fin = row.stage === "cancelled" ? 0 : goodQty(l);
-                        const ret = returnedQty(l.sku);
-                        return (
-                          <tr key={l.sku}>
-                            <td className="px-3 py-2">
-                              <p className="text-gray-900">{l.name}</p>
-                              <p className="text-[11px] text-gray-500">{fmtINR(l.price)} each</p>
-                            </td>
-                            <td className="px-2 py-2 text-right tabular-nums">{l.orderedQty}</td>
-                            <td className={cn("px-2 py-2 text-right tabular-nums", fin < l.orderedQty && "font-semibold text-amber-700")}>{fin}</td>
-                            <td className={cn("px-2 py-2 text-right tabular-nums", ret > 0 && "font-semibold text-red-700")}>{ret || "—"}</td>
-                            <td className="px-3 py-2 text-right tabular-nums">{fmtINR(l.price * Math.max(0, fin - ret))}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
-
-              {/* Collection & payout */}
-              <section className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-lg border border-gray-200 p-3">
-                  <p className="text-[11px] uppercase tracking-wide text-gray-500">Collected from retailer</p>
-                  <div className="mt-1 flex items-center gap-2"><PaymentPill type={row.o.paymentType} /><span className="text-sm text-gray-800">{row.collection.label}</span></div>
-                  {row.collection.sub && <p className="mt-0.5 text-[11px] text-gray-500">{row.collection.sub}</p>}
-                </div>
-                <div className="rounded-lg border border-gray-200 p-3">
-                  <p className="text-[11px] uppercase tracking-wide text-gray-500">Paid to you</p>
-                  <div className="mt-1"><Pill tone={row.payout.tone}>{row.payout.label}</Pill></div>
-                  {row.payout.sub && <p className="mt-0.5 text-[11px] text-gray-500">{row.payout.sub}</p>}
-                </div>
-              </section>
-
-              <p className="text-[11px] text-gray-500">
-                Delivery and returns are updated by the delivery app. Edits you make before pickup reduce the bill straight away.
-              </p>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => onOpenOrder(row.o.id)}>
-                  View order <ArrowRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </>
-        )}
-      </SheetContent>
-    </Sheet>
-  );
-}
-
-function Line({
-  label,
-  value,
-  note,
-  tone,
-  total,
-  strong,
-}: {
-  label: string;
-  value: number;
-  note?: string;
-  tone?: "amber" | "red";
-  total?: boolean;
-  strong?: boolean;
-}) {
-  return (
-    <div className={cn("flex items-start justify-between gap-3 px-4 py-2.5", total && "border-t border-gray-200 bg-gray-50", strong && "bg-green-50")}>
-      <div>
-        <p className={cn("text-sm", total ? "font-semibold text-gray-900" : "text-gray-700")}>{label}</p>
-        {note && <p className="text-[11px] text-gray-500">{note}</p>}
-      </div>
-      <p
-        className={cn(
-          "tabular-nums text-sm",
-          tone === "amber" && "text-amber-700",
-          tone === "red" && "text-red-700",
-          total && "font-semibold text-gray-900",
-          strong && "text-base font-bold text-green-800",
-        )}
-      >
-        {value < 0 ? `−${fmtINR(-value)}` : fmtINR(value)}
-      </p>
-    </div>
   );
 }
