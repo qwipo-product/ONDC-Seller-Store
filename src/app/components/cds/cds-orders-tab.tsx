@@ -31,7 +31,7 @@ const STAGES: { key: StageKey; label: string; match: (o: CdsOrder, hasReturn: bo
  *  tab). Confirming an order sends it here and to LBNP in one step, so both
  *  start at Pickup requested → Picked up → Delivered. 3PL orders go straight
  *  to the retailer. */
-export function CdsOrdersTab({ route = "cds", renderTable }: { route?: Route; renderTable: (orderIds: string[]) => ReactNode }) {
+export function CdsOrdersTab({ route = "cds", renderTable, keep }: { route?: Route; renderTable: (orderIds: string[]) => ReactNode; keep?: (orderId: string) => boolean }) {
   const { s, retailerName } = useCdsScope();
   const isThreePl = route === "3pl";
   const mine = useMemo(
@@ -50,11 +50,12 @@ export function CdsOrdersTab({ route = "cds", renderTable }: { route?: Route; re
     const needle = q.trim().toLowerCase();
     return mine.filter(
       (o) =>
+        (!keep || keep(o.id)) &&
         // open work is always shown; finished orders follow the date filter
         (["Confirmed", "Pickup Requested", "Picked Up", "In Transit to CDS"].includes(o.status) || inRange(o.waveDate, range)) &&
         (!needle || `${o.id} ${retailerName(o.retailerId)}`.toLowerCase().includes(needle)),
     );
-  }, [mine, range, q, retailerName]);
+  }, [mine, range, q, retailerName, keep]);
 
   const current = STAGES.find((x) => x.key === stage)!;
   // Delivery day filter (same chips as the other Orders tabs).

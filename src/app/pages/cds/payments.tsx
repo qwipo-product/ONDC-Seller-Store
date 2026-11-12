@@ -238,7 +238,7 @@ export function CdsPayments() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <span className="mr-1 text-xs font-medium uppercase tracking-wide text-gray-600">Order type:</span>
+        <span className="mr-1 text-xs font-medium uppercase tracking-wide text-gray-600">Delivery Type:</span>
         {([
           { key: "all", label: `All (${typeCount("cds") + typeCount("3pl")})`, on: "border-gray-900 bg-gray-900 text-white", off: "border-gray-300 bg-white text-gray-700 hover:bg-gray-50", icon: null },
           { key: "cds", label: `Cross Dock Store (${typeCount("cds")})`, on: "border-teal-600 bg-teal-600 text-white", off: "border-teal-200 bg-teal-50 text-teal-800 hover:bg-teal-100", icon: <Warehouse className="h-3 w-3" /> },

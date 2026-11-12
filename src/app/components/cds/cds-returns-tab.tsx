@@ -36,7 +36,7 @@ export function useCdsReturnCount(): number {
   return useMemo(() => sellerReturns(s).length, [s.rev]);
 }
 
-export function CdsReturnsTab({ renderTable }: { renderTable: (orderIds: string[], statusNotes?: Map<string, ReactNode>) => ReactNode }) {
+export function CdsReturnsTab({ renderTable, keep }: { renderTable: (orderIds: string[], statusNotes?: Map<string, ReactNode>) => ReactNode; keep?: (orderId: string) => boolean }) {
   const { s, retailerName } = useCdsScope();
   const [filter, setFilter] = useState<Filter>("all");
   const [range, setRange] = useState<DateRangeKey>("30d");
@@ -48,7 +48,7 @@ export function CdsReturnsTab({ renderTable }: { renderTable: (orderIds: string[
   const all = useMemo(() => sellerReturns(s), [s.rev]);
   const needle = q.trim().toLowerCase();
   const base = all.filter(
-    (r) => inRange(r.createdAt, range) && (!needle || `${r.id} ${r.orderId} ${retailerName(r.retailerId)}`.toLowerCase().includes(needle)),
+    (r) => (!keep || keep(r.orderId)) && inRange(r.createdAt, range) && (!needle || `${r.id} ${r.orderId} ${retailerName(r.retailerId)}`.toLowerCase().includes(needle)),
   );
   const current = FILTERS.find((f) => f.key === filter)!;
   // CDS or 3PL, from the returned order's route.

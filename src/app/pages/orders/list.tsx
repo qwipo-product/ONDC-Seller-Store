@@ -275,7 +275,7 @@ export function Orders() {
 
   // Unique brands and statuses for filter options
   const uniqueBrands = useMemo(
-    () => Array.from(new Set(orders.map((o) => o.brand))).sort(),
+    () => Array.from(new Set(orders.map((o) => o.company))).sort(),
     [orders]
   );
   const statusOptions = [
@@ -439,7 +439,7 @@ export function Orders() {
       const matchesMarketplace =
         marketplaceFilter === "all" || order.marketplace === marketplaceFilter;
       const matchesBrand =
-        selectedBrandFilters.length === 0 || selectedBrandFilters.includes(order.brand);
+        selectedBrandFilters.length === 0 || selectedBrandFilters.includes(order.company);
       const matchesStatusFilter =
         selectedStatusFilters.length === 0 || selectedStatusFilters.includes(order.status);
 
@@ -566,7 +566,7 @@ export function Orders() {
         marketplaceFilter === "all" || o.marketplace === marketplaceFilter;
       const matchesBrand =
         selectedBrandFilters.length === 0 ||
-        selectedBrandFilters.includes(o.brand);
+        selectedBrandFilters.includes(o.company);
       const matchesDeliveryType =
         selectedDeliveryTypes.length === 0 ||
         selectedDeliveryTypes.includes(o.deliveryType);
@@ -833,7 +833,7 @@ export function Orders() {
         marketplaceFilter === "all" || o.marketplace === marketplaceFilter;
       const matchesBrand =
         selectedBrandFilters.length === 0 ||
-        selectedBrandFilters.includes(o.brand);
+        selectedBrandFilters.includes(o.company);
       return matchesSearch && matchesMarketplace && matchesBrand;
     });
     const isBuyer = (o: Order) => (o.cancelledBy ?? "Seller") === "Buyer";
@@ -1210,7 +1210,7 @@ export function Orders() {
       "Clubbed Orders",
       "Order Status",
       "Order Date",
-      "Order Type",
+      "Delivery Type",
       cdsEnabled ? "Area Name" : "Beat Name",
       "Delivery Day",
       "Buyer Name",
@@ -1402,6 +1402,21 @@ export function Orders() {
 
   // CDS / 3PL / Returns tabs show the same table as Confirmed, for the
   // orders those tabs pick (ids from the CDS store).
+  // Filter panel (Company, Status, Marketplace, Date Range) as a check on
+  // one order id — used by the CDS / 3PL / Returns tabs.
+  const matchesPanelFilters = (id: string) => {
+    const o = orders.find((x) => x.id === id);
+    if (!o) return true;
+    if (marketplaceFilter !== "all" && o.marketplace !== marketplaceFilter) return false;
+    if (selectedBrandFilters.length > 0 && !selectedBrandFilters.includes(o.company)) return false;
+    if (selectedStatusFilters.length > 0 && !selectedStatusFilters.includes(o.status)) return false;
+    if (startDate && endDate) {
+      const d = new Date(o.orderDate);
+      if (d < new Date(startDate) || d > new Date(endDate)) return false;
+    }
+    return true;
+  };
+
   const renderLinkedTable = (orderIds: string[], statusNotes?: Map<string, ReactNode>) => {
     const byId = new Map(orders.map((o) => [o.id, o] as const));
     return renderOrderTable(orderIds.map((id) => byId.get(id)).filter((o): o is Order => !!o), statusNotes);
@@ -1500,7 +1515,7 @@ export function Orders() {
                 Mobile
               </th>
               <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
-                Order Type
+                Delivery Type
               </th>
               <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
                 {cdsEnabled ? "Area Name" : "Beat Name"}
@@ -1808,7 +1823,7 @@ export function Orders() {
       {fixedType && (
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs font-medium text-gray-600 uppercase tracking-wide mr-1">
-            Order type:
+            Delivery Type:
           </span>
           <span className="text-xs px-3 py-1.5 rounded-full border gap-1.5 inline-flex items-center bg-blue-600 text-white border-blue-600">
             {fixedType.icon}
@@ -1819,7 +1834,7 @@ export function Orders() {
       {showType && !fixedType && (
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-xs font-medium text-gray-600 uppercase tracking-wide mr-1">
-          Order type:
+          Delivery Type:
         </span>
         <button
           onClick={() => handleConfirmedBeatModeChange("all")}
@@ -1875,8 +1890,9 @@ export function Orders() {
             >
               {/* Tab Headers with Filters */}
               <div className="border-b border-gray-200 p-3 flex-shrink-0">
-                <div className="flex items-center justify-between gap-4 overflow-x-auto">
-                  {/* Tab Toggle */}
+                <div className="flex items-center justify-between gap-4">
+                  {/* Tab Toggle — scrolls on its own so Filters / Export stay in view */}
+                  <div className="min-w-0 flex-1 overflow-x-auto">
                   <TabsList className="bg-gray-100 p-1 rounded-lg inline-flex gap-1 h-auto flex-shrink-0">
                     <TabsTrigger
                       value="all"
@@ -1943,9 +1959,9 @@ export function Orders() {
                       </TabsTrigger>
                     )}
                   </TabsList>
+                  </div>
 
-                  {/* Action Buttons */}
-                  {!isEmpty && !ownHeaderTab(activeTab) && (
+                  {/* Action Buttons — shown on every tab */}
                   <div className="flex gap-2 flex-shrink-0">
                     {/* Filters Button */}
                     <Button
@@ -1966,7 +1982,6 @@ export function Orders() {
                       Export
                     </Button>
                   </div>
-                  )}
                 </div>
 
                 {/* Bulk Action Buttons for New Tab */}
@@ -2239,7 +2254,7 @@ export function Orders() {
                 app via LBNP rather than from a button here. */}
             <TabsContent value="logistics" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
               {cdsEnabled ? (
-                <CdsOrdersTab route="3pl" renderTable={renderLinkedTable} />
+                <CdsOrdersTab route="3pl" renderTable={renderLinkedTable} keep={matchesPanelFilters} />
               ) : (
               <>
               {!isEmpty && renderDayAndBeatFilters(logisticsBucketCounts)}
@@ -2391,12 +2406,12 @@ export function Orders() {
 
             {cdsEnabled && (
               <TabsContent value="cds" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
-                <CdsOrdersTab renderTable={renderLinkedTable} />
+                <CdsOrdersTab renderTable={renderLinkedTable} keep={matchesPanelFilters} />
               </TabsContent>
             )}
             {cdsEnabled && (
               <TabsContent value="returns" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
-                <CdsReturnsTab renderTable={renderLinkedTable} />
+                <CdsReturnsTab renderTable={renderLinkedTable} keep={matchesPanelFilters} />
               </TabsContent>
             )}
           </Tabs>
@@ -3200,12 +3215,12 @@ export function Orders() {
               <div className="flex-1 overflow-y-auto p-6">
                 <div className="space-y-6">
                   <div className="space-y-2">
-                    <Label>Company / Brand</Label>
+                    <Label>Company</Label>
                     <MultiSelect
                       options={uniqueBrands.map((b) => ({ label: b, value: b }))}
                       selected={selectedBrandFilters}
                       onChange={setSelectedBrandFilters}
-                      placeholder="All Brands"
+                      placeholder="All Companies"
                       className="w-full"
                     />
                   </div>
@@ -3240,7 +3255,7 @@ export function Orders() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="dateRange">Order Date Range</Label>
+                    <Label htmlFor="dateRange">Date Range</Label>
                     <div className="flex flex-col gap-2">
                       <Input
                         type="date"
@@ -3259,54 +3274,6 @@ export function Orders() {
                     </div>
                   </div>
 
-                  {/* Delivery filters — June 2026 retired the relative
-                      bucket multi-select (Today / Tomorrow / Overdue)
-                      and the Tomorrow-only / Urgent-only quick toggles
-                      together with the broader Tomorrow indicator
-                      cleanup. Sellers slice deliveries by a concrete
-                      Delivery Day range (or via the pill row on the
-                      New / Confirmed tabs). Delivery Type stays as an
-                      Urgent vs Regular slicer. */}
-                  <div className="pt-2 border-t border-gray-100">
-                    <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-700 mb-3">
-                      Delivery
-                    </h4>
-
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label>Delivery Day Range</Label>
-                        <div className="flex flex-col gap-2">
-                          <Input
-                            type="date"
-                            value={deliveryStartDate}
-                            onChange={(e) =>
-                              setDeliveryStartDate(e.target.value)
-                            }
-                            placeholder="From"
-                          />
-                          <Input
-                            type="date"
-                            value={deliveryEndDate}
-                            onChange={(e) =>
-                              setDeliveryEndDate(e.target.value)
-                            }
-                            placeholder="To"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Delivery Type</Label>
-                        <MultiSelect
-                          options={deliveryTypeOptions}
-                          selected={selectedDeliveryTypes}
-                          onChange={setSelectedDeliveryTypes}
-                          placeholder="Urgent / Regular"
-                          className="w-full"
-                        />
-                      </div>
-                    </div>
-                  </div>
                 </div>
               </div>
 

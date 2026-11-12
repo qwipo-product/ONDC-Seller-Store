@@ -121,7 +121,7 @@ export function DayAndTypeFilters({
         })}
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <span className="mr-1 text-xs font-medium uppercase tracking-wide text-gray-600">Order type:</span>
+        <span className="mr-1 text-xs font-medium uppercase tracking-wide text-gray-600">Delivery Type:</span>
         {typeOptions ? (
           <>
             <button
