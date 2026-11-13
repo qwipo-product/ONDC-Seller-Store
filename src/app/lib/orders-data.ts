@@ -286,6 +286,28 @@ export interface Order {
    *  modification; from then on `orderValue` carries the revised
    *  (final) value. */
   originalOrderValue?: number;
+  /**
+   * Cross-dock delivery (CDS-covered sellers only — see
+   * lib/cross-dock-data.ts). The route is normally derived from the
+   * buyer's location against the live Cross Dock Store areas; these
+   * fields pin it explicitly.
+   */
+  deliveryRoute?: "cross-dock" | "direct";
+  /** Cross Dock Store the order is routed through, e.g. "CDS-KPHB". */
+  cdsCode?: string;
+  /**
+   * Cross-dock stage reported back once the goods have left the
+   * seller (Service Centre → Cross Dock Store → rider). Unset while
+   * the order is still waiting for its pickup — that stage is derived
+   * from the pickup it rides on.
+   */
+  xdStage?: "PICKED_UP" | "AT_CDS" | "OUT_FOR_DELIVERY";
+  /** Cross-dock milestones once the goods leave the seller (times are display strings). */
+  xdEvents?: {
+    stage: "PICKED_UP" | "AT_CDS" | "OUT_FOR_DELIVERY" | "DELIVERED";
+    at: string;
+    by?: string;
+  }[];
 }
 
 // One distributor for the demo seller. Populates the Seller-*
@@ -1712,6 +1734,49 @@ const _listeners = new Set<() => void>();
 const notify = () => {
   for (const cb of _listeners) cb();
 };
+
+// ---- Datasets ----
+//
+// Most seller personas share the seed above. A persona with its own
+// order book (the CDS-covered seller, lib/cross-dock-data.ts) registers
+// a dataset and the auth layer switches to it on sign-in. Each
+// dataset's working copy is kept for the rest of the page session, so
+// switching personas and back doesn't lose what the other one did.
+
+type SellerInfo = { name: string; contact: string; code: string };
+
+const _datasetSeeds = new Map<string, { seed: () => Order[]; seller: SellerInfo }>([
+  ["default", { seed: () => [...seedOrders], seller: SELLER_INFO }],
+]);
+const _datasetCopies = new Map<string, Order[]>();
+let _dataset = "default";
+
+export function registerOrdersDataset(
+  name: string,
+  seed: () => Order[],
+  seller: SellerInfo,
+) {
+  _datasetSeeds.set(name, { seed, seller });
+}
+
+/** Switch the store to another persona's order book. No-op when it's already active. */
+export function switchOrdersDataset(name: string) {
+  const next = _datasetSeeds.has(name) ? name : "default";
+  if (next === _dataset) return;
+  _datasetCopies.set(_dataset, _orders);
+  _dataset = next;
+  _orders = _datasetCopies.get(next) ?? _datasetSeeds.get(next)!.seed();
+  notify();
+}
+
+export function getOrdersDataset(): string {
+  return _dataset;
+}
+
+/** Seller shown on the order detail page and the export, for the active dataset. */
+export function getSellerInfo(): SellerInfo {
+  return _datasetSeeds.get(_dataset)?.seller ?? SELLER_INFO;
+}
 
 export function getOrders(): Order[] {
   return _orders;

@@ -19,6 +19,8 @@ import { DashboardCompany } from "./pages/dashboard-company";
 import { Inventory } from "./pages/inventory";
 import { Orders } from "./pages/orders/list";
 import { OrderDetail } from "./pages/orders/detail";
+import { Pickups } from "./pages/pickups/list";
+import { PickupDetail } from "./pages/pickups/detail";
 import { Customers } from "./pages/customers/legacy-list";
 import { CustomerDetail } from "./pages/customers/legacy-detail";
 import { CustomersDemo } from "./pages/customers/list";
@@ -208,6 +210,10 @@ export const router = createBrowserRouter([
       { path: "inventory", Component: Inventory },
       { path: "orders", Component: Orders },
       { path: "orders/:orderId", Component: OrderDetail },
+      // Pickups — CDS-covered seller only: Service Centre pickups of
+      // cross-dock orders, with the load check + pickup OTP handover.
+      { path: "pickups", Component: Pickups },
+      { path: "pickups/:pickupId", Component: PickupDetail },
       // The Customers module ships the auto-register-on-first-order
       // flow (originally prototyped as "Customers 2" in the
       // empty-mode demo). It became the production model after PM

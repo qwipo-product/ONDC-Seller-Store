@@ -4,9 +4,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
-import { Shield, Store, Phone, Mail, AtSign, KeyRound, Palette, Database, Tag } from "lucide-react";
+import { Shield, Store, Phone, Mail, AtSign, KeyRound, Palette, Database, Tag, Truck } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../../lib/auth-context";
+import { CDS_SELLER } from "../../lib/cross-dock-data";
 import {
   detectIdentifier,
   isCompleteIdentifier,
@@ -106,6 +107,7 @@ export function Login() {
       | "admin-empty"
       | "seller"
       | "seller-empty"
+      | "seller-cds"
       | "designer"
       | "catalog-admin"
       | "brand-manager",
@@ -116,6 +118,8 @@ export function Login() {
       setIdentifier("9999999999");
     } else if (role === "seller-empty") {
       setIdentifier("8888888888");
+    } else if (role === "seller-cds") {
+      setIdentifier(CDS_SELLER.mobile);
     } else if (role === "designer") {
       setIdentifier("7777777777");
     } else if (role === "catalog-admin") {
@@ -384,6 +388,25 @@ export function Login() {
                       </p>
                       <p className="text-[10px] text-gray-500 truncate">
                         8888888888
+                      </p>
+                    </div>
+                  </button>
+                  {/* CDS-covered seller — cross-dock + 3PL Direct
+                      orders and the Pickups screen. Full width so the
+                      business name reads in one line. */}
+                  <button
+                    type="button"
+                    onClick={() => fillDemo("seller-cds")}
+                    className="col-span-2 flex items-start gap-2 p-2 rounded-md bg-white border border-indigo-200 hover:border-indigo-400 transition-all text-left"
+                    title="Seller covered by Cross Dock Stores — orders split into Cross-Dock and 3PL Direct, plus Pickups with OTP handover"
+                  >
+                    <Truck className="h-4 w-4 text-indigo-600 flex-shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-gray-900">
+                        CDS Seller
+                      </p>
+                      <p className="text-[10px] text-gray-500 truncate">
+                        {CDS_SELLER.mobile} · {CDS_SELLER.businessName}
                       </p>
                     </div>
                   </button>

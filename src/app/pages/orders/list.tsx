@@ -68,7 +68,7 @@ import {
   type OrderLineItem,
   type DeliveryType,
   type CancelledBy,
-  SELLER_INFO,
+  getSellerInfo,
   getOrders,
   setOrders as setOrdersStore,
   subscribeToOrders,
@@ -84,6 +84,22 @@ import {
   STALE_PENDING_NUDGE_DAYS,
   getAttentionOrders,
 } from "../../lib/orders-data";
+// Cross-dock routing for the CDS-covered seller: New orders are tagged
+// Cross-Dock or 3PL Direct, and the Confirmed tab splits into the two.
+import {
+  type CrossDockStage,
+  ACTIVE_STAGES,
+  PICKUP_ROUNDS,
+  STAGE_META,
+  dayLabel,
+  getCrossDockStage,
+  getOpenPickups,
+  getPickupForOrder,
+  getRouteInfo,
+  isCdsSeller,
+  sortPickups,
+  subscribeToPickups,
+} from "../../lib/cross-dock-data";
 
 // An order is a "beat" delivery when it rides a configured
 // serviceability beat. The June 2026 review decoupled this from
@@ -102,10 +118,15 @@ function isBeatOrder(order: Order): boolean {
 // "logistics" holds orders handed to the 3PL network. It isn't an
 // order STATUS — those rows are still Confirmed underneath — it's a
 // fulfilment route, so it gets its own tab rather than a status entry.
+// "crossdock" / "direct" replace "confirmed" for the CDS-covered seller:
+// once confirmed, an order either rides the Service Centre pickup to a
+// Cross Dock Store or stays with the seller for 3PL Direct delivery.
 type TabType =
   | "all"
   | "new"
   | "confirmed"
+  | "crossdock"
+  | "direct"
   | "logistics"
   | "delivered"
   | "cancelled";
@@ -113,6 +134,21 @@ type TabType =
 export function Orders() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const isCds = isCdsSeller(user);
+
+  // Pickups change the cross-dock stage of an order (awaiting pickup →
+  // picked up) without touching the order store, so re-render on them too.
+  const [pickupsVersion, setPickupsVersion] = useState(0);
+  useEffect(() => subscribeToPickups(() => setPickupsVersion((v) => v + 1)), []);
+  const routeOf = (o: Order) => getRouteInfo(o).route;
+  const isCrossDockConfirmed = (o: Order) =>
+    isCds && o.status === "Confirmed" && routeOf(o) === "cross-dock";
+  const isDirectConfirmed = (o: Order) =>
+    isCds && o.status === "Confirmed" && routeOf(o) === "direct";
+  // Sub-filters on the CDS seller's tabs.
+  const [routeFilter, setRouteFilter] = useState<"all" | "cross-dock" | "direct">("all");
+  const [xdStageFilter, setXdStageFilter] = useState<"all" | CrossDockStage>("all");
+  const [directFilter, setDirectFilter] = useState<"all" | "own" | "partner">("all");
 
   // Read logistics enabled flag for the current seller, and keep it
   // live across tab — the admin can toggle it without a page reload.
@@ -307,15 +343,17 @@ export function Orders() {
         (o) => o.status === "Confirmed" && isSellerActionable(o),
       ).length,
       logistics: orders.filter(isWithLogisticsPartner).length,
+      crossdock: orders.filter(isCrossDockConfirmed).length,
+      direct: orders.filter(isDirectConfirmed).length,
       delivered: orders.filter((o) => o.status === "Delivered").length,
       cancelled: orders.filter((o) => o.status === "Cancelled").length,
     };
-  }, [orders]);
+  }, [orders, isCds]);
 
   // Get orders for active tab
   const getTabOrders = (tab: TabType): Order[] => {
     const statusMap: Record<
-      Exclude<TabType, "all" | "logistics">,
+      Exclude<TabType, "all" | "logistics" | "crossdock" | "direct">,
       Order["status"]
     > = {
       new: "New",
@@ -327,13 +365,28 @@ export function Orders() {
     return orders.filter((order) => {
       // "all" bypasses the status filter; "logistics" is keyed off the
       // hand-off flag rather than a status, since those rows are still
-      // Confirmed underneath.
+      // Confirmed underneath. "crossdock" / "direct" split Confirmed by
+      // delivery route (CDS-covered seller only), each with its own
+      // sub-filter: cross-dock stage, and who is delivering.
       const matchesStatus =
         tab === "all"
           ? true
           : tab === "logistics"
             ? isWithLogisticsPartner(order)
-            : order.status === statusMap[tab];
+            : tab === "crossdock"
+              ? isCrossDockConfirmed(order) &&
+                (xdStageFilter === "all" ||
+                  getCrossDockStage(order) === xdStageFilter)
+              : tab === "direct"
+                ? isDirectConfirmed(order) &&
+                  (directFilter === "all" ||
+                    (directFilter === "partner") ===
+                      (order.logisticsRequested === true))
+                : order.status === statusMap[tab];
+      const matchesRoute =
+        !isCds || tab !== "new" || routeFilter === "all"
+          ? true
+          : routeOf(order) === routeFilter;
       // Orders out with the 3PL partner leave the seller's Confirmed
       // working list — they live in the Logistics tab instead. They
       // stay visible on "All" so the seller can still find an order by
@@ -380,7 +433,12 @@ export function Orders() {
       // filters mirror across all three. "all" on either dimension is
       // a pass-through.
       let matchesConfirmedSub = true;
-      if (tab === "confirmed" || tab === "new" || tab === "logistics") {
+      if (
+        tab === "confirmed" ||
+        tab === "new" ||
+        tab === "logistics" ||
+        tab === "direct"
+      ) {
         if (confirmedDeliveryDay !== "all") {
           matchesConfirmedSub =
             matchesConfirmedSub &&
@@ -407,6 +465,7 @@ export function Orders() {
 
       return (
         matchesStatus &&
+        matchesRoute &&
         matchesLogisticsHandoff &&
         matchesSearch &&
         matchesMarketplace &&
@@ -438,6 +497,11 @@ export function Orders() {
       deliveryStartDate,
       deliveryEndDate,
       cancelledByFilter,
+      isCds,
+      routeFilter,
+      xdStageFilter,
+      directFilter,
+      pickupsVersion,
     ],
   );
 
@@ -541,6 +605,59 @@ export function Orders() {
       confirmedDeliveryDay,
     ],
   );
+
+  // 3PL Direct (CDS-covered seller) — same day + beat chips as Confirmed,
+  // scoped to the direct orders under the active "handled by" chip.
+  const directBucketCounts = useMemo(
+    () =>
+      buildBucketCounts(
+        (o) =>
+          isDirectConfirmed(o) &&
+          (directFilter === "all" ||
+            (directFilter === "partner") === (o.logisticsRequested === true)),
+      ),
+    [
+      orders,
+      isCds,
+      directFilter,
+      searchQuery,
+      marketplaceFilter,
+      selectedBrandFilters,
+      selectedDeliveryTypes,
+      confirmedDeliveryDay,
+    ],
+  );
+
+  // Route chips on New, stage chips on Cross-Dock, "handled by" chips on
+  // 3PL Direct. Counts follow the search box so each chip shows what the
+  // seller would land on.
+  const cdsChipCounts = useMemo(() => {
+    const q = searchQuery.toLowerCase();
+    const matches = (o: Order) =>
+      o.id.toLowerCase().includes(q) || o.retailerName.toLowerCase().includes(q);
+    const fresh = orders.filter((o) => o.status === "New" && matches(o));
+    const xd = orders.filter((o) => isCrossDockConfirmed(o) && matches(o));
+    const direct = orders.filter((o) => isDirectConfirmed(o) && matches(o));
+    const stage: Record<CrossDockStage, number> = {
+      AWAITING_PICKUP: 0,
+      PICKED_UP: 0,
+      AT_CDS: 0,
+      OUT_FOR_DELIVERY: 0,
+      DELIVERED: 0,
+    };
+    for (const o of xd) stage[getCrossDockStage(o)]++;
+    return {
+      newAll: fresh.length,
+      newCrossDock: fresh.filter((o) => routeOf(o) === "cross-dock").length,
+      newDirect: fresh.filter((o) => routeOf(o) === "direct").length,
+      xdAll: xd.length,
+      stage,
+      directAll: direct.length,
+      directOwn: direct.filter((o) => !o.logisticsRequested).length,
+      directPartner: direct.filter((o) => o.logisticsRequested).length,
+    };
+    // pickupsVersion: a pickup closing moves orders between stages.
+  }, [orders, searchQuery, isCds, pickupsVersion]);
 
   const newBucketCounts = useMemo(
     () => buildBucketCounts((o) => o.status === "New"),
@@ -718,11 +835,16 @@ export function Orders() {
     };
   }, [orders, searchQuery, marketplaceFilter, selectedBrandFilters]);
 
+  // A 3PL Direct order already handed to the 3PL partner can't be
+  // actioned again — the partner owns it until it's delivered.
+  const isLockedForSelection = (o: Order) =>
+    isMaskedOrder(o) || (activeTab === "direct" && o.logisticsRequested === true);
+
   // Handle select all for current tab
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
       setSelectedOrders(
-        currentTabOrders.filter((o) => !isMaskedOrder(o)).map((o) => o.id),
+        currentTabOrders.filter((o) => !isLockedForSelection(o)).map((o) => o.id),
       );
     } else {
       setSelectedOrders([]);
@@ -757,13 +879,30 @@ export function Orders() {
     // we leave New, Confirmed or 3PL Logistics (the tabs that host
     // the filters), so a fresh visit always lands on "All days / All
     // orders".
-    if (tab !== "confirmed" && tab !== "new" && tab !== "logistics") {
+    if (
+      tab !== "confirmed" &&
+      tab !== "new" &&
+      tab !== "logistics" &&
+      tab !== "direct"
+    ) {
       setConfirmedDeliveryDay("all");
       setConfirmedBeatMode("all");
     }
     // Same idea for the Cancelled tab's "Cancelled By" quick filter
     // — reset on the way out so it doesn't quietly persist.
     if (tab !== "cancelled") setCancelledByFilter("all");
+    // And the CDS seller's route / stage / handled-by chips.
+    if (tab !== "new") setRouteFilter("all");
+    if (tab !== "crossdock") setXdStageFilter("all");
+    if (tab !== "direct") setDirectFilter("all");
+  };
+
+  // Chip clicks on the CDS seller's tabs reset paging and selection, like
+  // the day / beat chips do.
+  const pickChip = (apply: () => void) => {
+    apply();
+    setSelectedOrders([]);
+    setCurrentPage(1);
   };
 
   const handleConfirmedDayChange = (day: string) => {
@@ -868,9 +1007,32 @@ export function Orders() {
           : order,
       ),
     );
-    toast.success(
-      `Confirmed ${allSelected.length} order${allSelected.length === 1 ? "" : "s"}.`,
-    );
+    if (isCds) {
+      // The store write above has already put the cross-dock orders on
+      // their pickup (lib/cross-dock-data syncs on every order write).
+      const xd = allSelected.filter((o) => routeOf(o) === "cross-dock");
+      const direct = allSelected.length - xd.length;
+      const pickup = xd[0] ? getPickupForOrder(xd[0].id) : undefined;
+      const parts: string[] = [];
+      if (xd.length) {
+        parts.push(
+          `${xd.length} moved to Cross-Dock${
+            pickup
+              ? ` — collected on the ${PICKUP_ROUNDS[pickup.round].label} pickup ${pickup.tripNo} (${dayLabel(pickup.date)}, ${PICKUP_ROUNDS[pickup.round].window})`
+              : ""
+          }.`,
+        );
+      }
+      if (direct) parts.push(`${direct} moved to 3PL Direct.`);
+      toast.success(
+        `Confirmed ${allSelected.length} order${allSelected.length === 1 ? "" : "s"}.`,
+        { description: parts.join(" "), duration: 6000 },
+      );
+    } else {
+      toast.success(
+        `Confirmed ${allSelected.length} order${allSelected.length === 1 ? "" : "s"}.`,
+      );
+    }
     setSelectedOrders((prev) => prev.filter((id) => !selectedIds.has(id)));
     setIsConfirmDialogOpen(false);
   };
@@ -1128,8 +1290,8 @@ export function Orders() {
           order.retailerName,
           order.buyerContact ?? "",
           order.buyerAddress ?? "",
-          SELLER_INFO.name,
-          SELLER_INFO.contact,
+          getSellerInfo().name,
+          getSellerInfo().contact,
           order.paymentMode,
           channelOrderIdFor(order),
           order.originalOrderValue ?? order.orderValue,
@@ -1245,6 +1407,63 @@ export function Orders() {
       timeZone: "UTC",
     });
 
+  // Delivery route chip (CDS-covered seller). Indigo = rides the Service
+  // Centre pickup to a Cross Dock Store; slate = 3PL Direct. The tooltip
+  // says why the order took that route.
+  const renderRouteChip = (order: Order) => {
+    const info = getRouteInfo(order);
+    if (info.route === "cross-dock") {
+      return (
+        <span
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-indigo-200 bg-indigo-50 text-[11px] font-medium text-indigo-700 whitespace-nowrap"
+          title={info.reason}
+        >
+          <Route className="h-3 w-3" />
+          Cross-Dock · {info.store?.shortName}
+        </span>
+      );
+    }
+    return (
+      <span
+        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-slate-300 bg-slate-50 text-[11px] font-medium text-slate-700 whitespace-nowrap"
+        title={info.reason}
+      >
+        <Truck className="h-3 w-3" />
+        3PL Direct
+        {order.status === "Confirmed" && order.logisticsRequested && (
+          <span className="text-slate-500 font-normal">· with partner</span>
+        )}
+      </span>
+    );
+  };
+
+  // Cross-dock stage + the pickup it rides (Cross-Dock tab).
+  const renderStageCell = (order: Order) => {
+    const stage = getCrossDockStage(order);
+    const pickup = getPickupForOrder(order.id);
+    const lastEvent = order.xdEvents?.[order.xdEvents.length - 1];
+    const sub =
+      stage === "AWAITING_PICKUP" && pickup
+        ? `${PICKUP_ROUNDS[pickup.round].label} · ${pickup.tripNo}${pickup.status === "ARRIVED" ? " · driver here" : ""}`
+        : lastEvent
+          ? `${lastEvent.at}${lastEvent.by ? ` · ${lastEvent.by}` : ""}`
+          : pickup?.pickedUpAt ?? "";
+    return (
+      <div className="min-w-0">
+        <span
+          className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] font-medium whitespace-nowrap ${STAGE_META[stage].className}`}
+        >
+          {STAGE_META[stage].label}
+        </span>
+        {sub && (
+          <p className="text-[10px] text-gray-500 mt-1 truncate max-w-[220px]" title={sub}>
+            {sub}
+          </p>
+        )}
+      </div>
+    );
+  };
+
   // Render order table
   const renderOrderTable = (ordersToRender: Order[]) => {
     if (ordersToRender.length === 0) {
@@ -1255,14 +1474,22 @@ export function Orders() {
           ? "No orders yet"
           : activeTab === "logistics"
             ? "Nothing with the logistics partner"
-            : `No ${activeTab} orders`;
+            : activeTab === "crossdock"
+              ? "No cross-dock orders here"
+              : activeTab === "direct"
+                ? "No 3PL Direct orders here"
+                : `No ${activeTab} orders`;
       const description = hasActiveFilters
         ? "No orders match your current filters. Try clearing them to see everything."
         : activeTab === "all"
           ? "Once retailers start placing orders on ONDC and connected marketplaces, they'll show up here ready for you to confirm and dispatch."
           : activeTab === "logistics"
             ? "Orders you send from Confirmed using Request 3PL Logistics will appear here until the delivery partner completes them."
-            : `You don't have any ${activeTab} orders right now — new ones will land here automatically.`;
+            : activeTab === "crossdock"
+              ? "Confirmed orders for retailers inside a live Cross Dock Store area land here. The Service Centre collects them from you on a pickup round."
+              : activeTab === "direct"
+                ? "Confirmed orders for retailers outside the Cross Dock Store areas land here for you to deliver or hand to your 3PL partner."
+                : `You don't have any ${activeTab} orders right now — new ones will land here automatically.`;
       return (
         <div className="flex-1 flex items-center justify-center min-h-0">
           <EmptyState
@@ -1285,7 +1512,13 @@ export function Orders() {
     // is deliberately excluded — the order belongs to the partner at
     // that point and completion arrives from their app, so there is
     // nothing for the seller to select or act on.
-    const isActionable = activeTab === "new" || activeTab === "confirmed";
+    const isActionable =
+      activeTab === "new" || activeTab === "confirmed" || activeTab === "direct";
+    // Cross-dock orders have no seller action after Confirm — the
+    // Service Centre and the Cross Dock Store run the rest — so that tab
+    // is read-only, with the stage in place of the action column's
+    // checkboxes.
+    const showStage = isCds && activeTab === "crossdock";
 
     return (
       <div className="flex-1 overflow-auto">
@@ -1295,10 +1528,15 @@ export function Orders() {
               {isActionable && (
                 <th className="text-left py-2.5 px-3 w-10">
                   <Checkbox
-                    checked={
-                      selectedOrders.length === ordersToRender.length &&
-                      ordersToRender.length > 0
-                    }
+                    checked={(() => {
+                      const selectable = ordersToRender.filter(
+                        (o) => !isLockedForSelection(o),
+                      );
+                      return (
+                        selectable.length > 0 &&
+                        selectable.every((o) => selectedOrders.includes(o.id))
+                      );
+                    })()}
                     onCheckedChange={handleSelectAll}
                   />
                 </th>
@@ -1332,6 +1570,16 @@ export function Orders() {
               <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
                 Beat Name
               </th>
+              {isCds && (
+                <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
+                  Delivery
+                </th>
+              )}
+              {showStage && (
+                <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
+                  Cross-dock Stage
+                </th>
+              )}
               <th className="text-right px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
                 Order Value
               </th>
@@ -1361,6 +1609,10 @@ export function Orders() {
                   <td className="px-3 py-2.5">
                     {isMaskedOrder(order) ? (
                       <Lock className="h-3.5 w-3.5 text-gray-400" />
+                    ) : isLockedForSelection(order) ? (
+                      <span title="With your 3PL partner — they complete the delivery">
+                        <Truck className="h-3.5 w-3.5 text-slate-400" />
+                      </span>
                     ) : (
                       <Checkbox
                         checked={selectedOrders.includes(order.id)}
@@ -1484,6 +1736,18 @@ export function Orders() {
                     <span className="text-xs text-gray-400">—</span>
                   )}
                 </td>
+                {isCds && (
+                  <td className="px-3 py-2.5 whitespace-nowrap">
+                    {order.status === "Cancelled" ? (
+                      <span className="text-xs text-gray-400">—</span>
+                    ) : (
+                      renderRouteChip(order)
+                    )}
+                  </td>
+                )}
+                {showStage && (
+                  <td className="px-3 py-2.5">{renderStageCell(order)}</td>
+                )}
                 <td className="px-3 py-2.5 whitespace-nowrap text-right">
                   <p
                     className={`text-sm font-semibold tabular-nums ${isMaskedOrder(order) ? "text-gray-400 select-none" : "text-gray-900"}`}
@@ -1553,6 +1817,173 @@ export function Orders() {
   // identically to the populated state. The per-tab EmptyState
   // already handles rendering the illustration in each tab body.
   const isEmpty = orders.length === 0;
+
+  // One row of filter chips for the CDS seller's tabs (route on New, stage
+  // on Cross-Dock, handled-by on 3PL Direct). Same pill shape as the
+  // Delivery day / Order type rows.
+  type ChipTone = "neutral" | "indigo" | "slate" | "amber" | "sky" | "violet";
+  const CHIP_TONES: Record<ChipTone, { on: string; off: string }> = {
+    neutral: { on: "bg-gray-900 text-white border-gray-900", off: "bg-white text-gray-700 border-gray-300 hover:bg-gray-50" },
+    indigo: { on: "bg-indigo-600 text-white border-indigo-600", off: "bg-indigo-50 text-indigo-800 border-indigo-200 hover:bg-indigo-100" },
+    slate: { on: "bg-slate-700 text-white border-slate-700", off: "bg-slate-50 text-slate-700 border-slate-300 hover:bg-slate-100" },
+    amber: { on: "bg-amber-600 text-white border-amber-600", off: "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100" },
+    sky: { on: "bg-sky-600 text-white border-sky-600", off: "bg-sky-50 text-sky-800 border-sky-200 hover:bg-sky-100" },
+    violet: { on: "bg-violet-600 text-white border-violet-600", off: "bg-violet-50 text-violet-800 border-violet-200 hover:bg-violet-100" },
+  };
+  const renderCdsChipRow = (
+    title: string,
+    chips: {
+      key: string;
+      label: string;
+      active: boolean;
+      tone: ChipTone;
+      onClick: () => void;
+    }[],
+  ) => (
+    <div className="px-6 pt-3 pb-2 border-b flex-shrink-0 flex items-center gap-2 flex-wrap">
+      <span className="text-xs font-medium text-gray-600 uppercase tracking-wide mr-1">
+        {title}
+      </span>
+      {chips.map((c) => (
+        <button
+          key={c.key}
+          onClick={c.onClick}
+          className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+            c.active ? CHIP_TONES[c.tone].on : CHIP_TONES[c.tone].off
+          }`}
+        >
+          {c.label}
+        </button>
+      ))}
+    </div>
+  );
+
+  // Cross-Dock tab: the pickups still to happen, so the seller knows when
+  // the Service Centre's vehicle is due and can jump to the handover.
+  const renderPickupStrip = () => {
+    void pickupsVersion;
+    const open = sortPickups(getOpenPickups());
+    return (
+      <div className="px-6 py-2.5 border-b bg-indigo-50/40 flex-shrink-0 flex flex-wrap items-center gap-2">
+        <span className="text-xs font-medium text-gray-600 uppercase tracking-wide mr-1">
+          Pickups:
+        </span>
+        {open.length === 0 && (
+          <span className="text-xs text-gray-500">No pickups due.</span>
+        )}
+        {open.map((p) => (
+          <button
+            key={p.id}
+            onClick={() => navigate(`/pickups/${p.id}`)}
+            className={`text-xs inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border bg-white hover:shadow-sm transition-shadow ${
+              p.status === "ARRIVED" ? "border-amber-300" : "border-indigo-200"
+            }`}
+            title="Open the pickup"
+          >
+            <Truck
+              className={`h-3.5 w-3.5 ${p.status === "ARRIVED" ? "text-amber-600" : "text-indigo-600"}`}
+            />
+            <span className="font-medium text-gray-900">
+              {PICKUP_ROUNDS[p.round].label}
+            </span>
+            <span className="text-gray-500">
+              {p.tripNo} · {p.orderIds.length} order{p.orderIds.length === 1 ? "" : "s"} ·{" "}
+              {p.status === "ARRIVED"
+                ? "driver at your store"
+                : `${dayLabel(p.date)}, ETA ${p.eta}`}
+            </span>
+          </button>
+        ))}
+        <Button
+          variant="link"
+          size="sm"
+          className="h-7 px-1 text-indigo-700 ml-auto"
+          onClick={() => navigate("/pickups")}
+        >
+          All pickups
+        </Button>
+      </div>
+    );
+  };
+
+  // Search box + bulk actions shared by the Confirmed tab and the CDS
+  // seller's 3PL Direct tab (the same working list, split by route).
+  const renderConfirmedSearchBar = () => (
+    <div className="px-6 py-4 border-b flex-shrink-0">
+      <div className="flex items-center justify-between gap-4">
+        <div className="relative max-w-md flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder="Search by order ID, retailer name..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10 pr-10"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+  
+        {/* Bulk Action Buttons — View on Map (route the
+            day's confirmed deliveries) anchors the row,
+            then the two fulfilment routes, then the
+            destructive Cancel.
+  
+            Fulfilment is a choice, not a mode: a seller
+            with Logistics enabled hands SOME orders to
+            the 3PL network and still delivers the rest
+            themselves, so "Request 3PL Logistics" sits
+            alongside "Mark Delivered" rather than
+            replacing it. */}
+        {selectedOrders.length > 0 && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600 mr-2">{selectedOrders.length} selected</span>
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-blue-300 text-blue-700 hover:bg-blue-50 gap-2"
+              onClick={handleViewOnMap}
+            >
+              <MapPin className="h-4 w-4" />
+              View on Map
+            </Button>
+            {logisticsEnabled && (
+              <Button
+                size="sm"
+                className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
+                onClick={() => setIsRequestLogisticsDialogOpen(true)}
+              >
+                <Truck className="h-4 w-4" />
+                Request 3PL Logistics
+              </Button>
+            )}
+            <Button
+              size="sm"
+              className="bg-green-600 hover:bg-green-700 text-white gap-2"
+              onClick={() => setIsDeliverDialogOpen(true)}
+            >
+              <PackageCheck className="h-4 w-4" />
+              Mark Delivered
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-red-300 text-red-700 hover:bg-red-50 gap-2"
+              onClick={() => setIsCancelDialogOpen(true)}
+            >
+              <XCircle className="h-4 w-4" />
+              Cancel
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
   // Render helper — the Delivery Day pill row + Beat/Non-Beat tab
   // row, parameterised on a counts object. Same JSX powers the New
@@ -1673,17 +2104,40 @@ export function Orders() {
                       <ShoppingCart className="h-4 w-4 mr-2" />
                       <span className="font-medium">New ({summary.new})</span>
                     </TabsTrigger>
-                    <TabsTrigger
-                      value="confirmed"
-                      className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2 transition-all whitespace-nowrap"
-                    >
-                      <CheckCircle2 className="h-4 w-4 mr-2" />
-                      <span className="font-medium">Confirmed ({summary.confirmed})</span>
-                    </TabsTrigger>
+                    {/* CDS-covered seller: Confirmed splits by delivery
+                        route. 3PL Direct also holds the orders handed to
+                        the 3PL partner, so there's no separate 3PL
+                        Logistics tab for this seller. */}
+                    {isCds ? (
+                      <>
+                        <TabsTrigger
+                          value="crossdock"
+                          className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2 transition-all whitespace-nowrap"
+                        >
+                          <Route className="h-4 w-4 mr-2" />
+                          <span className="font-medium">Cross-Dock ({summary.crossdock})</span>
+                        </TabsTrigger>
+                        <TabsTrigger
+                          value="direct"
+                          className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2 transition-all whitespace-nowrap"
+                        >
+                          <Truck className="h-4 w-4 mr-2" />
+                          <span className="font-medium">3PL Direct ({summary.direct})</span>
+                        </TabsTrigger>
+                      </>
+                    ) : (
+                      <TabsTrigger
+                        value="confirmed"
+                        className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2 transition-all whitespace-nowrap"
+                      >
+                        <CheckCircle2 className="h-4 w-4 mr-2" />
+                        <span className="font-medium">Confirmed ({summary.confirmed})</span>
+                      </TabsTrigger>
+                    )}
                     {/* Only meaningful once the seller can actually
                         hand orders off, so it's gated on the same flag
                         as the Request 3PL Logistics action. */}
-                    {logisticsEnabled && (
+                    {logisticsEnabled && !isCds && (
                       <TabsTrigger
                         value="logistics"
                         className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2 transition-all whitespace-nowrap"
@@ -1853,6 +2307,33 @@ export function Orders() {
 
             <TabsContent value="new" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
               {!isEmpty && renderDayAndBeatFilters(newBucketCounts)}
+              {/* CDS-covered seller: which way each new order will travel
+                  once confirmed. */}
+              {!isEmpty &&
+                isCds &&
+                renderCdsChipRow("Delivery route:", [
+                  {
+                    key: "all",
+                    label: `All (${cdsChipCounts.newAll})`,
+                    active: routeFilter === "all",
+                    tone: "neutral",
+                    onClick: () => pickChip(() => setRouteFilter("all")),
+                  },
+                  {
+                    key: "cross-dock",
+                    label: `Cross-Dock (${cdsChipCounts.newCrossDock})`,
+                    active: routeFilter === "cross-dock",
+                    tone: "indigo",
+                    onClick: () => pickChip(() => setRouteFilter("cross-dock")),
+                  },
+                  {
+                    key: "direct",
+                    label: `3PL Direct (${cdsChipCounts.newDirect})`,
+                    active: routeFilter === "direct",
+                    tone: "slate",
+                    onClick: () => pickChip(() => setRouteFilter("direct")),
+                  },
+                ])}
               {!isEmpty && (
               <div className="px-6 py-4 border-b flex-shrink-0">
                 <div className="flex items-center justify-between gap-4">
@@ -1952,10 +2433,47 @@ export function Orders() {
               {!isEmpty && (
                 <>
                   {renderDayAndBeatFilters(confirmedBucketCounts)}
+                  {renderConfirmedSearchBar()}
+                </>
+              )}
 
-                  <div className="px-6 py-4 border-b flex-shrink-0">
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="relative max-w-md flex-1">
+              {/* Table */}
+              {renderOrderTable(paginatedOrders)}
+            </TabsContent>
+
+            {/* Cross-Dock (CDS-covered seller) — confirmed orders that ride
+                the Service Centre pickup to a Cross Dock Store. Read-only:
+                the seller's only job left is the pickup handover, which
+                happens on the Pickups screen. */}
+            {isCds && (
+              <TabsContent value="crossdock" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
+                {!isEmpty && (
+                  <>
+                    {renderCdsChipRow("Stage:", [
+                      {
+                        key: "all",
+                        label: `All (${cdsChipCounts.xdAll})`,
+                        active: xdStageFilter === "all",
+                        tone: "neutral",
+                        onClick: () => pickChip(() => setXdStageFilter("all")),
+                      },
+                      ...ACTIVE_STAGES.map((s) => ({
+                        key: s,
+                        label: `${STAGE_META[s].label} (${cdsChipCounts.stage[s]})`,
+                        active: xdStageFilter === s,
+                        tone: (s === "AWAITING_PICKUP"
+                          ? "amber"
+                          : s === "PICKED_UP"
+                            ? "sky"
+                            : s === "AT_CDS"
+                              ? "indigo"
+                              : "violet") as ChipTone,
+                        onClick: () => pickChip(() => setXdStageFilter(s)),
+                      })),
+                    ])}
+                    {renderPickupStrip()}
+                    <div className="px-6 py-4 border-b flex-shrink-0">
+                      <div className="relative max-w-md">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                         <Input
                           placeholder="Search by order ID, retailer name..."
@@ -1972,67 +2490,73 @@ export function Orders() {
                           </button>
                         )}
                       </div>
-
-                      {/* Bulk Action Buttons — View on Map (route the
-                          day's confirmed deliveries) anchors the row,
-                          then the two fulfilment routes, then the
-                          destructive Cancel.
-
-                          Fulfilment is a choice, not a mode: a seller
-                          with Logistics enabled hands SOME orders to
-                          the 3PL network and still delivers the rest
-                          themselves, so "Request 3PL Logistics" sits
-                          alongside "Mark Delivered" rather than
-                          replacing it. */}
-                      {selectedOrders.length > 0 && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-gray-600 mr-2">{selectedOrders.length} selected</span>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="border-blue-300 text-blue-700 hover:bg-blue-50 gap-2"
-                            onClick={handleViewOnMap}
-                          >
-                            <MapPin className="h-4 w-4" />
-                            View on Map
-                          </Button>
-                          {logisticsEnabled && (
-                            <Button
-                              size="sm"
-                              className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
-                              onClick={() => setIsRequestLogisticsDialogOpen(true)}
-                            >
-                              <Truck className="h-4 w-4" />
-                              Request 3PL Logistics
-                            </Button>
-                          )}
-                          <Button
-                            size="sm"
-                            className="bg-green-600 hover:bg-green-700 text-white gap-2"
-                            onClick={() => setIsDeliverDialogOpen(true)}
-                          >
-                            <PackageCheck className="h-4 w-4" />
-                            Mark Delivered
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="border-red-300 text-red-700 hover:bg-red-50 gap-2"
-                            onClick={() => setIsCancelDialogOpen(true)}
-                          >
-                            <XCircle className="h-4 w-4" />
-                            Cancel
-                          </Button>
-                        </div>
-                      )}
+                      <p className="mt-3 text-xs text-gray-500">
+                        The Service Centre collects these orders from you and drops them at the Cross Dock Store, whose riders deliver them. They move to Delivered once the retailer confirms the delivery OTP.
+                      </p>
                     </div>
-                  </div>
-                </>
-              )}
+                  </>
+                )}
+                {renderOrderTable(paginatedOrders)}
+                {!isEmpty && (
+                  <ListPagination
+                    page={currentPage}
+                    total={currentTabOrders.length}
+                    pageSize={itemsPerPage}
+                    onPageChange={setCurrentPage}
+                    itemLabel="order"
+                  />
+                )}
+              </TabsContent>
+            )}
 
-              {/* Table */}
-              {renderOrderTable(paginatedOrders)}
-            </TabsContent>
+            {/* 3PL Direct (CDS-covered seller) — confirmed orders outside
+                every live Cross Dock Store area. Same working list as
+                Confirmed: deliver them yourself or hand them to the 3PL
+                partner. Handed-over orders stay here, marked "with
+                partner", until the partner completes them. */}
+            {isCds && (
+              <TabsContent value="direct" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
+                {!isEmpty && (
+                  <>
+                    {renderDayAndBeatFilters(directBucketCounts)}
+                    {renderCdsChipRow("Handled by:", [
+                      {
+                        key: "all",
+                        label: `All (${cdsChipCounts.directAll})`,
+                        active: directFilter === "all",
+                        tone: "neutral",
+                        onClick: () => pickChip(() => setDirectFilter("all")),
+                      },
+                      {
+                        key: "own",
+                        label: `You (${cdsChipCounts.directOwn})`,
+                        active: directFilter === "own",
+                        tone: "slate",
+                        onClick: () => pickChip(() => setDirectFilter("own")),
+                      },
+                      {
+                        key: "partner",
+                        label: `3PL partner (${cdsChipCounts.directPartner})`,
+                        active: directFilter === "partner",
+                        tone: "sky",
+                        onClick: () => pickChip(() => setDirectFilter("partner")),
+                      },
+                    ])}
+                    {renderConfirmedSearchBar()}
+                  </>
+                )}
+                {renderOrderTable(paginatedOrders)}
+                {!isEmpty && (
+                  <ListPagination
+                    page={currentPage}
+                    total={currentTabOrders.length}
+                    pageSize={itemsPerPage}
+                    onPageChange={setCurrentPage}
+                    itemLabel="order"
+                  />
+                )}
+              </TabsContent>
+            )}
 
             {/* 3PL Logistics — orders handed to the delivery partner.
                 Read-only as far as fulfilment goes: the seller can look
@@ -2203,7 +2727,9 @@ export function Orders() {
             ? "New Orders"
             : activeTab === "confirmed"
               ? "Confirmed Orders"
-              : "Selected Orders"
+              : activeTab === "direct"
+                ? "3PL Direct Orders"
+                : "Selected Orders"
         }
       />
 
@@ -2427,6 +2953,7 @@ export function Orders() {
                     )}
                     {getOrderType(o) === "beat" ? "Beat" : "Non-Beat"}
                   </span>
+                  {isCds && renderRouteChip(o)}
                   <span className="text-[10px] text-gray-600 whitespace-nowrap">
                     ₹{o.orderValue.toLocaleString()}
                   </span>
@@ -2434,8 +2961,45 @@ export function Orders() {
               </li>
             );
 
+            // CDS-covered seller: say up front where the batch goes.
+            const xdCount = isCds
+              ? eligible.filter((o) => routeOf(o) === "cross-dock").length
+              : 0;
+            const directCount = isCds ? eligible.length - xdCount : 0;
+            const nextPickup = isCds
+              ? sortPickups(getOpenPickups()).find((p) => p.status === "SCHEDULED")
+              : undefined;
+
             return (
               <div className="space-y-3 py-2 max-h-[60vh] overflow-y-auto pr-1">
+                {isCds && eligible.length > 0 && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="rounded-md border border-indigo-200 bg-indigo-50/60 p-2.5">
+                      <p className="text-xs font-semibold text-indigo-800 flex items-center gap-1.5">
+                        <Route className="h-3.5 w-3.5" />
+                        {xdCount} to Cross-Dock
+                      </p>
+                      <p className="text-[11px] text-indigo-900/80 mt-1 leading-snug">
+                        {xdCount === 0
+                          ? "None in this batch."
+                          : nextPickup
+                            ? `Collected on the ${PICKUP_ROUNDS[nextPickup.round].label} pickup ${nextPickup.tripNo} (${dayLabel(nextPickup.date)}, ${PICKUP_ROUNDS[nextPickup.round].window}). Hand over with the pickup OTP.`
+                            : "Collected on the next pickup round. Hand over with the pickup OTP."}
+                      </p>
+                    </div>
+                    <div className="rounded-md border border-slate-300 bg-slate-50 p-2.5">
+                      <p className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+                        <Truck className="h-3.5 w-3.5" />
+                        {directCount} to 3PL Direct
+                      </p>
+                      <p className="text-[11px] text-slate-700 mt-1 leading-snug">
+                        {directCount === 0
+                          ? "None in this batch."
+                          : "Outside the Cross Dock Store areas. Deliver them yourself or request 3PL Logistics."}
+                      </p>
+                    </div>
+                  </div>
+                )}
                 {eligible.length > 0 && (
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">

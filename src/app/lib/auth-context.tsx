@@ -8,6 +8,7 @@ import {
 import { applyDataMode as applyAdminCatalogDataMode } from "./admin-catalog";
 import { applyDataMode as applyMockStoreDataMode } from "./mock-store";
 import { setDataMode as setGlobalDataMode } from "./data-mode";
+import { applyOrdersDatasetFor } from "./cross-dock-data";
 
 // Phase 1 ships three roles:
 //   - admin    → Qwipo Super Admin (admin subtree at /admin)
@@ -100,6 +101,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const stored = readStoredUser();
     // Rehydrate data mode for the stored session so reloads honour it.
     if (stored) applyDataMode(stored.dataMode ?? "demo");
+    // The CDS-covered seller has its own order book.
+    applyOrdersDatasetFor(stored);
     return stored;
   });
 
@@ -115,6 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = (u: AuthUser) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(u));
     applyDataMode(u.dataMode ?? "demo");
+    applyOrdersDatasetFor(u);
     // Note: logistics settings are NOT seeded here. The Super Admin's
     // Manage Seller → Logistics tab is now the single source of truth
     // for the seller's logistics state; whatever the admin saved

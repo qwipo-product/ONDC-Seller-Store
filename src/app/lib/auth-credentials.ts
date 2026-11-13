@@ -1,5 +1,6 @@
 import type { AuthUser } from "./auth-context";
 import { getSellers } from "./mock-store";
+import { CDS_SELLER } from "./cross-dock-data";
 
 interface CredentialRecord {
   otp: string; // demo OTP
@@ -54,6 +55,22 @@ export const DEMO_CREDENTIALS: Record<string, CredentialRecord> = {
       role: "seller",
       businessName: "RM Traders",
       avatarInitials: "RM",
+      dataMode: "demo",
+    },
+  },
+  // CDS-covered seller — a distributor whose retailers are partly inside
+  // live Cross Dock Store areas. Same seller app, plus cross-dock order
+  // routing and the Pickups screen (lib/cross-dock-data.ts). Same
+  // distributor as the Logistics Tech demo.
+  [CDS_SELLER.mobile]: {
+    otp: DEMO_OTP,
+    user: {
+      id: CDS_SELLER.id,
+      name: CDS_SELLER.name,
+      email: CDS_SELLER.email,
+      role: "seller",
+      businessName: CDS_SELLER.businessName,
+      avatarInitials: "SV",
       dataMode: "demo",
     },
   },

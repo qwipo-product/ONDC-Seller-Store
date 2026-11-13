@@ -24,6 +24,7 @@ import {
   Database,
   Inbox,
   Building2,
+  PackageCheck,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
@@ -51,6 +52,11 @@ import {
   getAdminPageTitle,
 } from "../lib/admin-navigation";
 import { getPendingRequests } from "../lib/product-store-data";
+import {
+  getOpenPickups,
+  isCdsSeller,
+  subscribeToPickups,
+} from "../lib/cross-dock-data";
 import { AlertOctagon, Loader2, UserPlus } from "lucide-react";
 import { RouteProgress } from "./ui/page-loader";
 import { ThemeToggle } from "./theme-toggle";
@@ -158,6 +164,7 @@ const getSellerPageTitle = (pathname: string): string => {
   if (pathname.startsWith("/offers-demo")) return "Offers & Schemes 2";
   if (pathname.startsWith("/offers")) return "Offers & Schemes";
   if (pathname.startsWith("/orders")) return "Orders Management";
+  if (pathname.startsWith("/pickups")) return "Pickups";
   if (pathname.startsWith("/connectors")) return "Connectors";
   if (pathname.startsWith("/kyc")) return "KYC Information";
   if (pathname.startsWith("/settings")) return "Settings";
@@ -191,6 +198,12 @@ export function RootLayout() {
   // so reviewers can browse the error and loading galleries without
   // leaving the app.
   const isEmptyMode = user?.dataMode === "empty";
+  // Pickups badge for the CDS-covered seller — pickups still to happen.
+  const [openPickupCount, setOpenPickupCount] = useState(() => getOpenPickups().length);
+  useEffect(
+    () => subscribeToPickups(() => setOpenPickupCount(getOpenPickups().length)),
+    [],
+  );
 
   const catalogAdminPortalNav: SellerNavItem[] = [
     { name: "Dashboard", href: "/catalog-portal", icon: LayoutDashboard },
@@ -235,7 +248,23 @@ export function RootLayout() {
               sellerErrorScreensNav,
               sellerLoadingScreensNav,
             ]
-          : sellerNavigation;
+          : isCdsSeller(user)
+            ? // CDS-covered seller: Pickups sits right after Orders, with
+              // a badge while a pickup is still to be handed over.
+              sellerNavigation.flatMap((item) =>
+                item.href === "/orders"
+                  ? [
+                      item,
+                      {
+                        name: "Pickups",
+                        href: "/pickups",
+                        icon: PackageCheck,
+                        badge: openPickupCount > 0 ? openPickupCount : undefined,
+                      },
+                    ]
+                  : [item],
+              )
+            : sellerNavigation;
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [expandedMenu, setExpandedMenu] = useState<string | null>(
     isAdmin ? "User Management" : isCatalogPortal ? null : "Products",

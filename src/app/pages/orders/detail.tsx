@@ -54,12 +54,21 @@ import {
   canModifyOrderLines,
   validateModifiedQty,
   modifyOrderLineQty,
-  SELLER_INFO,
+  getSellerInfo,
   type Order,
   type CancelledBy,
   type SkuPackConfig,
 } from "../../lib/orders-data";
 import { sampleSKUs } from "../products/my-sku";
+import { useAuth } from "../../lib/auth-context";
+import {
+  getCrossDockStage,
+  getPickupForOrder,
+  getRouteInfo,
+  isCdsSeller,
+  subscribeToPickups,
+} from "../../lib/cross-dock-data";
+import { CrossDockRouteCard } from "../../components/cross-dock-route-card";
 
 /** One row in the QPS slab schedule for a SKU. */
 interface QpsSlabDef {
@@ -281,8 +290,8 @@ function buildOrderDetailFromStore(order: Order): OrderDetails {
     buyerStoreName: order.retailerName,
     buyerPhone: order.buyerContact ?? "+91 90000 00000",
     buyerAddress: order.buyerAddress ?? "Address on file",
-    sellerName: SELLER_INFO.name,
-    sellerContact: SELLER_INFO.contact,
+    sellerName: getSellerInfo().name,
+    sellerContact: getSellerInfo().contact,
     channelOrderId: order.channelOrderId ?? `${order.marketplace ?? "ONDC"}-${order.id}`,
     paymentMode: order.paymentMode,
     orderValue: order.orderValue,
@@ -413,6 +422,24 @@ export function OrderDetail() {
         marketplace: "ONDC",
       });
   const [orderData, setOrderData] = useState<OrderDetails>(initialDetail);
+
+  // CDS-covered seller: a confirmed cross-dock order belongs to the
+  // Service Centre and the Cross Dock Store once it's confirmed — no
+  // "Mark as Delivered" here, and Cancel only until the driver is at the
+  // door for its pickup.
+  const { user } = useAuth();
+  const isCds = isCdsSeller(user);
+  const [, setPickupsVersion] = useState(0);
+  useEffect(() => subscribeToPickups(() => setPickupsVersion((v) => v + 1)), []);
+  const storeOrder = orderId ? getOrderById(orderId) : undefined;
+  const isCrossDockOrder =
+    isCds && !!storeOrder && getRouteInfo(storeOrder).route === "cross-dock";
+  const crossDockPickup = isCrossDockOrder && storeOrder ? getPickupForOrder(storeOrder.id) : undefined;
+  const canCancelCrossDock =
+    isCrossDockOrder &&
+    !!storeOrder &&
+    getCrossDockStage(storeOrder) === "AWAITING_PICKUP" &&
+    crossDockPickup?.status !== "ARRIVED";
 
   // Resync when the URL changes (clicking a different order in a
   // new tab, or back/forward) AND when the store fires a write
@@ -658,7 +685,36 @@ export function OrderDetail() {
                   </Button>
                 </>
               )}
-              {orderData.status === "Confirmed" && (
+              {orderData.status === "Confirmed" && isCrossDockOrder && (
+                <>
+                  {canCancelCrossDock && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-red-300 text-red-700 hover:bg-red-50 h-8"
+                      onClick={handleCancelOrder}
+                    >
+                      <XCircle className="h-3.5 w-3.5 mr-1.5" />
+                      Cancel
+                    </Button>
+                  )}
+                  {crossDockPickup &&
+                    (crossDockPickup.status === "SCHEDULED" ||
+                      crossDockPickup.status === "ARRIVED") && (
+                      <Button
+                        size="sm"
+                        className="bg-indigo-600 hover:bg-indigo-700 h-8"
+                        onClick={() => navigate(`/pickups/${crossDockPickup.id}`)}
+                      >
+                        <Truck className="h-3.5 w-3.5 mr-1.5" />
+                        {crossDockPickup.status === "ARRIVED"
+                          ? "Hand over to driver"
+                          : "View pickup"}
+                      </Button>
+                    )}
+                </>
+              )}
+              {orderData.status === "Confirmed" && !isCrossDockOrder && (
                 <>
                   <Button
                     variant="outline"
@@ -730,6 +786,13 @@ export function OrderDetail() {
               </div>
             );
           })()}
+
+        {/* CDS-covered seller: how this order travels (Cross-Dock via a
+            Cross Dock Store, or 3PL Direct) and, once confirmed, where
+            it is on the cross-dock journey. */}
+        {isCds && storeOrder && storeOrder.status !== "Cancelled" && (
+          <CrossDockRouteCard order={storeOrder} />
+        )}
 
         {/* Buyer / Seller / Order Meta — compact 3-up grid. Each
             column holds the bare minimum: a single identifier and
